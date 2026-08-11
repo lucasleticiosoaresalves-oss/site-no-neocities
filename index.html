@@ -12,12 +12,13 @@
         --lilas: #c9a6e0;
         --rosa: #e85d9c;
         --fundo-janela: #e8eef5;
+    }
 
-    * {box-sizing:border-box; }
+    * { box-sizing: border-box; }
     body {
         margin: 0;
         background: #5a7a9a;
-        font-family: Tahoma, Verdana sans-serif;
+        font-family: Tahoma, Verdana, sans-serif;
         display: flex;
         justify-content:center;
         padding: 20px;
@@ -39,6 +40,43 @@
         align-items: center;
         font-size: 13px;
     }
+     .barra-menu { 
+        background: #ece9d8; 
+        font-size: 12px; 
+        padding: 3px 10px; 
+        display: flex; 
+        align-items: center; 
+        gap: 16px; border-bottom: 1px solid #b5b5b5; 
+    } 
+    .barra-menu .direita { 
+        margin-left: auto; 
+    }
+    .barra-ferramentas { 
+        background: #ece9d8; 
+        padding: 5px 10px; 
+        display: flex; 
+        align-items: center; 
+        gap: 10px; 
+        border-bottom: 1px solid #b5b5b5; 
+        font-size: 12px; 
+    }
+     .barra-endereco { 
+        background: #ece9d8; 
+        padding: 5px 10px; 
+        display: flex; 
+        align-items: center; 
+        gap: 10px; 
+        border-bottom: 1px solid #b5b5b5; 
+        font-size: 12px; 
+    } 
+    .barra-endereco input {
+         flex: 1; 
+         padding: 3px 6px; 
+         border: 1px solid #7f9db9; 
+    }
+     .barra-endereco .busca {
+             width: 160px;
+     }
     .topo {
         background: linear-gradient(180deg,#274b7a,#1a3a5c);
         padding: 14px 20px;
@@ -53,41 +91,131 @@
         padding: 8px 16px;
         border-radius: 14px;
         font-size: 13px;
+        
     }
-    .nav a.ativo {background: var(--rosa); }
+    .nav a.ativo {
+        background: var(--rosa); 
+    }
+    .nav { 
+        display: flex; 
+        align-items: center; 
+        gap: 8px; 
+    }
     .conteudo {
         background:linear-gradient(180deg, #274b7a 0%, #14263f 100%);
         padding: 18px;
         display: grid;
         grid-template-columns: 190px 1fr 300px;
-        gap: 16x;
+        gap: 16px;
     }
+    .nav input[type=text] {
+         padding: 8px 10px; 
+         border-radius: 14px; 
+         border: none; 
+         width: 160px; 
+    }
+     .logo { 
+        color: var(--lilas); 
+        font-size: 28px; 
+        font-weight: bold; 
+        font-style: italic; 
+    } 
+    .perfil-lateral {
+
+        display:flex;
+        flex-direction:column;
+        gap: 10px;
+    }
+    .fotodeperfil {
+        background: #0d1b2b;
+        border: 2px solid var(--lilas);
+        border-radius: 6px;
+        padding: 6px;
+        text-align: center;
+    }
+    .fotodeperfil img {
+        width: 100%;
+        border-radius: 3px;
+        display: block;
+    }
+    .menuperfil a {
+        display:block;
+        padding: 8px 12px;
+        color: #1a3a5c;
+        text-decoration:none;
+        border-bottom: 1px solid #c3d6ea;
+    }
+    .cadeado {
+        width: 60px; height: 60px; 
+        border-radius: 50%;
+        display:flex; 
+        align-items:center; 
+        justify-content:center;
     }
 </style>
 <body>
-    <div class="topo">
+   
+<div class="janela">
+    <div class="barra-titulo">
+         <span>🪟 QUARTO DO LUCAS</span> 
+         <div class="botoes"><span>_</span><span>□</span><span>✕</span>
+      </div> 
+    </div>
+   <div class="barra-menu"> 
+    <span>Arquivo</span>
+    <span>Editar</span>
+    <span>Exibir</span> 
+    <span>Favoritos</span>
+    <span>Ferramentas</span>
+    <span>Ajuda</span>
+    <div class="direita">
+        <b>Diário</b>
+    </div>
+</div>
+        
+    <div class="barra-ferramentas"> 
+        <span>⬅️</span>
+        <span>➡️</span>
+        <span>🔄</span>
+        <span>🏠</span> 
+        <span>🔍 Exibir</span>
+        <span>⭐</span> 
+    </div> 
+    
+    <div class="barra-endereco"> 
+        <span>Arquivo</span> 
+        <input type="text" value="https://quartodolucas.neocities.org/profile/[Lucas]" readonly> 
+        <span>Busca</span> <input class="busca" type="text" placeholder="Pesquisar"> 
+</div> 
+    
+ <div class="topo">
         <div class="logo"> ONLINE </div> 
         <div class="nav" >
             <a class="ativo"> INÍCIO </a>
             <a> Perfil </a>
             <a> Àlbuns</a>
-            <a> Contato </a>
+            <a> Redes Sociais </a>
             <a> Diário </a>
             <input type="text" placeholder="Pesquisar">
         </div>
-    </div>
-<div class="janela">
-</div>
-<div class="barra-titulo">
-    <input type="text" value="https://quartodolucas.neocities.org/profile/[Lucas]" readonly>
-    <span>QUARTO DO LUCAS </span>
-<div class="botoes"> <span>_</span><span>□</span><span>✕</span> </div>
-</div>
+     </div>
 <div class="conteudo"> 
-    <div class="perfil-lateral">...</div>
+    <div class="perfil-lateral"> 
+        <div class="fotodeperfil"> 
+<img src="" alt="foto de perfil">
+</div>
+<div class="menuperfil">
+<a> Sobre mim. </a>
+<a> Photodump. </a>
+<a> Projetos.  </a>
+<a> Playlist.  </a>
+</div>
+</div>
     <div class="coluna-central">...</div>
-    <div class=coluna-direita">...</div>
+    <div class="coluna-direita">...</div>
     </div>
+</div>
+
 </body>
 
 </html>
