@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title> QUARTO DO LUCAS </title>
+</head>
+<style> 
+    :root { 
+        --azul-escuro: #1a3a5c;
+        --azul-medio: #3a6ea5;
+        --azul-claro: #a9c6e8;
+        --lilas: #c9a6e0;
+        --rosa: #e85d9c;
+        --fundo-janela: #e8eef5;
+
+    * {box-sizing:border-box; }
+    body {
+        margin: 0;
+        background: #5a7a9a;
+        font-family: Tahoma, Verdana sans-serif;
+        display: flex;
+        justify-content:center;
+        padding: 20px;
+    }
+    .janela {
+        width: 1200px;
+        background: var(--fundo-janela); 
+        border: 1px solid #444;
+        border-radius: 6px;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, .5);
+        overflow: hidden;
+    }
+    .barra-titulo {
+        background: linear-gradient(180deg,#3f7fd1,#1a4fa0);
+        color: #fff;
+        padding: 5px 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 13px;
+    }
+    .topo {
+        background: linear-gradient(180deg,#274b7a,#1a3a5c);
+        padding: 14px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .nav a {
+        color: #fff;
+        text-decoration:none;
+        background: #3a6ea5;
+        padding: 8px 16px;
+        border-radius: 14px;
+        font-size: 13px;
+    }
+    .nav a.ativo {background: var(--rosa); }
+    .conteudo {
+        background:linear-gradient(180deg, #274b7a 0%, #14263f 100%);
+        padding: 18px;
+        display: grid;
+        grid-template-columns: 190px 1fr 300px;
+        gap: 16x;
+    }
+    }
+</style>
+<body>
+    <div class="topo">
+        <div class="logo"> ONLINE </div> 
+        <div class="nav" >
+            <a class="ativo"> INÍCIO </a>
+            <a> Perfil </a>
+            <a> Àlbuns</a>
+            <a> Contato </a>
+            <a> Diário </a>
+            <input type="text" placeholder="Pesquisar">
+        </div>
+    </div>
+<div class="janela">
+</div>
+<div class="barra-titulo">
+    <input type="text" value="https://quartodolucas.neocities.org/profile/[Lucas]" readonly>
+    <span>QUARTO DO LUCAS </span>
+<div class="botoes"> <span>_</span><span>□</span><span>✕</span> </div>
+</div>
+<div class="conteudo"> 
+    <div class="perfil-lateral">...</div>
+    <div class="coluna-central">...</div>
+    <div class=coluna-direita">...</div>
+    </div>
+</body>
+
+</html>
