@@ -26,13 +26,13 @@
     .janela {
         width: 1200px;
         background: var(--fundo-janela); 
-        border: 1px solid #444;
-        border-radius: 6px;
+        border: 4px solid #0058ee;
+        border-radius: 8px 8px 3px 3px;
         box-shadow: 0 8px 30px rgba(0, 0, 0, .5);
         overflow: hidden;
     }
     .barra-titulo {
-        background: linear-gradient(180deg,#3f7fd1,#1a4fa0);
+        background: linear-gradient(180deg, #0058ee 0%, #3f8cf3 8%, #0058ee 40%, #0058ee 100%);
         color: #fff;
         padding: 5px 10px;
         display: flex;
@@ -40,13 +40,87 @@
         align-items: center;
         font-size: 13px;
     }
-     .barra-menu { 
+    .botoes { 
+        display: flex; 
+        gap: 3px; 
+    }
+    .botoes span {
+        display: inline-block;
+        width: 22px; height: 20px;
+        background: linear-gradient(180deg, #5b9bf5, #1a4fa0);
+        box-shadow: inset 1px 1px 0 rgba(255,255,255,.5), inset -1px -1px 0 rgba(0,0,0,.3);
+        border: 1px solid rgba(255,255,255,.4);
+        text-align: center;
+        line-height: 18px;
+        border-radius: 3px;
+        font-size: 11px;
+    }
+    .botoes .fechar {
+        background: linear-gradient(180deg, #f57a7a, #c02020);
+        box-shadow: inset 1px 1px 0 rgba(255,255,255,.5), inset -1px -1px 0 rgba(0,0,0,.3);
+    }
+    .abas {
+        background: #7fa8d9;
+        display: flex;
+        align-items: flex-end;
+        gap: 2px;
+        padding: 4px 10px 0;
+    }
+    .aba {
+        background: #c3d6ea;
+        padding: 6px 14px;
+        border-radius: 6px 6px 0 0;
+        font-size: 11px;
+        color: #1a3a5c;
+    }
+    .aba.ativa { background: #fff; font-weight: bold; }
+    .aba.nova { padding: 6px 10px; }
+    .icone-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 26px;
+        height: 24px;
+        padding: 0 4px;
+        font-size: 14px;
+        border: 1px solid transparent;
+        border-radius: 3px;
+    }
+    .icone-btn:hover {
+        border: 1px solid #7f9db9;
+        background: #dceafb;
+    }
+    .icone-btn.ir {
+        background: #3a6ea5;
+        color: #fff;
+        border-radius: 3px;
+    }
+    .barra-endereco { 
         background: #ece9d8; 
-        font-size: 12px; 
+        padding: 5px 10px; 
+        display: flex; 
+        align-items: center; 
+        gap: 6px; 
+        border-bottom: 1px solid #b5b5b5; 
+        font-size: 11px; 
+    } 
+    .barra-endereco input {
+         flex: 1; 
+         padding: 3px 6px; 
+         border: 1px solid #7f9db9; 
+    }
+    .barra-endereco .busca {
+        flex: none;
+        width: 160px;
+    }
+    .barra-menu { 
+        background: #ece9d8; 
+        font-size: 11px; 
         padding: 3px 10px; 
         display: flex; 
         align-items: center; 
-        gap: 16px; border-bottom: 1px solid #b5b5b5; 
+        gap: 16px; 
+        border-bottom: 1px solid #b5b5b5; 
     } 
     .barra-menu .direita { 
         margin-left: auto; 
@@ -58,25 +132,8 @@
         align-items: center; 
         gap: 10px; 
         border-bottom: 1px solid #b5b5b5; 
-        font-size: 12px; 
+        font-size: 11px; 
     }
-     .barra-endereco { 
-        background: #ece9d8; 
-        padding: 5px 10px; 
-        display: flex; 
-        align-items: center; 
-        gap: 10px; 
-        border-bottom: 1px solid #b5b5b5; 
-        font-size: 12px; 
-    } 
-    .barra-endereco input {
-         flex: 1; 
-         padding: 3px 6px; 
-         border: 1px solid #7f9db9; 
-    }
-     .barra-endereco .busca {
-             width: 160px;
-     }
     .topo {
         background: linear-gradient(180deg,#274b7a,#1a3a5c);
         padding: 14px 20px;
@@ -114,12 +171,10 @@
          border: none; 
          width: 160px; 
     }
-     .logo { 
-        color: var(--lilas); 
-        font-size: 28px; 
-        font-weight: bold; 
-        font-style: italic; 
-    } 
+    .logo {
+         height: 60px; 
+         width: auto; 
+    }
     .perfil-lateral {
 
         display:flex;
@@ -156,40 +211,52 @@
 <body>
    
 <div class="janela">
+
     <div class="barra-titulo">
-         <span>🪟 QUARTO DO LUCAS</span> 
-         <div class="botoes"><span>_</span><span>□</span><span>✕</span>
-      </div> 
+         <span>🌐 QUARTO DO LUCAS</span> 
+         <div class="botoes">
+            <span>_</span><span>□</span><span class="fechar">✕</span>
+         </div> 
     </div>
-   <div class="barra-menu"> 
-    <span>Arquivo</span>
-    <span>Editar</span>
-    <span>Exibir</span> 
-    <span>Favoritos</span>
-    <span>Ferramentas</span>
-    <span>Ajuda</span>
-    <div class="direita">
-        <b>Diário</b>
+
+    <div class="abas">
+        <span class="aba ativa">🌐 QUARTO DO LUCAS</span>
+        <span class="aba nova">+</span>
     </div>
-</div>
-        
-    <div class="barra-ferramentas"> 
-        <span>⬅️</span>
-        <span>➡️</span>
-        <span>🔄</span>
-        <span>🏠</span> 
-        <span>🔍 Exibir</span>
-        <span>⭐</span> 
-    </div> 
-    
+
     <div class="barra-endereco"> 
-        <span>Arquivo</span> 
+        <span class="icone-btn">◀</span>
+        <span class="icone-btn">▶</span>
         <input type="text" value="https://quartodolucas.neocities.org/profile/[Lucas]" readonly> 
-        <span>Busca</span> <input class="busca" type="text" placeholder="Pesquisar"> 
-</div> 
-    
- <div class="topo">
-        <div class="logo"> ONLINE </div> 
+        <span class="icone-btn">🔄</span>
+        <span class="icone-btn ir">➜</span>
+        <input class="busca" type="text" placeholder="Pesquisar"> 
+        <span class="icone-btn">🔍</span>
+    </div>
+
+    <div class="barra-menu"> 
+        <span>Arquivo</span>
+        <span>Editar</span>
+        <span>Exibir</span> 
+        <span>Favoritos</span>
+        <span>Ferramentas</span>
+        <span>Ajuda</span>
+        <div class="direita">Links »</div>
+    </div>
+
+    <div class="barra-ferramentas"> 
+        <span class="icone-btn">🏠</span>
+        <span class="icone-btn">⭐</span>
+        <span class="icone-btn">🖨️</span>
+        <span class="icone-btn">✉️</span>
+        <span class="icone-btn">💬</span>
+    </div>
+
+
+    <div class="topo">
+        <div class="logo"> 
+       <img class="logo" src="logosite.png" alt="Quarto do Lucas">
+       </div> 
         <div class="nav" >
             <a class="ativo"> INÍCIO </a>
             <a> Perfil </a>
@@ -199,23 +266,23 @@
             <input type="text" placeholder="Pesquisar">
         </div>
      </div>
-<div class="conteudo"> 
-    <div class="perfil-lateral"> 
-        <div class="fotodeperfil"> 
-<img src="" alt="foto de perfil">
-</div>
-<div class="menuperfil">
-<a> Sobre mim. </a>
-<a> Photodump. </a>
-<a> Projetos.  </a>
-<a> Playlist.  </a>
-</div>
-</div>
-    <div class="coluna-central">...</div>
-    <div class="coluna-direita">...</div>
+
+    <div class="conteudo"> 
+        <div class="perfil-lateral"> 
+            <div class="fotodeperfil"> 
+                <img src="" alt="foto de perfil">
+            </div>
+            <div class="menuperfil">
+                <a> Sobre mim. </a>
+                <a> Photodump. </a>
+                <a> Projetos.  </a>
+                <a> Playlist.  </a>
+            </div>
+        </div>
+        <div class="coluna-central">...</div>
+        <div class="coluna-direita">...</div>
     </div>
+
 </div>
-
 </body>
-
 </html>
