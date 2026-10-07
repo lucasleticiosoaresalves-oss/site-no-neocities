@@ -2,287 +2,445 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title> QUARTO DO LUCAS </title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>QUARTO DO LUCAS</title>
+    <meta name="description" content="O quarto do Lucas na internet: recados, álbuns, diário e playlists no estilo orkut.">
+    <link rel="icon" href="imagens/icones/16/internet_explorer.png">
+    <link rel="stylesheet" href="style.css">
 </head>
-<style> 
-    :root { 
-        --azul-escuro: #1a3a5c;
-        --azul-medio: #3a6ea5;
-        --azul-claro: #a9c6e8;
-        --lilas: #c9a6e0;
-        --rosa: #e85d9c;
-        --fundo-janela: #e8eef5;
-    }
-
-    * { box-sizing: border-box; }
-    body {
-        margin: 0;
-        background: #5a7a9a;
-        font-family: Tahoma, Verdana, sans-serif;
-        display: flex;
-        justify-content:center;
-        padding: 20px;
-    }
-    .janela {
-        width: 1200px;
-        background: var(--fundo-janela); 
-        border: 4px solid #0058ee;
-        border-radius: 8px 8px 3px 3px;
-        box-shadow: 0 8px 30px rgba(0, 0, 0, .5);
-        overflow: hidden;
-    }
-    .barra-titulo {
-        background: linear-gradient(180deg, #0058ee 0%, #3f8cf3 8%, #0058ee 40%, #0058ee 100%);
-        color: #fff;
-        padding: 5px 10px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        font-size: 13px;
-    }
-    .botoes { 
-        display: flex; 
-        gap: 3px; 
-    }
-    .botoes span {
-        display: inline-block;
-        width: 22px; height: 20px;
-        background: linear-gradient(180deg, #5b9bf5, #1a4fa0);
-        box-shadow: inset 1px 1px 0 rgba(255,255,255,.5), inset -1px -1px 0 rgba(0,0,0,.3);
-        border: 1px solid rgba(255,255,255,.4);
-        text-align: center;
-        line-height: 18px;
-        border-radius: 3px;
-        font-size: 11px;
-    }
-    .botoes .fechar {
-        background: linear-gradient(180deg, #f57a7a, #c02020);
-        box-shadow: inset 1px 1px 0 rgba(255,255,255,.5), inset -1px -1px 0 rgba(0,0,0,.3);
-    }
-    .abas {
-        background: #7fa8d9;
-        display: flex;
-        align-items: flex-end;
-        gap: 2px;
-        padding: 4px 10px 0;
-    }
-    .aba {
-        background: #c3d6ea;
-        padding: 6px 14px;
-        border-radius: 6px 6px 0 0;
-        font-size: 11px;
-        color: #1a3a5c;
-    }
-    .aba.ativa { background: #fff; font-weight: bold; }
-    .aba.nova { padding: 6px 10px; }
-    .icone-btn {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-width: 26px;
-        height: 24px;
-        padding: 0 4px;
-        font-size: 14px;
-        border: 1px solid transparent;
-        border-radius: 3px;
-    }
-    .icone-btn:hover {
-        border: 1px solid #7f9db9;
-        background: #dceafb;
-    }
-    .icone-btn.ir {
-        background: #3a6ea5;
-        color: #fff;
-        border-radius: 3px;
-    }
-    .barra-endereco { 
-        background: #ece9d8; 
-        padding: 5px 10px; 
-        display: flex; 
-        align-items: center; 
-        gap: 6px; 
-        border-bottom: 1px solid #b5b5b5; 
-        font-size: 11px; 
-    } 
-    .barra-endereco input {
-         flex: 1; 
-         padding: 3px 6px; 
-         border: 1px solid #7f9db9; 
-    }
-    .barra-endereco .busca {
-        flex: none;
-        width: 160px;
-    }
-    .barra-menu { 
-        background: #ece9d8; 
-        font-size: 11px; 
-        padding: 3px 10px; 
-        display: flex; 
-        align-items: center; 
-        gap: 16px; 
-        border-bottom: 1px solid #b5b5b5; 
-    } 
-    .barra-menu .direita { 
-        margin-left: auto; 
-    }
-    .barra-ferramentas { 
-        background: #ece9d8; 
-        padding: 5px 10px; 
-        display: flex; 
-        align-items: center; 
-        gap: 10px; 
-        border-bottom: 1px solid #b5b5b5; 
-        font-size: 11px; 
-    }
-    .topo {
-        background: linear-gradient(180deg,#274b7a,#1a3a5c);
-        padding: 14px 20px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-    .nav a {
-        color: #fff;
-        text-decoration:none;
-        background: #3a6ea5;
-        padding: 8px 16px;
-        border-radius: 14px;
-        font-size: 13px;
-        
-    }
-    .nav a.ativo {
-        background: var(--rosa); 
-    }
-    .nav { 
-        display: flex; 
-        align-items: center; 
-        gap: 8px; 
-    }
-    .conteudo {
-        background:linear-gradient(180deg, #274b7a 0%, #14263f 100%);
-        padding: 18px;
-        display: grid;
-        grid-template-columns: 190px 1fr 300px;
-        gap: 16px;
-    }
-    .nav input[type=text] {
-         padding: 8px 10px; 
-         border-radius: 14px; 
-         border: none; 
-         width: 160px; 
-    }
-    .logo {
-         height: 60px; 
-         width: auto; 
-    }
-    .perfil-lateral {
-
-        display:flex;
-        flex-direction:column;
-        gap: 10px;
-    }
-    .fotodeperfil {
-        background: #0d1b2b;
-        border: 2px solid var(--lilas);
-        border-radius: 6px;
-        padding: 6px;
-        text-align: center;
-    }
-    .fotodeperfil img {
-        width: 100%;
-        border-radius: 3px;
-        display: block;
-    }
-    .menuperfil a {
-        display:block;
-        padding: 8px 12px;
-        color: #1a3a5c;
-        text-decoration:none;
-        border-bottom: 1px solid #c3d6ea;
-    }
-    .cadeado {
-        width: 60px; height: 60px; 
-        border-radius: 50%;
-        display:flex; 
-        align-items:center; 
-        justify-content:center;
-    }
-</style>
 <body>
-   
-<div class="janela">
 
-    <div class="barra-titulo">
-         <span>🌐 QUARTO DO LUCAS</span> 
-         <div class="botoes">
-            <span>_</span><span>□</span><span class="fechar">✕</span>
-         </div> 
+<div class="area-trabalho">
+
+    
+    <div class="icones-desktop">
+        <button class="icone-desktop" data-abrir="navegador"><img class="ico ico32" data-ico="internet_explorer" data-tam="32" alt="">Quarto do Lucas</button>
+        <button class="icone-desktop" data-abrir="msn"><img class="ico ico32" data-ico="msn_messenger" data-tam="32" alt="">MSN Messenger</button>
+        <button class="icone-desktop" data-abrir="paint"><img class="ico ico32" data-ico="palette" data-tam="32" alt="">Paint</button>
+        <button class="icone-desktop" data-abrir="notas"><img class="ico ico32" data-ico="note" data-tam="32" alt="">Bloco de notas</button>
+        <button class="icone-desktop" data-abrir="lixeira"><img class="ico ico32" data-ico="bin_recycle" data-tam="32" alt="">Lixeira</button>
     </div>
 
-    <div class="abas">
-        <span class="aba ativa">🌐 QUARTO DO LUCAS</span>
-        <span class="aba nova">+</span>
-    </div>
+    
+    <div class="janela ativa" id="navegador" data-titulo="QUARTO DO LUCAS" data-icone="internet_explorer">
 
-    <div class="barra-endereco"> 
-        <span class="icone-btn">◀</span>
-        <span class="icone-btn">▶</span>
-        <input type="text" value="https://quartodolucas.neocities.org/profile/[Lucas]" readonly> 
-        <span class="icone-btn">🔄</span>
-        <span class="icone-btn ir">➜</span>
-        <input class="busca" type="text" placeholder="Pesquisar"> 
-        <span class="icone-btn">🔍</span>
-    </div>
-
-    <div class="barra-menu"> 
-        <span>Arquivo</span>
-        <span>Editar</span>
-        <span>Exibir</span> 
-        <span>Favoritos</span>
-        <span>Ferramentas</span>
-        <span>Ajuda</span>
-        <div class="direita">Links »</div>
-    </div>
-
-    <div class="barra-ferramentas"> 
-        <span class="icone-btn">🏠</span>
-        <span class="icone-btn">⭐</span>
-        <span class="icone-btn">🖨️</span>
-        <span class="icone-btn">✉️</span>
-        <span class="icone-btn">💬</span>
-    </div>
-
-
-    <div class="topo">
-        <div class="logo"> 
-       <img class="logo" src="logosite.png" alt="Quarto do Lucas">
-       </div> 
-        <div class="nav" >
-            <a class="ativo"> INÍCIO </a>
-            <a> Perfil </a>
-            <a> Àlbuns</a>
-            <a> Redes Sociais </a>
-            <a> Diário </a>
-            <input type="text" placeholder="Pesquisar">
-        </div>
-     </div>
-
-    <div class="conteudo"> 
-        <div class="perfil-lateral"> 
-            <div class="fotodeperfil"> 
-                <img src="" alt="foto de perfil">
-            </div>
-            <div class="menuperfil">
-                <a> Sobre mim. </a>
-                <a> Photodump. </a>
-                <a> Projetos.  </a>
-                <a> Playlist.  </a>
+        <div class="barra-titulo">
+            <span><img class="ico" data-ico="internet_explorer" alt=""> <span id="titulo-navegador">QUARTO DO LUCAS</span></span>
+            <div class="botoes">
+                <button data-janela="minimizar" title="Minimizar">_</button>
+                <button data-janela="maximizar" title="Maximizar">□</button>
+                <button data-janela="fechar" class="fechar" title="Fechar">✕</button>
             </div>
         </div>
-        <div class="coluna-central">...</div>
-        <div class="coluna-direita">...</div>
-    </div>
 
+        <div class="abas" id="abas"></div>
+
+        <div class="barra-endereco">
+            <button class="icone-btn" id="btn-voltar" title="Voltar"><img class="ico" data-ico="arrow_left" alt=""></button>
+            <button class="icone-btn" id="btn-avancar" title="Avançar"><img class="ico" data-ico="arrow_right" alt=""></button>
+            <form id="form-endereco">
+                <input type="text" id="endereco" spellcheck="false" aria-label="Endereço">
+                <button class="icone-btn" type="button" id="btn-atualizar" title="Atualizar"><img class="ico" data-ico="arrow_refresh" alt=""></button>
+                <button class="icone-btn ir" type="submit" title="Ir"><img class="ico" data-ico="bullet_go" alt=""> Ir</button>
+            </form>
+            <form data-busca>
+                <input class="busca" type="search" placeholder="Pesquisar" aria-label="Pesquisar">
+                <button class="icone-btn so-pc" type="submit" title="Pesquisar"><img class="ico" data-ico="zoom" alt=""></button>
+            </form>
+        </div>
+
+        <div class="barra-menu" id="barra-menu">
+            <div class="menu">
+                <button>Arquivo</button>
+                <div class="submenu">
+                    <button data-comando="nova-guia">Nova guia</button>
+                    <button data-comando="imprimir">Imprimir...</button>
+                    <hr>
+                    <button data-comando="fechar">Fechar</button>
+                </div>
+            </div>
+            <div class="menu">
+                <button>Editar</button>
+                <div class="submenu">
+                    <button data-comando="copiar-link">Copiar endereço da página</button>
+                    <button data-comando="buscar-pagina">Localizar nesta página...</button>
+                </div>
+            </div>
+            <div class="menu">
+                <button>Exibir</button>
+                <div class="submenu">
+                    <button data-comando="tela-cheia">Tela inteira (F11)</button>
+                    <hr>
+                    <button data-comando="texto-maior">Aumentar texto</button>
+                    <button data-comando="texto-menor">Diminuir texto</button>
+                    <button data-comando="texto-normal">Tamanho normal</button>
+                </div>
+            </div>
+            <div class="menu">
+                <button>Favoritos</button>
+                <div class="submenu" id="submenu-favoritos"></div>
+            </div>
+            <div class="menu">
+                <button>Ferramentas</button>
+                <div class="submenu">
+                    <button data-comando="papel-parede">Trocar papel de parede</button>
+                    <button data-comando="limpar-dados">Excluir histórico e dados do site...</button>
+                </div>
+            </div>
+            <div class="menu">
+                <button>Ajuda</button>
+                <div class="submenu">
+                    <button data-comando="ajuda">Como usar o site</button>
+                    <button data-comando="sobre">Sobre o Quarto do Lucas</button>
+                </div>
+            </div>
+            <div class="menu direita">
+                <button>Links »</button>
+                <div class="submenu" id="submenu-links"></div>
+            </div>
+        </div>
+
+        <div class="barra-ferramentas">
+            <a class="icone-btn" href="#inicio" title="Página inicial"><img class="ico" data-ico="house" alt=""></a>
+            <button class="icone-btn" data-comando="favoritar" title="Adicionar aos favoritos"><img class="ico" data-ico="award_star_gold_1" alt=""></button>
+            <button class="icone-btn" data-comando="imprimir" title="Imprimir"><img class="ico" data-ico="printer" alt=""></button>
+            <a class="icone-btn" href="#recados" title="Recados"><img class="ico" data-ico="email" alt=""></a>
+            <button class="icone-btn" data-abrir="msn" title="MSN Messenger"><img class="ico" data-ico="msn_messenger" alt=""></button>
+        </div>
+
+        <div class="area-pagina">
+            <!-- conteúdo do site -->
+            <div class="pagina-site" id="pagina-site">
+                <div class="topo">
+                    <a href="#inicio" class="marca"><img class="globo" src="imagens/gifs/globo.gif" alt="" width="64" height="64"><img class="logo" src="quarto__do_lucas_letras.png" alt="Quarto do Lucas"></a>
+                    <nav class="nav">
+                        <a href="#inicio" data-rota="inicio">INÍCIO</a>
+                        <a href="#perfil" data-rota="perfil">Perfil</a>
+                        <a href="#albuns" data-rota="albuns">Álbuns</a>
+                        <a href="#redes" data-rota="redes">Redes Sociais</a>
+                        <a href="#diario" data-rota="diario">Diário</a>
+                        <form data-busca>
+                            <input type="search" placeholder="Pesquisar" aria-label="Pesquisar no site">
+                        </form>
+                    </nav>
+                </div>
+
+                <div class="divisor" aria-hidden="true"></div>
+                <div class="letreiro">
+                    <marquee scrollamount="4">★ Bem-vindo(a) ao QUARTO DO LUCAS ★ Deixe seu recado ★ Assine meu livro de visitas ★ Site em construção ★ Confira as novidades ★</marquee>
+                </div>
+
+                <div class="conteudo">
+                    <aside class="perfil-lateral">
+                        <div class="fotodeperfil">
+                            <a href="#perfil" data-foto-perfil></a>
+                            <div class="nome-lateral" data-nome></div>
+                            <div class="status-lateral" data-status></div>
+                        </div>
+
+                        <nav class="menuperfil">
+                            <a href="#sobre" data-rota="sobre"><img class="ico" data-ico="heart" alt=""> Sobre mim.</a>
+                            <a href="#photodump" data-rota="photodump"><img class="ico" data-ico="camera" alt=""> Photodump.</a>
+                            <a href="#projetos" data-rota="projetos"><img class="ico" data-ico="wrench" alt=""> Projetos.</a>
+                            <a href="#playlist" data-rota="playlist"><img class="ico" data-ico="music" alt=""> Playlist.</a>
+                            <a href="#recados" data-rota="recados"><img class="ico" data-ico="email" alt=""> Recados.</a>
+                            <a href="#amigos" data-rota="amigos"><img class="ico" data-ico="group" alt=""> Amigos.</a>
+                            <a href="#comunidades" data-rota="comunidades"><img class="ico" data-ico="comments" alt=""> Comunidades.</a>
+                            <a href="#depoimentos" data-rota="depoimentos"><img class="ico" data-ico="award_star_gold_1" alt=""> Depoimentos.</a>
+                            <a href="#admin" data-rota="admin" data-so-dono hidden><img class="ico" data-ico="key" alt=""> Admin.</a>
+                        </nav>
+
+                        <div class="caixa caixa-apps">
+                            <h3>Apps <small>do PC</small></h3>
+                            <button data-abrir="msn"><img class="ico" data-ico="msn_messenger" alt=""> Zap do Lucas <img class="novo-gif" src="imagens/gifs/novo.gif" alt="NOVO!" width="40" height="20"></button>
+                            <button data-abrir="paint"><img class="ico" data-ico="palette" alt=""> Paint <img class="novo-gif" src="imagens/gifs/novo.gif" alt="NOVO!" width="40" height="20"></button>
+                            <button data-abrir="notas"><img class="ico" data-ico="note" alt=""> Bloco de notas</button>
+                            <button data-abrir="lixeira"><img class="ico" data-ico="bin_recycle" alt=""> Lixeira</button>
+                        </div>
+
+                        <div class="caixa caixa-diario" id="caixa-diario"></div>
+                    </aside>
+
+                    
+                    <main class="coluna-central" id="central"></main>
+
+                    
+                    <aside class="coluna-direita">
+                        <div class="caixa">
+                            <h3>O registro diário <small>todos os dias</small></h3>
+                            <div id="registros"></div>
+                        </div>
+
+                        <div class="caixa" id="caixa-ouvindo" hidden>
+                            <h3>Ouvindo agora <small>no Spotify</small></h3>
+                            <div id="ouvindo"></div>
+                        </div>
+
+                        <div class="caixa">
+                            <div class="caixa-titulo">
+                                <h3><img src="imagens/gifs/cd.gif" alt="" width="32" height="26" class="gif-titulo"> Minha playlist</h3>
+                                <a class="mini-link" href="#playlist">ver tudo</a>
+                            </div>
+                            <div class="player" id="player">
+                                <div class="tela-player parado"><span class="rolar" id="player-titulo">♪ aperte o play ♪</span></div>
+                                <div class="equalizador"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+                                <div class="progresso-player" id="player-progresso" title="Pular para..."><span></span></div>
+                                <div class="controles-player">
+                                    <button data-player="anterior" title="Anterior"><img class="ico" data-ico="control_start" alt=""></button>
+                                    <button data-player="tocar" class="principal" id="player-play" title="Tocar">▶</button>
+                                    <button data-player="proxima" title="Próxima"><img class="ico" data-ico="control_end" alt=""></button>
+                                </div>
+                                <ul class="lista-player" id="lista-player"></ul>
+                            </div>
+                        </div>
+
+                        <div class="caixa enquete">
+                            <h3>Minhas enquetes</h3>
+                            <div id="enquete"></div>
+                        </div>
+
+                        <div class="caixa contador">
+                            <h3>Visitas</h3>
+                            <div>você é o visitante nº</div>
+                            <div class="digitos" id="contador"></div>
+                            <div class="dica">desde 2006</div>
+                        </div>
+                    </aside>
+                </div>
+
+                <footer class="rodape-site">
+                    <div class="webring">
+                        <a href="#" data-comando="webring">« anterior</a> |
+                        <b><img class="ico" data-ico="spider_web" alt=""> Webring dos Quartos <img class="ico" data-ico="spider_web" alt=""></b> |
+                        <a href="#" data-comando="webring">próximo »</a>
+                    </div>
+                    <div class="selos">
+                        <span class="selo a">MADE WITH<br>NOTEPAD</span>
+                        <span class="selo b">INSPIRADO NO<br>ORKUT ♥</span>
+                        <span class="selo c">&gt; NEOCITIES_</span>
+                        <span class="selo d">INTERNET<br>EXPLORER 6</span>
+                        <span class="selo e">MSN<br>ONLINE</span>
+                        <span class="selo">800×600<br>RESOLUTION</span>
+                    </div>
+                    <img src="imagens/gifs/faixa-construcao.gif" alt="em construção" width="200" height="30"><br>
+                    <div>Melhor visualizado no Internet Explorer 6.0 com resolução de 800×600 · <span class="piscar">NÃO</span> copie meu layout!</div>
+                    <div>© 2006–2026 Quarto do Lucas · Última atualização: <span id="ultima-atualizacao"></span></div>
+                    <div class="creditos">
+                        Ícones: <a href="https://www.fatcow.com/free-icons" target="_blank" rel="noopener">FatCow Farm-Fresh</a> (CC BY 3.0) ·
+                        GIFs: <a href="https://gifcities.org/" target="_blank" rel="noopener">GifCities / Internet Archive</a>
+                    </div>
+                </footer>
+            </div>
+
+            
+            <div class="pagina-nova-guia" id="pagina-nova-guia" hidden>
+                <h1><img class="ico ico32" data-ico="internet_explorer" data-tam="32" alt=""> Nova guia</h1>
+                <form data-busca>
+                    <input type="search" placeholder="Pesquisar no Quarto do Lucas..." aria-label="Pesquisar">
+                    <button class="btn" type="submit">Pesquisar</button>
+                </form>
+                <div class="atalhos">
+                    <a href="#inicio" data-sair-guia><img class="ico ico32" data-ico="house" data-tam="32" alt="">Início</a>
+                    <a href="#perfil" data-sair-guia><img class="ico ico32" data-ico="user" data-tam="32" alt="">Perfil</a>
+                    <a href="#albuns" data-sair-guia><img class="ico ico32" data-ico="photo_album" data-tam="32" alt="">Álbuns</a>
+                    <a href="#recados" data-sair-guia><img class="ico ico32" data-ico="email" data-tam="32" alt="">Recados</a>
+                    <a href="#playlist" data-sair-guia><img class="ico ico32" data-ico="music" data-tam="32" alt="">Playlist</a>
+                    <a href="#diario" data-sair-guia><img class="ico ico32" data-ico="lock" data-tam="32" alt="">Diário</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="barra-status">
+            <span id="status-texto">Concluído</span>
+            <div class="progresso-status"><span id="progresso-status"></span></div>
+            <span class="zona"><img class="ico" data-ico="world" alt=""> Internet</span>
+        </div>
+    </div>
 </div>
+
+
+
+
+<div class="janela janela-app" id="paint" data-titulo="sem título - Paint" data-icone="palette" hidden style="left:160px; top:70px;">
+    <div class="barra-titulo">
+        <span><img class="ico" data-ico="palette" alt=""> DESENHE ALGO! - Paint</span>
+        <div class="botoes">
+            <button data-janela="minimizar" title="Minimizar">_</button>
+            <button data-janela="fechar" class="fechar" title="Fechar">✕</button>
+        </div>
+    </div>
+    <div class="corpo-app">
+        <div class="paint-area">
+            <div class="paint-ferramentas">
+                <button data-ferramenta="lapis" class="ativo" title="Lápis"><img class="ico" data-ico="pencil" alt=""></button>
+                <button data-ferramenta="pincel" title="Pincel"><img class="ico" data-ico="brushes" alt=""></button>
+                <button data-ferramenta="spray" title="Spray"><img class="ico" data-ico="spray" alt=""></button>
+                <button data-ferramenta="borracha" title="Borracha"><img class="ico" data-ico="draw_eraser" alt=""></button>
+                <button data-ferramenta="limpar" title="Limpar tudo"><img class="ico" data-ico="bin" alt=""></button>
+                <button data-ferramenta="salvar" title="Salvar como PNG"><img class="ico" data-ico="disk" alt=""></button>
+                <button data-ferramenta="enviar" title="Enviar desenho pro Lucas"><img class="ico" data-ico="email_go" alt=""></button>
+                <select id="paint-tamanho" title="Tamanho">
+                    <option value="2">fino</option>
+                    <option value="5" selected>médio</option>
+                    <option value="10">grosso</option>
+                    <option value="20">enorme</option>
+                </select>
+            </div>
+            <div class="paint-tela"><canvas id="paint-canvas" width="460" height="290"></canvas></div>
+        </div>
+        <form class="paint-enviar" id="paint-enviar" data-form="desenho" hidden>
+            <b>Enviar desenho pro Lucas:</b>
+            <input name="autor" placeholder="seu nome" maxlength="30" aria-label="Seu nome" required>
+            <input name="titulo" placeholder="nome da arte" maxlength="60" aria-label="Nome da arte" required>
+            <button class="btn pequeno" type="submit">enviar</button>
+            <button class="btn pequeno" type="button" data-ferramenta="cancelar-envio">cancelar</button>
+        </form>
+        <div class="paint-cores">
+            <div class="cor-atual" id="cor-atual"></div>
+            <div class="paleta" id="paleta"></div>
+        </div>
+    </div>
+    <div class="rodape-app"><span>Para obter ajuda, clique em INICIAR e no menu Ajuda.</span><span id="paint-coords"></span></div>
+</div>
+
+
+<div class="janela janela-app" id="msn" data-titulo="Conversa - MSN" data-icone="msn_messenger" hidden style="left:auto; right:30px; top:90px;">
+    <div class="barra-titulo">
+        <span><img class="ico" data-ico="msn_messenger" alt=""> Conversa - ZAP DO LUCAS</span>
+        <div class="botoes">
+            <button data-janela="minimizar" title="Minimizar">_</button>
+            <button data-janela="fechar" class="fechar" title="Fechar">✕</button>
+        </div>
+    </div>
+    <div class="msn-topo">
+        <img class="avatar-msn" src="imagens/gifs/computador.gif" alt="" width="48" height="48">
+        <div>
+            <b data-nome></b> <span style="color:#2fb32f">● (Online)</span>
+            <small data-status></small>
+        </div>
+    </div>
+    <div class="msn-conversa" id="msn-conversa"></div>
+    <div class="msn-digitando" id="msn-digitando"></div>
+    <div class="msn-acoes">
+        <button class="btn pequeno" data-msn="atencao" title="Chamar a atenção"><img class="ico" data-ico="bell" alt=""> Chamar a atenção</button>
+        <span class="emoticons" data-alvo="msn-texto" data-preencher></span>
+    </div>
+    <form class="msn-form" id="msn-form" style="margin-top:6px">
+        <textarea id="msn-texto" placeholder="Digite sua mensagem..." maxlength="400"></textarea>
+        <button class="btn" type="submit">Enviar</button>
+    </form>
+</div>
+
+
+<div class="janela janela-app" id="notas" data-titulo="Escreva algo - Bloco de notas" data-icone="note" hidden style="left:220px; top:120px;">
+    <div class="barra-titulo">
+        <span><img class="ico" data-ico="note" alt=""> ESCREVA ALGO - Bloco de notas</span>
+        <div class="botoes">
+            <button data-janela="minimizar" title="Minimizar">_</button>
+            <button data-janela="fechar" class="fechar" title="Fechar">✕</button>
+        </div>
+    </div>
+    <div class="barra-menu">
+        <button class="btn pequeno" data-notas="novo">Novo</button>
+        <button class="btn pequeno" data-notas="salvar">Salvar como .txt</button>
+        <button class="btn pequeno" data-notas="hora">Hora/Data</button>
+    </div>
+    <textarea id="notas-texto" spellcheck="false" placeholder="Escreva qualquer coisa... fica salvo neste navegador."></textarea>
+    <div class="rodape-app"><span id="notas-info"></span></div>
+</div>
+
+
+<div class="janela janela-app" id="lixeira" data-titulo="Lixeira" data-icone="bin_recycle" hidden style="left:260px; top:150px;">
+    <div class="barra-titulo">
+        <span><img class="ico" data-ico="bin_recycle" alt=""> Lixeira</span>
+        <div class="botoes">
+            <button data-janela="minimizar" title="Minimizar">_</button>
+            <button data-janela="fechar" class="fechar" title="Fechar">✕</button>
+        </div>
+    </div>
+    <div class="corpo-app">
+        <div class="linha" style="display:flex; gap:6px; margin-bottom:6px;">
+            <button class="btn pequeno" data-lixeira="esvaziar"><img class="ico" data-ico="bin" alt=""> Esvaziar Lixeira</button>
+            <button class="btn pequeno" data-lixeira="restaurar"><img class="ico" data-ico="arrow_redo" alt=""> Restaurar todos os itens</button>
+        </div>
+        <ul class="lista-lixeira" id="lista-lixeira"></ul>
+    </div>
+    <div class="rodape-app"><span id="lixeira-info"></span></div>
+</div>
+
+
+<div class="menu-iniciar" id="menu-iniciar" hidden>
+    <div class="cabeca"><div class="mini-foto" data-foto-perfil></div><span data-nome></span></div>
+    <div class="itens">
+        <button data-abrir="navegador"><img class="ico ico32" data-ico="internet_explorer" data-tam="32" alt="">Quarto do Lucas</button>
+        <button data-abrir="msn"><img class="ico ico32" data-ico="msn_messenger" data-tam="32" alt="">MSN Messenger</button>
+        <button data-abrir="paint"><img class="ico ico32" data-ico="palette" data-tam="32" alt="">Paint</button>
+        <button data-abrir="notas"><img class="ico ico32" data-ico="note" data-tam="32" alt="">Bloco de notas</button>
+        <button data-abrir="lixeira"><img class="ico ico32" data-ico="bin_recycle" data-tam="32" alt="">Lixeira</button>
+        <hr>
+        <button data-comando="papel-parede"><img class="ico ico32" data-ico="monitor_wallpaper" data-tam="32" alt="">Trocar papel de parede</button>
+        <button data-comando="ajuda"><img class="ico ico32" data-ico="help" data-tam="32" alt="">Ajuda e suporte</button>
+    </div>
+    <div class="pe">
+        <button data-comando="logoff"><img class="ico" data-ico="key" alt=""> Fazer logoff</button>
+        <button data-comando="desligar"><img class="ico" data-ico="control_power" alt=""> Desligar</button>
+    </div>
+</div>
+
+<div class="barra-tarefas">
+    <button class="botao-iniciar" id="botao-iniciar"><span class="bandeira" aria-hidden="true"><i></i><i></i><i></i><i></i></span> iniciar</button>
+    <div class="tarefas" id="tarefas"></div>
+    <div class="bandeja">
+        <span title="Volume"><img class="ico" data-ico="sound" alt=""></span>
+        <span title="Conectado à internet"><img class="ico" data-ico="network_wireless" alt=""></span>
+        <span id="relogio">--:--</span>
+    </div>
+</div>
+
+
+<div class="fundo-escuro lightbox" id="lightbox" hidden>
+    <button class="fechar-lightbox" data-lightbox="fechar" title="Fechar (Esc)">✕</button>
+    <button class="nav-lightbox anterior" data-lightbox="anterior" title="Anterior">‹</button>
+    <figure>
+        <div id="lightbox-foto"></div>
+        <figcaption id="lightbox-legenda"></figcaption>
+    </figure>
+    <button class="nav-lightbox proxima" data-lightbox="proxima" title="Próxima">›</button>
+</div>
+
+<div class="fundo-escuro" id="fundo-dialogo" hidden>
+    <div class="janela dialogo ativa" role="dialog" aria-modal="true">
+        <div class="barra-titulo">
+            <span id="dialogo-titulo"></span>
+            <div class="botoes"><button class="fechar" data-dialogo-fechar title="Fechar">✕</button></div>
+        </div>
+        <div class="corpo-dialogo">
+            <span class="icone" id="dialogo-icone"></span>
+            <p id="dialogo-texto"></p>
+        </div>
+        <div class="acoes" id="dialogo-acoes"></div>
+    </div>
+</div>
+
+<div class="fundo-escuro discando" id="discando" hidden>
+    <div class="janela dialogo ativa" role="dialog" aria-modal="true" aria-label="Conectando">
+        <div class="barra-titulo"><span><img class="ico" data-ico="telephone" alt=""> Conectar a Quarto do Lucas</span></div>
+        <div class="corpo-dialogo">
+            <div class="modem"><img src="imagens/gifs/computador-crianca.gif" alt="" width="107" height="98"> <i>· · · · ·</i> <img src="imagens/gifs/globo.gif" alt="" width="64" height="64"></div>
+            <p id="discando-texto">Discando para 0800-QUARTO...</p>
+            <div class="barra-xp"><span id="discando-barra" style="width:0"></span></div>
+        </div>
+        <div class="acoes"><button data-comando="pular-conexao">Pular</button></div>
+    </div>
+</div>
+
+<div class="tela-desligar" id="tela-desligar" hidden>
+    <div>Agora é seguro desligar o computador.<small>(clique em qualquer lugar para ligar de novo)</small></div>
+</div>
+
+
+<script src="js/supabase.js"></script>
+
+<script src="script.js"></script>
 </body>
 </html>
