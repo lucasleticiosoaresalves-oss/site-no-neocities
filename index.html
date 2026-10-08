@@ -8,7 +8,7 @@
     <title>QUARTO DO LUCAS</title>
     <meta name="description" content="O quarto do Lucas na internet: recados, álbuns, diário e playlists no estilo orkut.">
     <link rel="icon" href="imagens/icones/16/internet_explorer.png">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=8">
 </head>
 <body>
 
@@ -325,6 +325,7 @@
             <input name="titulo" placeholder="nome da arte" maxlength="60" aria-label="Nome da arte" required>
             <button class="btn pequeno" type="submit">enviar</button>
             <button class="btn pequeno" type="button" data-ferramenta="cancelar-envio">cancelar</button>
+            <span class="dica">se o Lucas aprovar, o desenho e seu nome aparecem no mural público.</span>
         </form>
         <div class="paint-cores">
             <div class="cor-atual" id="cor-atual"></div>
@@ -364,6 +365,7 @@
         <textarea id="msn-texto" placeholder="Digite sua mensagem..." maxlength="300"></textarea>
         <button class="btn" type="submit">Enviar</button>
     </form>
+    <p class="dica">o zap é público: todo mundo lê. as mensagens somem sozinhas depois de 7 dias.</p>
 </div>
 
 
@@ -532,6 +534,6 @@
 
 <script src="js/supabase.js"></script>
 
-<script src="script.js"></script>
+<script src="script.js?v=8"></script>
 </body>
 </html>

@@ -448,6 +448,11 @@ input, textarea, select { font-family: inherit; font-size: 12px; }
     border: 1px solid #999;
 }
 .foto-padrao .gif { width: 100%; }
+/* foto de perfil sempre dentro do quadrado */
+.fotodeperfil, .mini-foto { overflow: hidden; }
+.fotodeperfil img, .mini-foto > img { max-width: 100%; height: auto; aspect-ratio: 1; object-fit: cover; }
+.mini-foto > img, .mini-foto .foto-padrao { width: 100%; height: auto; aspect-ratio: 1; object-fit: cover; display: block; }
+.menu-iniciar .cabeca .mini-foto > img { height: 100%; }
 .foto-padrao {
     display: grid;
     place-items: center;
@@ -641,6 +646,12 @@ img.avatar.com-icone { background: #fff; image-rendering: pixelated; padding: 2p
 .rede { display: flex; align-items: center; gap: 10px; padding: 6px; border-bottom: 1px dotted #b7c6e0; }
 .rede .emoji { width: 36px; text-align: center; flex: none; }
 .rede b { display: block; font-size: 12px; }
+/* nome da playlist mudando de cor */
+.nome-playlist { font-weight: bold; }
+@media (prefers-reduced-motion: reduce) { .nome-playlist { animation: none; } }
+
+/* tela cheia da janela principal */
+#navegador.maximizada { position: fixed; translate: none !important; }
 a.rede:hover { background: #ffffcc; }
 
 .projeto { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px dotted #b7c6e0; }
@@ -707,6 +718,8 @@ a.rede:hover { background: #ffffcc; }
 /* enviar desenho */
 .paint-enviar { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-top: 6px; padding: 4px; background: #ffffcc; border: 1px solid #cc9900; font-size: 11px; }
 .paint-enviar input { flex: 1; min-width: 90px; padding: 2px 4px; border: 2px inset #ccc; font: 11px Verdana, sans-serif; }
+.paint-enviar .dica { flex-basis: 100%; }
+#msn > .dica { margin: 4px 0 0; }
 
 /* ouvindo agora */
 .faixa { display: flex; gap: 6px; align-items: center; padding: 4px 0; border-bottom: 1px dotted #b7c6e0; text-decoration: none; color: inherit; }

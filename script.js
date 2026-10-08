@@ -107,7 +107,7 @@ const DADOS = {
     redes: [
         { nome: 'Instagram', icone: 'camera', usuario: '@seu_usuario', link: '' },
         { nome: 'TikTok', icone: 'music', usuario: '@seu_usuario', link: '' },
-        { nome: 'Spotify', icone: 'headphone', usuario: 'minhas playlists', link: '' },
+        { nome: 'Spotify', icone: 'headphone', usuario: 'minha playlist', link: '' },
         { nome: 'Discord', icone: 'controller', usuario: 'seu_usuario', link: '' },
         { nome: 'Neocities', icone: 'world', usuario: 'quartodolucas', link: 'https://quartodolucas.neocities.org/' },
     ],
@@ -283,7 +283,7 @@ function imagemSegura(url) {
 
 function fotoPerfil() {
     return imagemSegura(DADOS.foto)
-        ? `<img src="${esc(imagemSegura(DADOS.foto))}" alt="foto de ${esc(DADOS.nome)}">`
+        ? `<img src="${esc(imagemSegura(DADOS.foto))}" alt="foto de ${esc(DADOS.nome)}" width="110" height="110">`
         : `<div class="foto-padrao" aria-label="foto de perfil">${gif('computador')}</div>`;
 }
 
@@ -475,7 +475,7 @@ async function carregarConfig() {
 
 function aplicarConfig(chave, valor) {
     if (chave === 'perfil') {
-        ['status', 'foto', 'sobre', 'perfil', 'gosto', 'naoGosto', 'github'].forEach(campo => {
+        ['status', 'foto', 'sobre', 'perfil', 'gosto', 'naoGosto', 'github', 'redes'].forEach(campo => {
             if (valor[campo] !== undefined) DADOS[campo] = valor[campo];
         });
     }
@@ -557,6 +557,7 @@ function formRecado(id, compacto) {
                 ${emoticonsHTML(id)}
             </div>
             ${compacto ? '' : '<span class="dica">dica: use [b]negrito[/b], [i]itálico[/i] e [u]sublinhado[/u]</span>'}
+            <span class="dica">o que você posta aqui fica público. quer apagar? é só pedir pro ${esc(DADOS.nome)}.</span>
         </form>`;
 }
 
@@ -715,7 +716,7 @@ function paginaDepoimentos() {
             </div>
             ${souDono
                 ? `<div style="margin-top:10px">${itens.map(d => blocoRecado(d, true, 'depoimentos')).join('') || mensagemVazia(depoimentos, 'nenhum depoimento ainda')}</div>`
-                : `<p class="dica">seu depoimento vai direto pro ${esc(DADOS.nome)}, só ele lê.</p>`}
+                : `<p class="dica">seu depoimento vai direto pro ${esc(DADOS.nome)}, só ele lê. quer apagar? é só pedir.</p>`}
         </div>`;
 }
 
@@ -766,14 +767,31 @@ function paginaPhotodump() {
         </div>`;
 }
 
+// icone e cor de cada rede pelo nome
+const ICONES_REDES = { instagram: 'camera', tiktok: 'music', spotify: 'headphone', discord: 'controller', neocities: 'world', github: 'link', youtube: 'film', twitter: 'comments', x: 'comments', pinterest: 'photo_album', tumblr: 'page_white', bluesky: 'comments', letterboxd: 'film', steam: 'controller', twitch: 'controller', email: 'email' };
+
+function redes() {
+    return DADOS.redes.map(r => {
+        const chave = r.nome.toLowerCase().trim();
+        // o spotify sem link usa a playlist do site
+        const link = r.link || (chave === 'spotify' ? spotify.playlist?.link || '' : '');
+        return { ...r, link, icone: r.icone || ICONES_REDES[chave] || 'world', classe: 'rede-' + chave.replace(/[^a-z0-9]/g, '') };
+    });
+}
+
+// o nome da playlist fica mudando de cor
+function usuarioRede(r) {
+    return r.classe === 'rede-spotify' ? `<span class="texto-brilho nome-playlist">${esc(spotify.playlist?.nome || r.usuario)}</span>` : esc(r.usuario);
+}
+
 function paginaRedes() {
     return `
         <div class="caixa">
             <h2>Redes sociais</h2>
             <div class="centro">${gif('email', 60)}</div>
-            ${DADOS.redes.map(r => r.link
-                ? `<a class="rede" href="${esc(linkSeguro(r.link))}" target="_blank" rel="noopener"><span class="emoji">${icone(r.icone, 32)}</span><span><b>${esc(r.nome)}</b>${esc(r.usuario)}</span></a>`
-                : `<div class="rede"><span class="emoji">${icone(r.icone, 32)}</span><span><b>${esc(r.nome)}</b>${esc(r.usuario)} <i class="dica">(em breve)</i></span></div>`
+            ${redes().map(r => r.link
+                ? `<a class="rede ${r.classe}" href="${esc(linkSeguro(r.link))}" target="_blank" rel="noopener"><span class="emoji">${icone(r.icone, 32)}</span><span><b>${esc(r.nome)}</b>${usuarioRede(r)}</span></a>`
+                : `<div class="rede ${r.classe}"><span class="emoji">${icone(r.icone, 32)}</span><span><b>${esc(r.nome)}</b>${usuarioRede(r)} <i class="dica">(em breve)</i></span></div>`
             ).join('')}
         </div>
         <div class="caixa">
@@ -854,7 +872,7 @@ function paginaPlaylist() {
             <p class="dica">atualiza sozinho a cada minuto · via Last.fm</p>
         </div>` : ''}
         <div class="caixa">
-            <h2>Playlist <small>(${musicas().length} ${musicas().length === 1 ? "música" : "músicas"}${spotify.musicas?.length ? ` · ${esc(spotify.playlist?.nome || 'minha playlist')} no Spotify` : ''})</small></h2>
+            <h2>Playlist <small>(${musicas().length} ${musicas().length === 1 ? "música" : "músicas"}${spotify.musicas?.length ? ` · <span class="texto-brilho nome-playlist">${esc(spotify.playlist?.nome || 'minha playlist')}</span> no Spotify` : ''})</small></h2>
             <div class="centro">${gif('notas')}</div>
             <table class="tabela-musicas">
                 <thead><tr><th>#</th><th>Título</th><th>Artista</th><th>Tempo</th><th></th></tr></thead>
@@ -899,6 +917,7 @@ function paginaAmigos() {
                 </label>
                 <input name="nome" placeholder="seu nome ou apelido" maxlength="30" required>
                 <button class="btn rosa" type="submit">${icone('user_add')} entrar pros amigos</button>
+                <span class="dica">seu nome e sua foto ficam públicos aqui. quer sair? é só pedir pro ${esc(DADOS.nome)}.</span>
             </form>` : '<p class="vazio">precisa do servidor ligado</p>'}
         </div>`;
 }
@@ -931,7 +950,7 @@ function indiceBusca() {
         ...musicas().map(m => ({ tipo: 'música', titulo: `${m.titulo} - ${m.artista}`, link: '#playlist' })),
         ...projetos.todos().map(p => ({ tipo: 'projeto', titulo: `${p.nome}: ${p.descricao}`, link: '#projetos' })),
         ...registros.todos().map(r => ({ tipo: 'registro', titulo: `${r.data}: ${r.texto}`, link: '#inicio' })),
-        ...DADOS.redes.map(r => ({ tipo: 'rede social', titulo: `${r.nome} ${r.usuario}`, link: '#redes' })),
+        ...redes().map(r => ({ tipo: 'rede social', titulo: `${r.nome} ${r.usuario}`, link: '#redes' })),
     ];
     return itens;
 }
@@ -1098,6 +1117,9 @@ function adminPerfil() {
                     <label>eu não gosto de (um por linha)<textarea name="naoGosto" rows="5">${esc(DADOS.naoGosto.join('\n'))}</textarea></label>
                 </div>
                 <label>link do meu GitHub <input name="github" type="url" placeholder="https://github.com/..." value="${esc(DADOS.github)}"></label>
+                <label>redes sociais (uma por linha: nome | usuário | link)
+                    <textarea name="redes" rows="6" placeholder="Instagram | @meu_usuario | https://instagram.com/meu_usuario">${esc(DADOS.redes.map(r => [r.nome, r.usuario, r.link].join(' | ')).join('\n'))}</textarea></label>
+                <span class="dica">sem link aparece "em breve". o Spotify sem link abre a minha playlist.</span>
                 <button class="btn rosa" type="submit">${icone('disk')} salvar perfil</button>
             </form>
         </div>`;
@@ -2458,11 +2480,11 @@ function mostrarLixeira() {
 
 // papeis de parede (imagens/fundos)
 const NOMES_FUNDOS = [
-    'Pôr do sol no carro', 'Azul e preto', 'Basquete', 'Colina com cata-vento', 'Montanha de estrelas',
-    'Campo e espada', 'Fios e cabelo azul', 'Castelo à noite', 'Casinha pixel', 'Aero',
-    'Rosa', 'Dragão', 'Cidade à noite', 'Hora de Aventura', 'Céu e mar',
-    'Fios no céu', 'Gato verde', 'Mangá', 'Deitado na grama', 'Ilha roxa',
-    'Pista colorida', 'Cata-vento à noite', 'Guarda-chuva', 'Fogo e gelo', 'Turma',
+    'Chloe', 'Azul e preto', 'Kel', 'Colina com cata-vento', 'Céu Omori',
+    'Campo e espada', 'Hatsune Miku', 'Castelo à noite', 'Casinha pixel', 'Aero',
+    'Hikaru e Yoshiki', 'Dragão', 'Cidade à noite', 'Hora de Aventura', 'Céu e mar',
+    'Fios no céu', 'Gato verde', 'Mangá', 'Deitado na grama', 'S.U',
+    'Dreamcore', 'Gravity Falls', 'Finn e Princesa de Fogo', 'Fogo e gelo', 'Omori',
 ];
 
 const FUNDOS = [
@@ -2527,8 +2549,8 @@ function montarFavoritos() {
         ${meus.length ? '<hr>' + meus.map(f => `<a href="#${esc(f.rota)}">${icone('page_world')} ${esc(f.nome)}</a>`).join('') : ''}
         ${meus.length ? '<hr><button data-comando="limpar-favoritos">Limpar meus favoritos</button>' : ''}`;
 
-    $('#submenu-links').innerHTML = DADOS.redes.map(r => r.link
-        ? `<a href="${esc(r.link)}" target="_blank" rel="noopener">${icone(r.icone)} ${esc(r.nome)}</a>`
+    $('#submenu-links').innerHTML = redes().map(r => r.link
+        ? `<a href="${esc(linkSeguro(r.link))}" target="_blank" rel="noopener">${icone(r.icone)} ${esc(r.nome)}</a>`
         : `<a href="#redes">${icone(r.icone)} ${esc(r.nome)}</a>`).join('');
 }
 
@@ -2718,7 +2740,15 @@ async function enviarFormulario(form) {
                 gosto: linhas(dados.gosto),
                 naoGosto: linhas(dados.naoGosto),
                 github: dados.github.trim(),
+                redes: linhas(dados.redes).slice(0, 15).map(linha => {
+                    const [nome = '', usuario = '', link = ''] = linha.split('|').map(p => p.trim());
+                    return { nome: nome.slice(0, 30), usuario: usuario.slice(0, 60), link };
+                }).filter(r => r.nome),
             };
+            const redeRuim = valor.redes.find(r => r.link && linkSeguro(r.link) === '#');
+            if (redeRuim) {
+                return dialogo({ titulo: 'Perfil', icone: 'error', texto: `O link do ${redeRuim.nome} tem que começar com https://` });
+            }
             if (valor.github && linkSeguro(valor.github) === '#') {
                 return dialogo({ titulo: 'Perfil', icone: 'error', texto: 'O link do GitHub tem que começar com https://' });
             }
@@ -3104,6 +3134,13 @@ document.addEventListener('change', e => {
         const arquivo = e.target.files[0];
         const lugar = e.target.closest('label')?.querySelector('.previa-arquivo, .arquivo-escolhido');
         if (!lugar || !arquivo) return;
+        // foto de perfil aparece no quadradinho
+        const quadrado = e.target.closest('[data-form="perfil"]')?.querySelector('.mini-foto');
+        if (quadrado && arquivo.type.startsWith('image/')) {
+            quadrado.innerHTML = `<img src="${URL.createObjectURL(arquivo)}" alt="">`;
+            lugar.textContent = arquivo.name;
+            return;
+        }
         lugar.innerHTML = arquivo.type.startsWith('image/')
             ? `<img src="${URL.createObjectURL(arquivo)}" alt=""><br>${esc(arquivo.name)}`
             : esc(arquivo.name);
