@@ -117,6 +117,7 @@ async function buscarPlaylist(accessToken: string) {
                 album: faixa.album?.name ?? '',
                 capa: faixa.album?.images?.at(-1)?.url ?? '',
                 link: faixa.external_urls?.spotify ?? '',
+                duracao: faixa.duration_ms ?? 0,
                 adicionada: entrada.added_at,
             });
         }

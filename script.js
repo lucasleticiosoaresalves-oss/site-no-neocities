@@ -22,8 +22,8 @@ const DADOS = {
         chave: 'a0b73b3e71e4ed317924c49136a8ee1a',
     },
 
-    // senha do diario quando o supabase ta desligado
-    senhaDiario: 'lucas123',
+    // meu github (da pra mudar no admin)
+    github: '',
 
     // emoticons do msn: :) :D :P ;) :( :'( :O :@ (H) (L) (U) (Y) (K) (*) (8) (F) (co) (I) (^) (P)
     sobre: [
@@ -87,12 +87,8 @@ const DADOS = {
     // ex: { id: 'praia', nome: 'Praia', fotos: [{ src: 'imagens/praia.jpg', legenda: 'praia' }] }
     albuns: [],
 
-    projetos: [
-        { nome: 'Este site!', icone: 'world', descricao: 'Meu quarto na internet, feito à mão em HTML, CSS e JavaScript no estilo orkut + Windows XP.', progresso: 90 },
-        { nome: 'RPG de Jujutsu Kaisen', icone: 'dice', descricao: 'Fichas de personagem e campanha de RPG com a galera.', progresso: 60 },
-        { nome: 'Pixel art', icone: 'emotion_alien', descricao: 'Aprendendo a desenhar pixel por pixel.', progresso: 35 },
-        { nome: 'Playlist perfeita', icone: 'headphone', descricao: 'Juntar as músicas que marcaram cada fase da vida.', progresso: 75 },
-    ],
+    // projetos (posto pelo admin)
+    projetos: [],
 
     // musicas reserva (aparecem se o spotify nao carregar)
     // com "arquivo" toca o mp3, sem arquivo abre no youtube
@@ -128,16 +124,13 @@ const DADOS = {
     diarioInicial: [],
 
     enquete: {
+        versao: 0,
         pergunta: 'Qual foi a melhor época da internet?',
         opcoes: [['Orkut', 0], ['MSN Messenger', 0], ['Fotolog', 0], ['Hoje em dia', 0]],
     },
 
-    msnRespostas: [
-        'kkkkkkk', 'sério??', 'tô ouvindo música aqui (8)', 'brb, minha mãe tá chamando',
-        'já deixou recado no meu perfil?', 'hahaha demais', ':P', 'pera que a internet tá lenta',
-        'bora jogar mais tarde?', 'aff, a conexão caiu de novo', 'concordo plenamente',
-        'vc viu o photodump novo?', 'nossa, nem me fala', 'tô terminando um desenho no paint',
-    ],
+    // primeira mensagem do zap
+    zapBoasVindas: 'oiee! valeu por visitar meu quarto :D',
 
     lixeira: [
         { nome: 'trabalho_FINAL_agora_vai_v7.doc', icone: 'file_extension_doc' },
@@ -273,9 +266,24 @@ function avatar(nome, classe = '') {
     return `<span class="avatar ${classe}" style="background:${corDoNome(nome)}">${esc(letra)}</span>`;
 }
 
+// so deixa link http ou https
+function linkSeguro(url) {
+    const texto = String(url || '').trim();
+    return /^https?:\/\//i.test(texto) ? texto : '#';
+}
+
+// so deixa imagem do site, do supabase ou data:image
+function imagemSegura(url) {
+    const texto = String(url || '').trim();
+    if (texto.startsWith('data:image/')) return texto;
+    if (texto.startsWith(DADOS.supabase.url + '/storage/')) return texto;
+    if (texto && !texto.includes(':') && !texto.startsWith('//')) return texto;
+    return '';
+}
+
 function fotoPerfil() {
-    return DADOS.foto
-        ? `<img src="${esc(DADOS.foto)}" alt="foto de ${esc(DADOS.nome)}">`
+    return imagemSegura(DADOS.foto)
+        ? `<img src="${esc(imagemSegura(DADOS.foto))}" alt="foto de ${esc(DADOS.nome)}">`
         : `<div class="foto-padrao" aria-label="foto de perfil">${gif('computador')}</div>`;
 }
 
@@ -397,6 +405,33 @@ const diario = lista('diario', DADOS.diarioInicial, 'diario');
 const registros = lista('registros', DADOS.registros, 'registros');
 const fotosPostadas = lista('fotos', [], 'fotos');
 const desenhos = lista('desenhos', [], 'desenhos');
+const noticias = lista('noticias', [], 'noticias');
+const projetos = lista('projetos', DADOS.projetos, 'projetos');
+const avaliacoes = lista('avaliacoes', [], 'avaliacoes');
+const amigos = lista('amigos', [], 'amigos');
+const zap = lista('zap', [], 'zap');
+
+const LISTAS = { recados, depoimentos, diario, registros, desenhos, noticias, projetos, avaliacoes, amigos, zap };
+
+// o que to editando no admin
+let edicao = null;
+
+function emEdicao(nomeLista) {
+    if (edicao?.lista !== nomeLista) return null;
+    return LISTAS[nomeLista].todos().find(item => String(item.id) === String(edicao.id)) || null;
+}
+
+function botoesItem(nomeLista, id) {
+    return `<button class="btn-x" data-editar="${nomeLista}" data-id="${id}">editar</button> · <button class="btn-x" data-apagar="${id}" data-lista="${nomeLista}">apagar</button>`;
+}
+
+function botaoCancelar(nomeLista) {
+    return edicao?.lista === nomeLista ? '<button class="btn pequeno" type="button" data-comando="cancelar-edicao">cancelar</button>' : '';
+}
+
+function linhas(texto) {
+    return String(texto || '').split('\n').map(l => l.trim()).filter(Boolean);
+}
 
 // so eu apago recados
 function podeApagar() {
@@ -408,29 +443,52 @@ function mensagemVazia(dados, texto) {
 }
 
 function diarioAberto() {
-    if (nuvem) return souDono;
-    try { return sessionStorage.getItem('qdl-diario') === 'aberto'; } catch { return false; }
+    return souDono;
 }
 
 async function atualizarDono(sessao) {
     const dono = Boolean(sessao);
     if (dono === souDono) return;
     souDono = dono;
+    edicao = null;
     if (souDono) {
-        await Promise.all([diario.carregar(), desenhos.carregar()]);
+        await Promise.all([diario.carregar(), desenhos.carregar(), depoimentos.carregar()]);
     } else {
         diario.limpar();
+        depoimentos.limpar();
         await desenhos.carregar(); // sem login so vem os aprovados
     }
     $$('[data-so-dono]').forEach(el => { el.hidden = !souDono; });
+    if (!$('#msn').hidden) abrirZap();
     caixaDiario();
     mostrarPagina();
 }
-function mudarDiario(aberto) {
-    try {
-        if (aberto) sessionStorage.setItem('qdl-diario', 'aberto');
-        else sessionStorage.removeItem('qdl-diario');
-    } catch { /* ok */ }
+
+// --- configuracoes que mudo pelo admin ---
+
+async function carregarConfig() {
+    if (!nuvem) return;
+    const { data, error } = await nuvem.from('config').select('chave, valor');
+    if (error) throw error;
+    data.forEach(({ chave, valor }) => aplicarConfig(chave, valor));
+}
+
+function aplicarConfig(chave, valor) {
+    if (chave === 'perfil') {
+        ['status', 'foto', 'sobre', 'perfil', 'gosto', 'naoGosto', 'github'].forEach(campo => {
+            if (valor[campo] !== undefined) DADOS[campo] = valor[campo];
+        });
+    }
+    if (chave === 'enquete') {
+        DADOS.enquete = { versao: valor.versao || 0, pergunta: valor.pergunta, opcoes: valor.opcoes.map(o => [o, 0]) };
+    }
+    if (chave === 'comunidades') DADOS.comunidades = valor;
+}
+
+async function salvarConfig(chave, valor) {
+    const { error } = await nuvem.from('config').upsert({ chave, valor, atualizado: new Date().toISOString() });
+    if (error) throw error;
+    aplicarConfig(chave, valor);
 }
 
 
@@ -478,13 +536,13 @@ function resultadoSorte(nome) {
 
 // --- paginas ---
 
-function blocoRecado(r, comBotao) {
+function blocoRecado(r, comBotao, nomeLista = 'recados') {
     return `
         <div class="recado">
             ${avatar(r.autor)}
             <div class="corpo">
                 <b>${esc(r.autor)}:</b> ${formatar(r.texto)}
-                <div class="meta"><span>${esc(r.data)}</span>${comBotao && podeApagar() ? `<button class="btn-x" data-apagar="${r.id}" data-lista="recados">apagar</button>` : ''}</div>
+                <div class="meta"><span>${esc(r.data)}</span>${comBotao && podeApagar() ? `<button class="btn-x" data-apagar="${r.id}" data-lista="${nomeLista}">apagar</button>` : ''}</div>
             </div>
         </div>`;
 }
@@ -545,10 +603,10 @@ function paginaInicio() {
                     </div>` : mensagemVazia(fotosPostadas, 'nenhuma foto ainda')}
                 </div>
                 <div class="sub-caixa">
-                    <div class="caixa-titulo"><h3>Amigos <small>(${DADOS.amigos.length})</small></h3><a class="mini-link" href="#amigos">ver</a></div>
-                    ${DADOS.amigos.length ? `<div class="grade-amigos">
-                        ${DADOS.amigos.slice(0, 6).map(a => `<div class="amigo">${avatar(a.nome)}${esc(a.nome)}</div>`).join('')}
-                    </div>` : '<p class="vazio">nenhum amigo ainda</p>'}
+                    <div class="caixa-titulo"><h3>Amigos <small>(${amigos.todos().length})</small></h3><a class="mini-link" href="#amigos">ver</a></div>
+                    ${amigos.todos().length ? `<div class="grade-amigos">
+                        ${amigos.todos().slice(0, 6).map(a => `<div class="amigo">${fotoAmigo(a)}${esc(a.nome)}</div>`).join('')}
+                    </div>` : mensagemVazia(amigos, 'nenhum amigo ainda')}
                     <div class="caixa-titulo" style="margin-top:10px"><h3>Comunidades</h3><a class="mini-link" href="#comunidades">ver</a></div>
                     <div class="grade-amigos">
                         ${DADOS.comunidades.slice(0, 3).map(c => `<div class="comunidade"><span class="icone">${icone(c.icone, 32)}</span>${esc(c.nome)}</div>`).join('')}
@@ -556,11 +614,11 @@ function paginaInicio() {
                 </div>
             </div>
         </div>
-        ${DADOS.noticias.length ? `
+        ${noticias.todos().length ? `
         <div class="caixa noticias">
-            <h2>Notícias do quarto</h2>
-            <marquee direction="up" scrollamount="1" onmouseover="this.stop()" onmouseout="this.start()">
-                <ul>${DADOS.noticias.map((n, i) => `<li>${textoRico(n)}${i === 0 ? ' ' + gif('novo') : ''}</li>`).join('')}</ul>
+            <h2>Novidades do quarto</h2>
+            <marquee direction="up" scrollamount="1">
+                <ul>${noticias.todos().map((n, i) => `<li><b>[${esc(n.data)}]</b> ${textoRico(n.texto)}${i === 0 ? ' ' + gif('novo') : ''}</li>`).join('')}</ul>
             </marquee>
         </div>` : ''}`;
 }
@@ -595,8 +653,10 @@ function paginaPerfil() {
         </div>
 
         <div class="caixa">
-            <div class="caixa-titulo"><h2>Depoimentos</h2><a class="mini-link" href="#depoimentos">ver todos / escrever</a></div>
-            ${depoimentos.todos().slice(0, 2).map(d => blocoRecado(d, false)).join('') || mensagemVazia(depoimentos, 'ninguém escreveu ainda... seja o primeiro!')}
+            <div class="caixa-titulo"><h2>Depoimentos</h2><a class="mini-link" href="#depoimentos">${souDono ? 'ver todos' : 'escrever um'}</a></div>
+            ${souDono
+                ? depoimentos.todos().slice(0, 2).map(d => blocoRecado(d, false)).join('') || mensagemVazia(depoimentos, 'ninguém escreveu ainda')
+                : `<p class="vazio">os depoimentos só o ${esc(DADOS.nome)} lê. escreve um pra ele! ${textoRico('(L)')}</p>`}
         </div>`;
 }
 
@@ -607,7 +667,7 @@ function paginaSobre() {
             ${DADOS.sobre.map(p => `<p>${textoRico(p)}</p>`).join('')}
             <p class="centro">${gif('estrelinhas')}</p>
             <h3>Interesses</h3>
-            <div class="tags">${DADOS.perfil.find(p => p[0] === 'Interesses')[1].split(',').map(t => `<span>${esc(t.trim())}</span>`).join('')}</div>
+            <div class="tags">${(DADOS.perfil.find(p => p[0] === 'Interesses')?.[1] || '').split(',').filter(t => t.trim()).map(t => `<span>${esc(t.trim())}</span>`).join('')}</div>
         </div>
         <div class="caixa">
             <div class="duas-colunas">
@@ -644,7 +704,7 @@ function paginaDepoimentos() {
     const itens = depoimentos.todos();
     return `
         <div class="caixa">
-            <h2>Depoimentos <small>(${itens.length})</small></h2>
+            <h2>Depoimentos ${souDono ? `<small>(${itens.length}) · só você vê</small>` : ''}</h2>
             <div class="centro">${gif('coracao')}</div>
             <div class="sub-caixa">
                 <form class="form" data-form="depoimento">
@@ -653,9 +713,9 @@ function paginaDepoimentos() {
                     <div class="linha"><button class="btn rosa" type="submit">Enviar depoimento</button>${emoticonsHTML('texto-depoimento')}</div>
                 </form>
             </div>
-            <div style="margin-top:10px">
-                ${itens.map(d => blocoRecado(d, true).replace('data-lista="recados"', 'data-lista="depoimentos"')).join('') || mensagemVazia(depoimentos, 'nenhum depoimento ainda')}
-            </div>
+            ${souDono
+                ? `<div style="margin-top:10px">${itens.map(d => blocoRecado(d, true, 'depoimentos')).join('') || mensagemVazia(depoimentos, 'nenhum depoimento ainda')}</div>`
+                : `<p class="dica">seu depoimento vai direto pro ${esc(DADOS.nome)}, só ele lê.</p>`}
         </div>`;
 }
 
@@ -712,13 +772,13 @@ function paginaRedes() {
             <h2>Redes sociais</h2>
             <div class="centro">${gif('email', 60)}</div>
             ${DADOS.redes.map(r => r.link
-                ? `<a class="rede" href="${esc(r.link)}" target="_blank" rel="noopener"><span class="emoji">${icone(r.icone, 32)}</span><span><b>${esc(r.nome)}</b>${esc(r.usuario)}</span></a>`
+                ? `<a class="rede" href="${esc(linkSeguro(r.link))}" target="_blank" rel="noopener"><span class="emoji">${icone(r.icone, 32)}</span><span><b>${esc(r.nome)}</b>${esc(r.usuario)}</span></a>`
                 : `<div class="rede"><span class="emoji">${icone(r.icone, 32)}</span><span><b>${esc(r.nome)}</b>${esc(r.usuario)} <i class="dica">(em breve)</i></span></div>`
             ).join('')}
         </div>
         <div class="caixa">
             <h3>Ou fala comigo por aqui mesmo</h3>
-            <p style="margin:0">Deixe um <a href="#recados">recado</a> ou chame no <a href="#" data-abrir="msn">MSN</a>. ${icone('msn_messenger')}</p>
+            <p style="margin:0">Deixe um <a href="#recados">recado</a> ou chame no <a href="#" data-abrir="msn">Zap do Lucas</a>. ${icone('msn_messenger')}</p>
         </div>`;
 }
 
@@ -726,8 +786,8 @@ function formSenha(destino = 'diario') {
     return `
         <form class="form-senha" data-form="senha">
             <input type="hidden" name="destino" value="${destino}">
-            ${nuvem ? '<input type="email" name="email" placeholder="E-MAIL" aria-label="E-mail do dono" autocomplete="username" required>' : ''}
-            <input type="password" name="senha" placeholder="SENHA" aria-label="Senha do diário" autocomplete="${nuvem ? 'current-password' : 'off'}" required>
+            <input type="email" name="email" placeholder="E-MAIL" aria-label="E-mail do dono" autocomplete="username" required>
+            <input type="password" name="senha" placeholder="SENHA" aria-label="Senha" autocomplete="current-password" required>
             <button class="btn" type="submit">${icone('key')} abrir</button>
         </form>`;
 }
@@ -765,20 +825,23 @@ function paginaDiario() {
 }
 
 function paginaProjetos() {
+    const todos = projetos.todos();
     return `
         <div class="caixa">
             <h2>Projetos</h2>
             <div class="centro">${gif('construcao')}</div>
-            ${DADOS.projetos.map(p => `
+            ${DADOS.github ? `<p class="centro"><a class="btn rosa botao-github" href="${esc(linkSeguro(DADOS.github))}" target="_blank" rel="noopener">${icone('world')} entrar no meu GitHub</a></p>` : ''}
+            ${todos.map(p => `
                 <div class="projeto">
-                    <span class="emoji">${icone(p.icone, 32)}</span>
+                    <span class="emoji">${icone('wrench', 32)}</span>
                     <div style="flex:1">
                         <h4>${esc(p.nome)}</h4>
-                        <p>${esc(p.descricao)}</p>
-                        <div class="barra-xp" title="${p.progresso}%"><span style="width:${p.progresso}%"></span></div>
-                        <span class="dica">${p.progresso}% concluído</span>
+                        <p>${textoRico(p.descricao || '')}</p>
+                        <div class="barra-xp" title="${Number(p.progresso) || 0}%"><span style="width:${Number(p.progresso) || 0}%"></span></div>
+                        <span class="dica">${Number(p.progresso) || 0}% concluído</span>
+                        ${p.link ? `<p style="margin:4px 0 0"><a href="${esc(linkSeguro(p.link))}" target="_blank" rel="noopener">${icone('world')} ver o projeto e avaliar »</a></p>` : ''}
                     </div>
-                </div>`).join('')}
+                </div>`).join('') || mensagemVazia(projetos, 'nenhum projeto postado ainda')}
         </div>`;
 }
 
@@ -794,11 +857,11 @@ function paginaPlaylist() {
             <h2>Playlist <small>(${musicas().length} ${musicas().length === 1 ? "música" : "músicas"}${spotify.musicas?.length ? ` · ${esc(spotify.playlist?.nome || 'minha playlist')} no Spotify` : ''})</small></h2>
             <div class="centro">${gif('notas')}</div>
             <table class="tabela-musicas">
-                <thead><tr><th>#</th><th>Título</th><th>Artista</th><th></th></tr></thead>
+                <thead><tr><th>#</th><th>Título</th><th>Artista</th><th>Tempo</th><th></th></tr></thead>
                 <tbody>
                     ${musicas().map((m, i) => `
                         <tr class="${i === player.indice && player.comecou ? 'tocando' : ''}">
-                            <td>${i + 1}</td><td>${esc(m.titulo)}</td><td>${esc(m.artista)}</td>
+                            <td>${i + 1}</td><td>${esc(m.titulo)}</td><td>${esc(m.artista)}</td><td>${duracao(m.duracao)}</td>
                             <td><button class="btn pequeno" data-tocar="${i}">▶ ${m.arquivo ? 'tocar' : 'ouvir'}</button></td>
                         </tr>`).join('')}
                 </tbody>
@@ -809,16 +872,34 @@ function paginaPlaylist() {
         </div>`;
 }
 
+function fotoAmigo(amigo, classe = '') {
+    const foto = imagemSegura(amigo.foto);
+    return foto ? `<img class="avatar foto-amigo ${classe}" src="${esc(foto)}" alt="">` : avatar(amigo.nome, classe);
+}
+
 function paginaAmigos() {
+    const todos = amigos.todos();
     return `
         <div class="caixa">
-            <h2>Amigos <small>(${DADOS.amigos.length})</small></h2>
+            <h2>Amigos <small>(${todos.length})</small></h2>
             <div class="centro">${gif('arcoiris')}</div>
-            ${DADOS.amigos.length ? `<div class="grade-amigos larga">
-                ${DADOS.amigos.map((a, i) => `
-                    <div class="amigo">${avatar(a.nome, 'grande')}<b>${esc(a.nome)}</b>
-                        <span class="coracoes">${icone('heart').repeat(1 + (i % 3))}</span></div>`).join('')}
-            </div>` : '<p class="vazio">nenhum amigo ainda</p>'}
+            ${todos.length ? `<div class="grade-amigos larga">
+                ${todos.map((a, i) => `
+                    <div class="amigo">${fotoAmigo(a, 'grande')}<b>${esc(a.nome)}</b>
+                        <span class="coracoes">${icone('heart').repeat(1 + (i % 3))}</span>
+                        ${souDono ? `<button class="btn-x" data-apagar="${a.id}" data-lista="amigos">apagar</button>` : ''}</div>`).join('')}
+            </div>` : mensagemVazia(amigos, 'nenhum amigo ainda... seja o primeiro!')}
+        </div>
+        <div class="caixa">
+            <h2>Me adiciona!</h2>
+            ${nuvem ? `<form class="form" data-form="amigo">
+                <label class="soltar-foto">
+                    <input type="file" name="foto" accept="image/*" class="so-leitor" required>
+                    <span class="previa-arquivo">${icone('user_add', 32)}<br>escolha sua foto</span>
+                </label>
+                <input name="nome" placeholder="seu nome ou apelido" maxlength="30" required>
+                <button class="btn rosa" type="submit">${icone('user_add')} entrar pros amigos</button>
+            </form>` : '<p class="vazio">precisa do servidor ligado</p>'}
         </div>`;
 }
 
@@ -841,13 +922,14 @@ function indiceBusca() {
         ...DADOS.perfil.map(([campo, valor]) => ({ tipo: 'perfil', titulo: `${campo}: ${valor}`, link: '#perfil' })),
         ...DADOS.sobre.map(t => ({ tipo: 'sobre', titulo: t, link: '#sobre' })),
         ...recados.todos().map(r => ({ tipo: 'recado', titulo: `${r.autor}: ${r.texto}`, link: '#recados' })),
-        ...depoimentos.todos().map(d => ({ tipo: 'depoimento', titulo: `${d.autor}: ${d.texto}`, link: '#depoimentos' })),
-        ...DADOS.amigos.map(a => ({ tipo: 'amigo', titulo: a.nome, link: '#amigos' })),
+        ...amigos.todos().map(a => ({ tipo: 'amigo', titulo: a.nome, link: '#amigos' })),
+        ...noticias.todos().map(n => ({ tipo: 'novidade', titulo: n.texto, link: '#inicio' })),
+        ...avaliacoes.todos().map(a => ({ tipo: 'avaliação', titulo: `${a.titulo} (${a.nota} estrelas)`, link: '#avaliacoes' })),
         ...DADOS.comunidades.map(c => ({ tipo: 'comunidade', titulo: c.nome, link: '#comunidades' })),
         ...albuns().map(a => ({ tipo: 'álbum', titulo: a.nome, link: '#album/' + a.id })),
         ...albuns().flatMap(a => a.fotos.map(f => ({ tipo: 'foto', titulo: f.legenda, link: '#album/' + a.id }))),
         ...musicas().map(m => ({ tipo: 'música', titulo: `${m.titulo} - ${m.artista}`, link: '#playlist' })),
-        ...DADOS.projetos.map(p => ({ tipo: 'projeto', titulo: `${p.nome}: ${p.descricao}`, link: '#projetos' })),
+        ...projetos.todos().map(p => ({ tipo: 'projeto', titulo: `${p.nome}: ${p.descricao}`, link: '#projetos' })),
         ...registros.todos().map(r => ({ tipo: 'registro', titulo: `${r.data}: ${r.texto}`, link: '#inicio' })),
         ...DADOS.redes.map(r => ({ tipo: 'rede social', titulo: `${r.nome} ${r.usuario}`, link: '#redes' })),
     ];
@@ -882,7 +964,7 @@ function desenhosHTML(modo = 'dono') {
     if (!lista.length) return mensagemVazia(desenhos, 'nenhum desenho recebido ainda');
     return `<div class="grade-desenhos">${lista.map(d => `
         <figure class="desenho ${modo === 'dono' && d.publico ? 'aprovado' : ''}">
-            <img src="${esc(d.imagem)}" alt="${esc(d.titulo)}">
+            <img src="${esc(imagemSegura(d.imagem))}" alt="${esc(d.titulo)}">
             <figcaption>
                 <b>${esc(d.titulo)}</b><br>por ${esc(d.autor)} · ${esc(d.data)}
                 ${modo === 'dono' ? `<br>
@@ -890,20 +972,83 @@ function desenhosHTML(modo = 'dono') {
                 ${d.publico
                     ? `<button class="btn pequeno" data-publicar="${d.id}" data-valor="nao">${icone('lock')} tirar do mural</button>`
                     : `<button class="btn pequeno rosa" data-publicar="${d.id}" data-valor="sim">${icone('accept')} aprovar e publicar</button>`}<br>
-                <a href="${esc(d.imagem)}" download="${esc(d.titulo)}.png">baixar</a> ·
+                <a href="${esc(imagemSegura(d.imagem))}" download="${esc(d.titulo)}.png">baixar</a> ·
                 <button class="btn-x" data-apagar="${d.id}" data-lista="desenhos">apagar</button>` : ''}
             </figcaption>
         </figure>`).join('')}</div>`;
 }
 
-function paginaAdmin() {
+// --- avaliacoes ---
+
+const TIPOS_AVALIACAO = {
+    livro: ['Livros', 'book'],
+    serie: ['Séries', 'film'],
+    jogo: ['Jogos', 'controller'],
+};
+
+function estrelas(nota) {
+    const n = Math.max(1, Math.min(5, Number(nota) || 1));
+    return `<span class="estrelas" title="${n} de 5">${'★'.repeat(n)}<span class="apagadas">${'★'.repeat(5 - n)}</span></span>`;
+}
+
+function capaAvaliacao(a) {
+    const tipo = TIPOS_AVALIACAO[a.tipo] || TIPOS_AVALIACAO.livro;
+    return a.capa && nuvem
+        ? `<img class="capa" src="${esc(urlFotoPostada(a.capa))}" alt="capa de ${esc(a.titulo)}" loading="lazy">`
+        : `<div class="capa sem-capa">${icone(tipo[1], 32)}</div>`;
+}
+
+function paginaAvaliacoes(filtro = '') {
+    const todas = avaliacoes.todos().filter(a => !filtro || a.tipo === filtro);
+    return `
+        <div class="caixa">
+            <h2>Avaliações <small>livros, séries e jogos que eu consumi</small></h2>
+            <div class="filtros">
+                <a href="#avaliacoes" class="${!filtro ? 'ativo' : ''}">todos</a>
+                ${Object.entries(TIPOS_AVALIACAO).map(([tipo, [nome, ic]]) => `<a href="#avaliacoes/${tipo}" class="${filtro === tipo ? 'ativo' : ''}">${icone(ic)} ${nome}</a>`).join('')}
+            </div>
+            ${todas.length ? `<div class="grade-avaliacoes">${todas.map(a => `
+                <div class="avaliacao">
+                    ${capaAvaliacao(a)}
+                    <div>
+                        <span class="tipo-avaliacao">${icone((TIPOS_AVALIACAO[a.tipo] || TIPOS_AVALIACAO.livro)[1])} ${esc((TIPOS_AVALIACAO[a.tipo] || TIPOS_AVALIACAO.livro)[0])}</span>
+                        <h4>${esc(a.titulo)}</h4>
+                        ${estrelas(a.nota)}
+                        ${a.comentario ? `<p>${textoRico(a.comentario)}</p>` : ''}
+                        <span class="dica">${esc(a.data)}</span>
+                    </div>
+                </div>`).join('')}</div>` : mensagemVazia(avaliacoes, 'nada avaliado ainda')}
+        </div>`;
+}
+
+
+// --- admin ---
+
+const SECOES_ADMIN = [
+    ['perfil', 'user', 'Perfil'],
+    ['fotos', 'photo_add', 'Fotos'],
+    ['textos', 'note', 'Registros e novidades'],
+    ['avaliacoes', 'award_star_gold_1', 'Avaliações'],
+    ['projetos', 'wrench', 'Projetos'],
+    ['enquete', 'chart_bar', 'Enquete'],
+    ['comunidades', 'comments', 'Comunidades'],
+    ['recebidos', 'email', 'Recebidos'],
+    ['spotify', 'music', 'Spotify'],
+];
+
+const ICONES_COMUNIDADE = [
+    'alarm_bell', 'ice_cube', 'emotion_clown', 'phone_vintage', 'arrow_refresh', 'dice', 'headphone', 'disconnect',
+    'heart', 'music', 'controller', 'camera', 'computer', 'group', 'award_star_gold_1', 'emotion_smile', 'emotion_cool',
+    'book', 'film', 'pizza', 'palette', 'world', 'cake', 'dog',
+];
+
+function paginaAdmin(secao) {
     if (!nuvem) {
         return `
             <div class="caixa diario-trancado">
                 <h2>Área secreta</h2>
                 <div class="cadeado">${gif('cadeado')}</div>
-                <p>A área de admin precisa do banco de dados online.<br>
-                Configure o Supabase no começo do <b>script.js</b> (o passo a passo está no <b>supabase.sql</b>).</p>
+                <p>A área de admin precisa do banco de dados ligado.</p>
             </div>`;
     }
     if (!souDono) {
@@ -915,14 +1060,52 @@ function paginaAdmin() {
                 ${formSenha('admin')}
             </div>`;
     }
-    const nomesAlbuns = albuns().map(a => a.nome);
-    const postadas = fotosPostadas.todos();
+    const atual = SECOES_ADMIN.some(([id]) => id === secao) ? secao : 'perfil';
+    const telas = {
+        perfil: adminPerfil, fotos: adminFotos, textos: adminTextos, avaliacoes: adminAvaliacoes, projetos: adminProjetos,
+        enquete: adminEnquete, comunidades: adminComunidades, recebidos: adminRecebidos, spotify: adminSpotify,
+    };
     return `
         <div class="caixa">
             <div class="caixa-titulo"><h2>${icone('key')} Área secreta do admin</h2><button class="btn pequeno" data-comando="trancar-diario">${icone('door_out')} sair</button></div>
             <p>Oi, ${esc(DADOS.nome)}! Só você vê esta página. :)</p>
+            <div class="menu-admin">
+                ${SECOES_ADMIN.map(([id, ic, nome]) => `<a href="#admin/${id}" class="${id === atual ? 'ativo' : ''}">${icone(ic)} ${nome}</a>`).join('')}
+            </div>
         </div>
+        ${telas[atual]()}`;
+}
 
+function adminPerfil() {
+    return `
+        <div class="caixa">
+            <h2>Meu perfil</h2>
+            <form class="form" data-form="perfil">
+                <div class="linha-foto">
+                    <div class="mini-foto">${fotoPerfil()}</div>
+                    <label class="btn pequeno">${icone('picture_add')} trocar foto de perfil
+                        <input type="file" name="foto" accept="image/*" class="so-leitor">
+                        <span class="arquivo-escolhido"></span>
+                    </label>
+                </div>
+                <label>status <input name="status" maxlength="120" value="${esc(DADOS.status)}"></label>
+                <label>campos do perfil (um por linha, "campo: valor")
+                    <textarea name="perfil" rows="8">${esc(DADOS.perfil.map(([campo, valor]) => `${campo}: ${valor}`).join('\n'))}</textarea></label>
+                <label>sobre mim (separe os parágrafos com uma linha vazia)
+                    <textarea name="sobre" rows="6">${esc(DADOS.sobre.join('\n\n'))}</textarea></label>
+                <div class="duas-colunas">
+                    <label>eu gosto de (um por linha)<textarea name="gosto" rows="5">${esc(DADOS.gosto.join('\n'))}</textarea></label>
+                    <label>eu não gosto de (um por linha)<textarea name="naoGosto" rows="5">${esc(DADOS.naoGosto.join('\n'))}</textarea></label>
+                </div>
+                <label>link do meu GitHub <input name="github" type="url" placeholder="https://github.com/..." value="${esc(DADOS.github)}"></label>
+                <button class="btn rosa" type="submit">${icone('disk')} salvar perfil</button>
+            </form>
+        </div>`;
+}
+
+function adminFotos() {
+    const postadas = fotosPostadas.todos();
+    return `
         <div class="caixa">
             <h2>Postar foto</h2>
             <form class="form" data-form="foto">
@@ -934,43 +1117,10 @@ function paginaAdmin() {
                 <div class="linha">
                     <label for="album-foto">álbum:</label>
                     <input id="album-foto" name="album" list="lista-albuns" placeholder="escolha ou crie um álbum" maxlength="40" required>
-                    <datalist id="lista-albuns">${nomesAlbuns.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
+                    <datalist id="lista-albuns">${albuns().map(a => `<option value="${esc(a.nome)}">`).join('')}</datalist>
                 </div>
                 <button class="btn rosa" type="submit">${icone('photo_add')} postar foto</button>
             </form>
-        </div>
-
-        <div class="caixa">
-            <h2>Spotify: minha playlist</h2>
-            ${spotify.conectado
-                ? `<p>${icone('accept')} Conectado! A aba Playlist mostra ${spotify.musicas?.length || 0} músicas da playlist "${esc(spotify.playlist?.nome || 'minha playlist')}"
-                   ${spotify.atualizado ? `(atualizado ${tempoAtras(new Date(spotify.atualizado).getTime())})` : ''}.
-                   Atualiza sozinho a cada 10 minutos.</p>
-                   <button class="btn pequeno" data-comando="conectar-spotify">${icone('arrow_refresh')} conectar de novo</button>`
-                : `<p>Mostre as músicas da sua playlist "minha playlist" na aba Playlist do site. Colocou música lá, ela aparece aqui.</p>
-                   <button class="btn rosa" data-comando="conectar-spotify">${icone('music')} conectar Spotify</button>
-                   <p class="dica">abre o Spotify numa nova aba para você autorizar. Depois, recarregue esta página.</p>`}
-        </div>
-
-        <div class="caixa">
-            <h2>Escrever registro diário</h2>
-            <form class="form" data-form="registro">
-                <textarea name="texto" id="texto-registro" placeholder="o que aconteceu hoje?" maxlength="500" rows="3" required></textarea>
-                <div class="linha"><button class="btn rosa" type="submit">publicar</button>${emoticonsHTML('texto-registro')}</div>
-            </form>
-            <div style="margin-top:8px">
-                ${registros.todos().map(r => `
-                    <div class="recado"><div class="corpo">
-                        <b>[${esc(r.data)}]</b> ${textoRico(r.texto)}
-                        <div class="meta"><button class="btn-x" data-apagar="${r.id}" data-lista="registros">apagar</button></div>
-                    </div></div>`).join('') || mensagemVazia(registros, 'você ainda não escreveu nenhum registro')}
-            </div>
-        </div>
-
-        <div class="caixa">
-            <h2>Desenhos recebidos no Paint <small>(${desenhos.todos().length} · ${desenhosPublicos().length} no mural)</small></h2>
-            <p class="dica" style="margin-top:0">Chegam privados. Clique em "aprovar e publicar" para aparecerem no mural da página de recados.</p>
-            ${desenhosHTML()}
         </div>
 
         <div class="caixa">
@@ -981,6 +1131,173 @@ function paginaAdmin() {
                     <span class="texto"><b>${esc(f.album)}</b><br>${esc(f.legenda)}<br>
                     <button class="btn-x" data-apagar-foto="${f.id}">apagar</button></span>
                 </figure>`).join('')}</div>` : mensagemVazia(fotosPostadas, 'nenhuma foto postada ainda')}
+        </div>`;
+}
+
+function adminTextos() {
+    const registro = emEdicao('registros');
+    const novidade = emEdicao('noticias');
+    return `
+        <div class="caixa">
+            <h2>${registro ? 'Editar registro' : 'Escrever registro diário'}</h2>
+            <form class="form" data-form="registro">
+                <textarea name="texto" id="texto-registro" placeholder="o que aconteceu hoje?" maxlength="500" rows="3" required>${registro ? esc(registro.texto) : ''}</textarea>
+                <div class="linha"><button class="btn rosa" type="submit">${registro ? 'salvar' : 'publicar'}</button>${botaoCancelar('registros')}${emoticonsHTML('texto-registro')}</div>
+            </form>
+            <div style="margin-top:8px">
+                ${registros.todos().map(r => `
+                    <div class="recado"><div class="corpo">
+                        <b>[${esc(r.data)}]</b> ${textoRico(r.texto)}
+                        <div class="meta">${botoesItem('registros', r.id)}</div>
+                    </div></div>`).join('') || mensagemVazia(registros, 'você ainda não escreveu nenhum registro')}
+            </div>
+        </div>
+
+        <div class="caixa">
+            <h2>${novidade ? 'Editar novidade' : 'Novidades do quarto'}</h2>
+            <form class="form" data-form="noticia">
+                <textarea name="texto" id="texto-noticia" placeholder="o que tem de novo no site?" maxlength="300" rows="2" required>${novidade ? esc(novidade.texto) : ''}</textarea>
+                <div class="linha"><button class="btn rosa" type="submit">${novidade ? 'salvar' : 'publicar'}</button>${botaoCancelar('noticias')}${emoticonsHTML('texto-noticia')}</div>
+            </form>
+            <div style="margin-top:8px">
+                ${noticias.todos().map(n => `
+                    <div class="recado"><div class="corpo">
+                        <b>[${esc(n.data)}]</b> ${textoRico(n.texto)}
+                        <div class="meta">${botoesItem('noticias', n.id)}</div>
+                    </div></div>`).join('') || mensagemVazia(noticias, 'nenhuma novidade ainda')}
+            </div>
+        </div>`;
+}
+
+function adminAvaliacoes() {
+    const a = emEdicao('avaliacoes');
+    return `
+        <div class="caixa">
+            <h2>${a ? 'Editar avaliação' : 'Nova avaliação'}</h2>
+            <form class="form" data-form="avaliacao">
+                <div class="linha">
+                    <select name="tipo" aria-label="Tipo">${Object.entries(TIPOS_AVALIACAO).map(([tipo, [nome]]) => `<option value="${tipo}" ${a?.tipo === tipo ? 'selected' : ''}>${nome}</option>`).join('')}</select>
+                    <select name="nota" aria-label="Nota">${[5, 4, 3, 2, 1].map(n => `<option value="${n}" ${Number(a?.nota) === n ? 'selected' : ''}>${'★'.repeat(n)}${'☆'.repeat(5 - n)}</option>`).join('')}</select>
+                </div>
+                <input name="titulo" placeholder="nome do livro, série ou jogo" maxlength="80" required value="${esc(a?.titulo || '')}">
+                <textarea name="comentario" placeholder="o que eu achei (opcional)" maxlength="500" rows="3">${esc(a?.comentario || '')}</textarea>
+                <label class="soltar-foto">
+                    <input type="file" name="capa" accept="image/*" class="so-leitor">
+                    <span class="previa-arquivo">${icone('picture_add', 32)}<br>${a?.capa ? 'trocar a foto da capa' : 'foto da capa'}</span>
+                </label>
+                <div class="linha"><button class="btn rosa" type="submit">${a ? 'salvar' : 'publicar'}</button>${botaoCancelar('avaliacoes')}</div>
+            </form>
+        </div>
+        <div class="caixa">
+            <h2>Minhas avaliações</h2>
+            ${avaliacoes.todos().map(item => `
+                <div class="avaliacao pequena">
+                    ${capaAvaliacao(item)}
+                    <div><b>${esc(item.titulo)}</b> ${estrelas(item.nota)}<br><span class="dica">${esc((TIPOS_AVALIACAO[item.tipo] || TIPOS_AVALIACAO.livro)[0])} · ${esc(item.data)}</span><br>${botoesItem('avaliacoes', item.id)}</div>
+                </div>`).join('') || mensagemVazia(avaliacoes, 'nada avaliado ainda')}
+        </div>`;
+}
+
+function adminProjetos() {
+    const p = emEdicao('projetos');
+    return `
+        <div class="caixa">
+            <h2>${p ? 'Editar projeto' : 'Novo projeto'}</h2>
+            <form class="form" data-form="projeto">
+                <input name="nome" placeholder="nome do projeto" maxlength="80" required value="${esc(p?.nome || '')}">
+                <textarea name="descricao" placeholder="sobre o projeto" maxlength="500" rows="3">${esc(p?.descricao || '')}</textarea>
+                <input name="link" type="url" placeholder="link pra galera ver e avaliar (https://...)" value="${esc(p?.link || '')}">
+                <label>quanto já está pronto: <input name="progresso" type="number" min="0" max="100" value="${Number(p?.progresso) || 0}" style="width:80px"> %</label>
+                <div class="linha"><button class="btn rosa" type="submit">${p ? 'salvar' : 'publicar'}</button>${botaoCancelar('projetos')}</div>
+            </form>
+            <p class="dica">o link do GitHub fica na parte de Perfil.</p>
+        </div>
+        <div class="caixa">
+            <h2>Meus projetos</h2>
+            ${projetos.todos().map(item => `
+                <div class="recado"><div class="corpo">
+                    <b>${esc(item.nome)}</b> (${Number(item.progresso) || 0}%)
+                    ${item.link ? `<br><a href="${esc(linkSeguro(item.link))}" target="_blank" rel="noopener">${esc(item.link)}</a>` : ''}
+                    <div class="meta">${botoesItem('projetos', item.id)}</div>
+                </div></div>`).join('') || mensagemVazia(projetos, 'nenhum projeto ainda')}
+        </div>`;
+}
+
+function adminEnquete() {
+    const votos = resultadoEnquete || DADOS.enquete.opcoes.map(() => 0);
+    return `
+        <div class="caixa">
+            <h2>Enquete</h2>
+            <form class="form" data-form="enquete-admin">
+                <label>pergunta <input name="pergunta" maxlength="120" required value="${esc(DADOS.enquete.pergunta)}"></label>
+                <label>opções (uma por linha, de 2 a 6)
+                    <textarea name="opcoes" rows="6" required>${esc(DADOS.enquete.opcoes.map(([texto]) => texto).join('\n'))}</textarea></label>
+                <button class="btn rosa" type="submit">${icone('disk')} salvar enquete</button>
+                <p class="dica">salvar começa uma enquete nova e zera os votos.</p>
+            </form>
+            <h3>votos agora</h3>
+            ${DADOS.enquete.opcoes.map(([texto], i) => `<div>${esc(texto)}: <b>${votos[i] || 0}</b></div>`).join('')}
+        </div>`;
+}
+
+function adminComunidades() {
+    return `
+        <div class="caixa">
+            <h2>Comunidades</h2>
+            <div class="grade-comunidades">
+                ${DADOS.comunidades.map((c, i) => `
+                    <div class="comunidade grande"><span class="icone">${icone(c.icone, 32)}</span>
+                        <span><b>${esc(c.nome)}</b><br><span class="dica">${numero(Number(c.membros) || 0)} membros</span><br>
+                        <button class="btn-x" data-apagar-comunidade="${i}">sair</button></span></div>`).join('') || '<p class="vazio">nenhuma comunidade</p>'}
+            </div>
+            <h3>entrar numa comunidade</h3>
+            <form class="form" data-form="comunidade">
+                <input name="nome" placeholder="nome da comunidade" maxlength="60" required>
+                <div class="linha">
+                    <select name="icone" aria-label="Ícone">${ICONES_COMUNIDADE.map(ic => `<option value="${ic}">${ic.replace(/_/g, ' ')}</option>`).join('')}</select>
+                    <input name="membros" type="number" min="0" max="99999999" value="1000" style="width:120px" aria-label="Membros"> membros
+                </div>
+                <button class="btn rosa" type="submit">adicionar</button>
+            </form>
+        </div>`;
+}
+
+function adminRecebidos() {
+    return `
+        <div class="caixa">
+            <h2>Desenhos recebidos no Paint <small>(${desenhos.todos().length} · ${desenhosPublicos().length} no mural)</small></h2>
+            <p class="dica" style="margin-top:0">Chegam privados. Clique em "aprovar e publicar" para aparecerem no mural da página de recados.</p>
+            ${desenhosHTML()}
+        </div>
+        <div class="caixa">
+            <h2>Depoimentos <small>(${depoimentos.todos().length}) · só você lê</small></h2>
+            ${depoimentos.todos().map(d => blocoRecado(d, true, 'depoimentos')).join('') || mensagemVazia(depoimentos, 'nenhum depoimento ainda')}
+        </div>
+        <div class="caixa">
+            <h2>Amigos <small>(${amigos.todos().length})</small></h2>
+            ${amigos.todos().length ? `<div class="grade-amigos larga">${amigos.todos().map(a => `
+                <div class="amigo">${fotoAmigo(a)}<b>${esc(a.nome)}</b><button class="btn-x" data-apagar="${a.id}" data-lista="amigos">apagar</button></div>`).join('')}</div>`
+                : mensagemVazia(amigos, 'ninguém entrou ainda')}
+        </div>
+        <div class="caixa">
+            <h2>Zap do Lucas</h2>
+            <p>As mensagens do Zap você apaga dentro do próprio Zap: abra ele logado e clique no x do lado da mensagem. Elas também somem sozinhas depois de 7 dias.</p>
+            <button class="btn" data-abrir="msn">${icone('msn_messenger')} abrir o Zap</button>
+        </div>`;
+}
+
+function adminSpotify() {
+    return `
+        <div class="caixa">
+            <h2>Spotify: minha playlist</h2>
+            ${spotify.conectado
+                ? `<p>${icone('accept')} Conectado! A aba Playlist mostra ${spotify.musicas?.length || 0} músicas da playlist "${esc(spotify.playlist?.nome || 'minha playlist')}"
+                   ${spotify.atualizado ? `(atualizado ${tempoAtras(new Date(spotify.atualizado).getTime())})` : ''}.
+                   Atualiza sozinho a cada 10 minutos.</p>
+                   <button class="btn pequeno" data-comando="conectar-spotify">${icone('arrow_refresh')} conectar de novo</button>`
+                : `<p>Mostre as músicas da sua playlist "minha playlist" na aba Playlist do site. Colocou música lá, ela aparece aqui.</p>
+                   <button class="btn rosa" data-comando="conectar-spotify">${icone('music')} conectar Spotify</button>
+                   <p class="dica">abre o Spotify numa nova aba para você autorizar. Depois, recarregue esta página.</p>`}
         </div>`;
 }
 
@@ -1012,6 +1329,7 @@ const PAGINAS = {
     redes: { titulo: 'Redes sociais', render: paginaRedes },
     diario: { titulo: 'Diário', render: paginaDiario },
     projetos: { titulo: 'Projetos', render: paginaProjetos },
+    avaliacoes: { titulo: 'Avaliações', render: paginaAvaliacoes },
     playlist: { titulo: 'Playlist', render: paginaPlaylist },
     amigos: { titulo: 'Amigos', render: paginaAmigos },
     comunidades: { titulo: 'Comunidades', render: paginaComunidades },
@@ -1196,13 +1514,21 @@ async function votar(opcao) {
         if (error) throw error;
         await carregarEnquete();
     }
-    guardar.salvar('voto', opcao);
+    guardar.salvar('voto', { versao: DADOS.enquete.versao, opcao });
     preencherEnquete();
+}
+
+// meu voto so vale se for da enquete atual
+function meuVoto() {
+    const voto = guardar.ler('voto', null);
+    if (voto === null) return null;
+    if (typeof voto === 'number') return DADOS.enquete.versao ? null : voto;
+    return voto.versao === DADOS.enquete.versao ? voto.opcao : null;
 }
 
 function preencherEnquete() {
     const { pergunta, opcoes } = DADOS.enquete;
-    const voto = guardar.ler('voto', null);
+    const voto = meuVoto();
     const caixa = $('#enquete');
 
     if (voto === null) {
@@ -1304,8 +1630,10 @@ function atualizarPlayer() {
     $('#player-play').title = player.tocando ? 'Pausar' : 'Tocar';
     $('#lista-player').innerHTML = musicas().map((musica, i) => `
         <li class="${i === player.indice && player.comecou ? 'atual' : ''}">
-            <button data-tocar="${i}">${i + 1}. ${esc(musica.titulo)} - ${esc(musica.artista)}</button>
+            <button data-tocar="${i}"><span>${i + 1}. ${esc(musica.artista)} - ${esc(musica.titulo)}</span><span>${duracao(musica.duracao)}</span></button>
         </li>`).join('');
+    const total = musicas().reduce((soma, m) => soma + (Number(m.duracao) || 0), 0);
+    $('#wa-total').textContent = total ? `${duracao(total)}` : '--:--';
     if (rotaAtual().nome === 'playlist') mostrarPagina();
 }
 
@@ -1348,7 +1676,23 @@ function playPause() {
 player.audio.addEventListener('timeupdate', () => {
     const { currentTime, duration } = player.audio;
     $('#player-progresso span').style.width = duration ? (currentTime / duration * 100) + '%' : '0';
+    $('#wa-tempo').textContent = duracao(currentTime * 1000, true);
 });
+
+// tempo em mm:ss
+function duracao(ms, sempre = false) {
+    const total = Math.round((Number(ms) || 0) / 1000);
+    if (!total && !sempre) return '';
+    return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+}
+
+function pararMusica() {
+    player.audio.pause();
+    player.audio.currentTime = 0;
+    player.tocando = false;
+    $('#wa-tempo').textContent = '00:00';
+    atualizarPlayer();
+}
 player.audio.addEventListener('ended', () => {
     const proxima = musicas()[(player.indice + 1) % musicas().length];
     if (proxima.arquivo) tocar(player.indice + 1);
@@ -1432,10 +1776,10 @@ function escolherFoto(arquivo) {
 }
 
 // diminui a foto antes de mandar
-async function prepararFoto(arquivo) {
+async function prepararFoto(arquivo, maximo = 1600) {
     if (arquivo.type === 'image/gif') return { blob: arquivo, tipo: 'image/gif', extensao: 'gif' }; // gif fica igual
     const bitmap = await createImageBitmap(arquivo);
-    const escala = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
+    const escala = Math.min(1, maximo / Math.max(bitmap.width, bitmap.height));
     const canvas = document.createElement('canvas');
     canvas.width = Math.round(bitmap.width * escala);
     canvas.height = Math.round(bitmap.height * escala);
@@ -1459,6 +1803,28 @@ async function postarFoto(dados) {
         throw erro;
     }
     arquivoEscolhido = null;
+}
+
+// manda uma imagem pro supabase e devolve o caminho
+async function subirImagem(arquivo, pasta, maximo) {
+    if (!arquivo.type.startsWith('image/')) throw new Error('isso não é uma imagem');
+    const { blob, tipo, extensao } = await prepararFoto(arquivo, maximo);
+    const caminho = `${pasta}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${extensao}`;
+    const { error } = await nuvem.storage.from('fotos').upload(caminho, blob, { contentType: tipo });
+    if (error) throw error;
+    return caminho;
+}
+
+// foto quadradinha pros amigos
+async function fotoQuadrada(arquivo, lado = 128) {
+    if (!arquivo.type.startsWith('image/')) throw new Error('isso não é uma imagem');
+    const bitmap = await createImageBitmap(arquivo);
+    const menor = Math.min(bitmap.width, bitmap.height);
+    const canvas = document.createElement('canvas');
+    canvas.width = lado;
+    canvas.height = lado;
+    canvas.getContext('2d').drawImage(bitmap, (bitmap.width - menor) / 2, (bitmap.height - menor) / 2, menor, menor, 0, 0, lado, lado);
+    return canvas.toDataURL('image/jpeg', 0.8);
 }
 
 async function apagarFotoPostada(id) {
@@ -1532,7 +1898,8 @@ function abrirJanela(id) {
     janela.classList.remove('minimizada');
     focarJanela(janela);
     if (id === 'paint') iniciarPaint();
-    if (id === 'msn') iniciarMsn();
+    if (id === 'msn') abrirZap();
+    if (id === 'fundos') montarFundos();
     if (id === 'notas') $('#notas-texto').focus();
     if (id === 'lixeira') mostrarLixeira();
     if (id === 'navegador') janela.scrollIntoView({ block: 'nearest' });
@@ -1542,7 +1909,10 @@ function abrirJanela(id) {
 function acaoJanela(janela, acao) {
     if (acao === 'fechar') janela.hidden = true;
     if (acao === 'minimizar') janela.classList.add('minimizada');
-    if (acao === 'maximizar') janela.classList.toggle('maximizada');
+    if (acao === 'maximizar') {
+        janela.classList.toggle('maximizada');
+        janela.style.translate = '';
+    }
     if (acao !== 'maximizar') {
         janela.classList.remove('ativa');
         if (janela.id === 'navegador') janela.classList.remove('maximizada');
@@ -1585,6 +1955,29 @@ document.addEventListener('pointermove', e => {
 });
 document.addEventListener('pointerup', () => { arrastando = null; });
 
+// arrastar a janela principal pela barra azul
+let arrastandoPrincipal = null;
+document.addEventListener('pointerdown', e => {
+    const barra = e.target.closest('#navegador > .barra-titulo');
+    if (!barra || e.target.closest('button')) return;
+    const janela = barra.parentElement;
+    if (janela.classList.contains('maximizada')) return;
+    const [x = 0, y = 0] = (janela.style.translate || '0px 0px').split(' ').map(parseFloat);
+    arrastandoPrincipal = { janela, x0: e.clientX - x, y0: e.clientY - y };
+    barra.setPointerCapture(e.pointerId);
+});
+document.addEventListener('pointermove', e => {
+    if (!arrastandoPrincipal) return;
+    const { janela, x0, y0 } = arrastandoPrincipal;
+    const y = Math.max(e.clientY - y0, -janela.offsetTop);
+    janela.style.translate = `${e.clientX - x0}px ${y}px`;
+});
+document.addEventListener('pointerup', () => { arrastandoPrincipal = null; });
+document.addEventListener('dblclick', e => {
+    const barra = e.target.closest('#navegador > .barra-titulo');
+    if (barra && !e.target.closest('button')) acaoJanela(barra.parentElement, 'maximizar');
+});
+
 
 // --- paint ---
 
@@ -1603,6 +1996,7 @@ function iniciarPaint() {
 
     $('#paleta').innerHTML = CORES_PAINT.map(c => `<button style="background:${c}" data-cor="${c}" title="${c}"></button>`).join('');
     $('#cor-atual').style.background = paint.cor;
+    desenharPaletaPersonalizada();
 
     const ponto = e => {
         const r = canvas.getBoundingClientRect();
@@ -1631,6 +2025,10 @@ function iniciarPaint() {
     };
 
     canvas.addEventListener('pointerdown', e => {
+        if (paint.ferramenta === 'balde') {
+            const p = ponto(e);
+            return balde(p.x, p.y);
+        }
         paint.desenhando = true;
         paint.ultimo = ponto(e);
         canvas.setPointerCapture(e.pointerId);
@@ -1647,6 +2045,238 @@ function iniciarPaint() {
     canvas.addEventListener('pointerleave', () => { $('#paint-coords').textContent = ''; });
 }
 
+function trocarCorPaint(cor) {
+    paint.cor = cor;
+    $('#cor-atual').style.background = cor;
+    if (paint.ferramenta === 'borracha') ferramentaPaint('lapis');
+}
+
+function hexParaRgb(hex) {
+    const n = parseInt(hex.slice(1), 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+function rgbParaHex(r, g, b) {
+    return '#' + [r, g, b].map(v => Math.max(0, Math.min(255, v)).toString(16).padStart(2, '0')).join('');
+}
+
+// balde: pinta a area da mesma cor
+function balde(x, y) {
+    const canvas = $('#paint-canvas');
+    const ctx = canvas.getContext('2d');
+    const { width: w, height: h } = canvas;
+    x = Math.floor(x);
+    y = Math.floor(y);
+    if (x < 0 || y < 0 || x >= w || y >= h) return;
+    const imagem = ctx.getImageData(0, 0, w, h);
+    const d = imagem.data;
+    const visto = new Uint8Array(w * h);
+    const i0 = (y * w + x) * 4;
+    const alvo = [d[i0], d[i0 + 1], d[i0 + 2], d[i0 + 3]];
+    const [r, g, b] = hexParaRgb(paint.cor);
+    const parecido = p => {
+        if (visto[p]) return false;
+        const i = p * 4;
+        return Math.abs(d[i] - alvo[0]) + Math.abs(d[i + 1] - alvo[1]) + Math.abs(d[i + 2] - alvo[2]) + Math.abs(d[i + 3] - alvo[3]) < 60;
+    };
+    const pilha = [[x, y]];
+    while (pilha.length) {
+        let [px, py] = pilha.pop();
+        while (px > 0 && parecido(py * w + px - 1)) px--;
+        let cima = false;
+        let baixo = false;
+        while (px < w && parecido(py * w + px)) {
+            const p = py * w + px;
+            visto[p] = 1;
+            d.set([r, g, b, 255], p * 4);
+            if (py > 0) {
+                const livre = parecido(p - w);
+                if (livre && !cima) pilha.push([px, py - 1]);
+                cima = livre;
+            }
+            if (py < h - 1) {
+                const livre = parecido(p + w);
+                if (livre && !baixo) pilha.push([px, py + 1]);
+                baixo = livre;
+            }
+            px++;
+        }
+    }
+    ctx.putImageData(imagem, 0, 0);
+}
+
+// --- editar cores (igual a do paint do windows) ---
+
+const CORES_BASICAS = [
+    '#ff8080', '#ffff80', '#80ff80', '#00ff80', '#80ffff', '#0080ff', '#ff80c0', '#ff80ff',
+    '#ff0000', '#ffff00', '#80ff00', '#00ff40', '#00ffff', '#0080c0', '#8080c0', '#ff00ff',
+    '#804040', '#ff8040', '#00ff00', '#008080', '#004080', '#8080ff', '#800040', '#ff0080',
+    '#800000', '#ff8000', '#008000', '#008040', '#0000ff', '#0000a0', '#800080', '#8000ff',
+    '#400000', '#804000', '#004000', '#004040', '#000080', '#000040', '#400040', '#400080',
+    '#000000', '#808000', '#808040', '#808080', '#408080', '#c0c0c0', '#400040', '#ffffff',
+];
+
+const editorCores = {
+    h: 0, s: 0, l: 0, hex: '#000000', slot: 0, espectro: null,
+    personalizadas: guardar.ler('cores-personalizadas', Array(16).fill('#ffffff')),
+};
+
+// matiz 0-239, sat e lum 0-240 (escala do windows)
+function hslParaRgb(h, s, l) {
+    const graus = h / 240 * 360;
+    const sat = s / 240;
+    const lum = l / 240;
+    const k = n => (n + graus / 30) % 12;
+    const a = sat * Math.min(lum, 1 - lum);
+    const f = n => lum - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+    return [f(0), f(8), f(4)].map(v => Math.round(v * 255));
+}
+
+function rgbParaHsl(r, g, b) {
+    r /= 255;
+    g /= 255;
+    b /= 255;
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const l = (max + min) / 2;
+    let h = 0;
+    let s = 0;
+    if (max !== min) {
+        const d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
+        else if (max === g) h = (b - r) / d + 2;
+        else h = (r - g) / d + 4;
+        h /= 6;
+    }
+    return [Math.round(h * 240) % 240, Math.round(s * 240), Math.round(l * 240)];
+}
+
+function abrirEditorCores() {
+    abrirJanela('cores');
+    $('#cores-basicas').innerHTML = CORES_BASICAS.map(c => `<button style="background:${c}" data-cor-editor="${c}" title="${c}"></button>`).join('');
+    desenharPersonalizadas();
+    desenharEspectro();
+    definirCorEditor(paint.cor);
+}
+
+function desenharPersonalizadas() {
+    $('#cores-personalizadas').innerHTML = editorCores.personalizadas
+        .map((c, i) => `<button style="background:${c}" data-cor-editor="${c}" data-slot="${i}" class="${i === editorCores.slot ? 'escolhido' : ''}"></button>`).join('');
+}
+
+function desenharEspectro() {
+    const canvas = $('#cores-espectro');
+    const ctx = canvas.getContext('2d');
+    const imagem = ctx.createImageData(canvas.width, canvas.height);
+    for (let y = 0; y < canvas.height; y++) {
+        for (let x = 0; x < canvas.width; x++) {
+            const [r, g, b] = hslParaRgb(x / canvas.width * 239, 240 - y / canvas.height * 240, 120);
+            imagem.data.set([r, g, b, 255], (y * canvas.width + x) * 4);
+        }
+    }
+    editorCores.espectro = imagem;
+}
+
+function desenharEditor() {
+    const { h, s, l } = editorCores;
+    const [r, g, b] = hslParaRgb(h, s, l);
+    editorCores.hex = rgbParaHex(r, g, b);
+    const valores = { h, s, l, r, g, b };
+    $$('#cores [data-campo]').forEach(campo => {
+        if (document.activeElement !== campo) campo.value = valores[campo.dataset.campo];
+    });
+    $('#cores-previa').style.background = editorCores.hex;
+
+    // mira no espectro
+    const canvas = $('#cores-espectro');
+    const ctx = canvas.getContext('2d');
+    ctx.putImageData(editorCores.espectro, 0, 0);
+    const x = h / 239 * canvas.width;
+    const y = (240 - s) / 240 * canvas.height;
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    [[-7, 0, -2, 0], [2, 0, 7, 0], [0, -7, 0, -2], [0, 2, 0, 7]].forEach(([x1, y1, x2, y2]) => {
+        ctx.moveTo(x + x1, y + y1);
+        ctx.lineTo(x + x2, y + y2);
+    });
+    ctx.stroke();
+
+    // barra de luminosidade
+    const lum = $('#cores-lum');
+    const ctxLum = lum.getContext('2d');
+    for (let i = 0; i < lum.height; i++) {
+        ctxLum.fillStyle = rgbParaHex(...hslParaRgb(h, s, 240 - i / lum.height * 240));
+        ctxLum.fillRect(0, i, lum.width, 1);
+    }
+    $('#cores-seta').style.top = ((240 - l) / 240 * lum.height) + 'px';
+}
+
+function definirCorEditor(hex) {
+    [editorCores.h, editorCores.s, editorCores.l] = rgbParaHsl(...hexParaRgb(hex));
+    desenharEditor();
+}
+
+function acaoEditorCores(acao) {
+    if (acao === 'ok') {
+        trocarCorPaint(editorCores.hex);
+        acaoJanela($('#cores'), 'fechar');
+    }
+    if (acao === 'cancelar') acaoJanela($('#cores'), 'fechar');
+    if (acao === 'adicionar') {
+        editorCores.personalizadas[editorCores.slot] = editorCores.hex;
+        editorCores.slot = (editorCores.slot + 1) % editorCores.personalizadas.length;
+        guardar.salvar('cores-personalizadas', editorCores.personalizadas);
+        desenharPersonalizadas();
+        desenharPaletaPersonalizada();
+    }
+}
+
+function desenharPaletaPersonalizada() {
+    $('#paleta-personalizada').innerHTML = editorCores.personalizadas
+        .map(c => `<button style="background:${c}" data-cor="${c}" title="${c}"></button>`).join('');
+}
+
+// clicar e arrastar no espectro e na barra
+function arrastarCor(canvas, aoMover) {
+    const mover = e => {
+        const r = canvas.getBoundingClientRect();
+        aoMover(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)), Math.max(0, Math.min(1, (e.clientY - r.top) / r.height)));
+        desenharEditor();
+    };
+    canvas.addEventListener('pointerdown', e => {
+        canvas.setPointerCapture(e.pointerId);
+        mover(e);
+    });
+    canvas.addEventListener('pointermove', e => {
+        if (e.buttons) mover(e);
+    });
+}
+
+arrastarCor($('#cores-espectro'), (x, y) => {
+    editorCores.h = Math.round(x * 239);
+    editorCores.s = Math.round((1 - y) * 240);
+});
+arrastarCor($('#cores-lum'), (_x, y) => {
+    editorCores.l = Math.round((1 - y) * 240);
+});
+
+$$('#cores [data-campo]').forEach(campo => {
+    campo.addEventListener('input', () => {
+        const valor = Number(campo.value) || 0;
+        const qual = campo.dataset.campo;
+        if ('hsl'.includes(qual)) {
+            editorCores[qual] = Math.max(0, Math.min(qual === 'h' ? 239 : 240, valor));
+        } else {
+            const rgb = hexParaRgb(editorCores.hex);
+            rgb['rgb'.indexOf(qual)] = Math.max(0, Math.min(255, valor));
+            [editorCores.h, editorCores.s, editorCores.l] = rgbParaHsl(...rgb);
+        }
+        desenharEditor();
+    });
+});
+
 function limparPaint() {
     const canvas = $('#paint-canvas');
     const ctx = canvas.getContext('2d');
@@ -1656,6 +2286,7 @@ function limparPaint() {
 
 function ferramentaPaint(nome) {
     if (nome === 'limpar') return confirmar('Paint', 'Apagar todo o desenho?', limparPaint);
+    if (nome === 'cores') return abrirEditorCores();
     if (nome === 'enviar') {
         if (!nuvem) {
             return dialogo({ titulo: 'Paint', icone: 'information', texto: 'Enviar desenhos ainda não está ligado neste site.\nUse o disquete para salvar no seu computador. :)' });
@@ -1679,62 +2310,108 @@ function ferramentaPaint(nome) {
 }
 
 
-// --- msn ---
+// --- zap do lucas ---
+// todo mundo conversa junto, as mensagens somem em 7 dias
 
-let msnIniciado = false;
+const zapEstado = { timer: null, ultimoId: 0, locais: [] };
 
-function msnMensagem(quem, texto, classe = '') {
+function nomeZap() {
+    return souDono ? DADOS.nome : $('#zap-nome').value.trim();
+}
+
+function mensagensZap() {
+    const todas = nuvem ? [...zap.todos()].reverse() : zapEstado.locais;
+    return todas.slice(-100);
+}
+
+function horaZap(m) {
+    return new Date(m.criado_em || Date.now()).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+function desenharZap() {
     const conversa = $('#msn-conversa');
-    const p = document.createElement('p');
-    if (classe) p.className = classe;
-    if (quem) {
-        const nome = document.createElement('span');
-        nome.className = 'quem';
-        nome.textContent = quem + ' diz:';
-        p.append(nome);
+    const noFim = conversa.scrollHeight - conversa.scrollTop - conversa.clientHeight < 40;
+    const apagar = m => (souDono && nuvem ? ` <button class="btn-x" data-apagar="${m.id}" data-lista="zap" title="apagar">x</button>` : '');
+    conversa.innerHTML = `<p><span class="quem dono-zap">${esc(DADOS.nome)} diz:</span>${textoRico(DADOS.zapBoasVindas)}</p>`
+        + mensagensZap().map(m => (m.texto === '/atencao'
+            ? `<p class="sistema">${esc(m.nome)} chamou a atenção!${apagar(m)}</p>`
+            : `<p><span class="quem ${m.dono ? 'dono-zap' : ''}">${esc(m.nome)}${m.dono ? ' ' + icone('award_star_gold_1') : ''} diz: <small>${horaZap(m)}</small></span>${textoRico(m.texto)}${apagar(m)}</p>`)).join('');
+    if (noFim) conversa.scrollTop = conversa.scrollHeight;
+}
+
+async function atualizarZap() {
+    if (!nuvem) return desenharZap();
+    try {
+        await zap.carregar();
+        const ids = zap.todos().map(m => Number(m.id));
+        const novas = zap.todos().filter(m => Number(m.id) > zapEstado.ultimoId);
+        if (zapEstado.ultimoId && novas.some(m => m.texto === '/atencao' && m.nome !== nomeZap())) tremerJanela($('#msn'));
+        zapEstado.ultimoId = Math.max(zapEstado.ultimoId, ...ids, 0);
+        desenharZap();
+    } catch (erro) {
+        console.error(erro);
     }
-    p.insertAdjacentHTML('beforeend', textoRico(texto));
-    conversa.append(p);
-    conversa.scrollTop = conversa.scrollHeight;
 }
 
-function msnResponder(texto, atraso = 1200) {
-    setTimeout(() => { $('#msn-digitando').textContent = `${DADOS.nome} está digitando uma mensagem...`; }, 400);
-    setTimeout(() => {
-        $('#msn-digitando').textContent = '';
-        msnMensagem(DADOS.nome, texto);
-    }, atraso + Math.random() * 1200);
-}
-
-function iniciarMsn() {
-    if (msnIniciado) return $('#msn-texto').focus();
-    msnIniciado = true;
-    msnMensagem(null, `${DADOS.nome} acabou de entrar.`, 'sistema');
-    msnResponder('oiee! :D valeu por visitar meu quarto', 600);
+function abrirZap() {
+    const campo = $('#zap-nome');
+    campo.value = souDono ? DADOS.nome : guardar.ler('nome-zap', '');
+    campo.disabled = souDono;
+    atualizarZap();
+    clearInterval(zapEstado.timer);
+    zapEstado.timer = setInterval(() => {
+        if ($('#msn').hidden) return clearInterval(zapEstado.timer);
+        if (!$('#msn').classList.contains('minimizada')) atualizarZap();
+    }, 5000);
     $('#msn-texto').focus();
 }
 
-function msnEnviar() {
+async function enviarZap(texto) {
+    const nome = nomeZap();
+    if (!nome) {
+        dialogo({ titulo: 'Zap do Lucas', icone: 'information', texto: 'Escreve seu nome antes de mandar mensagem :)' });
+        $('#zap-nome').focus();
+        return false;
+    }
+    if (!souDono && semAcento(nome) === semAcento(DADOS.nome)) {
+        dialogo({ titulo: 'Zap do Lucas', icone: 'error', texto: 'Esse nome é do dono do site. Escolhe outro :P' });
+        return false;
+    }
+    if (!souDono) guardar.salvar('nome-zap', nome);
+    const mensagem = { nome, texto, dono: souDono };
+    if (nuvem) {
+        await zap.adicionar(mensagem);
+        await atualizarZap();
+    } else {
+        zapEstado.locais.push({ ...mensagem, id: Date.now(), criado_em: new Date().toISOString() });
+        desenharZap();
+    }
+    return true;
+}
+
+async function zapMandar() {
     const campo = $('#msn-texto');
     const texto = campo.value.trim();
     if (!texto) return;
-    msnMensagem('Você', texto);
-    campo.value = '';
-    const respostas = DADOS.msnRespostas;
-    let resposta = respostas[Math.floor(Math.random() * respostas.length)];
-    if (/\b(oi|ola|olá|eae|eai|opa|salve)\b/i.test(texto)) resposta = 'oiii, tudo bem? :)';
-    if (/\b(tchau|flw|falou|bjs|xau)\b/i.test(texto)) resposta = 'flw! volta sempre ;)';
-    if (/senha/i.test(texto)) resposta = 'kkkk nem vem, a senha do diário é segredo :P';
-    msnResponder(resposta);
+    try {
+        if (await enviarZap(texto)) campo.value = '';
+    } catch (erro) {
+        erroNuvem(erro);
+    }
 }
 
-function msnAtencao() {
-    const janela = $('#msn');
-    msnMensagem(null, `Você chamou a atenção de ${DADOS.nome}!`, 'sistema');
+async function zapAtencao() {
+    try {
+        if (await enviarZap('/atencao')) tremerJanela($('#msn'));
+    } catch (erro) {
+        erroNuvem(erro);
+    }
+}
+
+function tremerJanela(janela) {
     janela.classList.remove('tremer');
     void janela.offsetWidth; // reinicia a animacao
     janela.classList.add('tremer');
-    msnResponder('AAAH que susto :O', 500);
 }
 
 
@@ -1779,11 +2456,55 @@ function mostrarLixeira() {
 
 // --- comandos dos menus ---
 
-const PAPEIS = ['', 'papel-azul', 'papel-noite', 'papel-rosa'];
+// papeis de parede (imagens/fundos)
+const NOMES_FUNDOS = [
+    'Pôr do sol no carro', 'Azul e preto', 'Basquete', 'Colina com cata-vento', 'Montanha de estrelas',
+    'Campo e espada', 'Fios e cabelo azul', 'Castelo à noite', 'Casinha pixel', 'Aero',
+    'Rosa', 'Dragão', 'Cidade à noite', 'Hora de Aventura', 'Céu e mar',
+    'Fios no céu', 'Gato verde', 'Mangá', 'Deitado na grama', 'Ilha roxa',
+    'Pista colorida', 'Cata-vento à noite', 'Guarda-chuva', 'Fogo e gelo', 'Turma',
+];
 
-function aplicarPapel(indice) {
-    document.body.classList.remove(...PAPEIS.filter(Boolean));
-    if (PAPEIS[indice]) document.body.classList.add(PAPEIS[indice]);
+const FUNDOS = [
+    { id: 'homespace', nome: 'Homespace', arquivo: 'homespace.jpg' },
+    ...NOMES_FUNDOS.map((nome, i) => {
+        const numero = String(i + 1).padStart(2, '0');
+        return { id: `fundo-${numero}`, nome, arquivo: `fundo-${numero}.jpg` };
+    }),
+    { id: 'azul', nome: 'Azul clássico', cor: '#3a6ea5' },
+    { id: 'noite', nome: 'Noite', classe: 'papel-noite' },
+    { id: 'rosa', nome: 'Rosa', classe: 'papel-rosa' },
+];
+
+function aplicarFundo(id) {
+    const fundo = FUNDOS.find(f => f.id === id) || FUNDOS[0];
+    const corpo = document.body;
+    corpo.classList.remove('papel-noite', 'papel-rosa', 'papel-foto');
+    corpo.style.background = '';
+    if (fundo.arquivo) {
+        corpo.classList.add('papel-foto');
+        corpo.style.backgroundImage = `url("imagens/fundos/${fundo.arquivo}")`;
+    }
+    if (fundo.cor) corpo.style.background = fundo.cor;
+    if (fundo.classe) corpo.classList.add(fundo.classe);
+    guardar.salvar('fundo', fundo.id);
+    $$('[data-fundo]').forEach(botao => botao.classList.toggle('ativo', botao.dataset.fundo === fundo.id));
+    const previa = $('#previa-fundo');
+    if (previa) previa.style.background = fundo.arquivo ? `center / cover url("imagens/fundos/${fundo.arquivo}")` : (fundo.cor || '');
+    if (previa && fundo.classe) previa.className = 'tela-monitor ' + fundo.classe;
+    else if (previa) previa.className = 'tela-monitor';
+}
+
+function montarFundos() {
+    const atual = guardar.ler('fundo', 'homespace');
+    $('#lista-fundos').innerHTML = FUNDOS.map(f => `
+        <button class="item-fundo ${f.id === atual ? 'ativo' : ''}" data-fundo="${f.id}" title="${esc(f.nome)}">
+            ${f.arquivo
+                ? `<img src="imagens/fundos/${f.arquivo}" alt="" loading="lazy">`
+                : `<span class="amostra ${f.classe || ''}" style="${f.cor ? `background:${f.cor}` : ''}"></span>`}
+            <span>${esc(f.nome)}</span>
+        </button>`).join('');
+    aplicarFundo(atual);
 }
 
 function aplicarZoom(valor) {
@@ -1850,11 +2571,7 @@ const COMANDOS = {
         guardar.salvar('favoritos', []);
         montarFavoritos();
     },
-    'papel-parede': () => {
-        const proximo = (guardar.ler('papel', 0) + 1) % PAPEIS.length;
-        guardar.salvar('papel', proximo);
-        aplicarPapel(proximo);
-    },
+    'papel-parede': () => abrirJanela('fundos'),
     'limpar-dados': () => confirmar('Excluir histórico',
         nuvem
             ? 'Isso apaga as notas, favoritos e preferências salvos neste navegador.\n(os recados do servidor continuam lá)\nDeseja continuar?'
@@ -1865,20 +2582,25 @@ const COMANDOS = {
         }),
     'ajuda': () => dialogo({
         titulo: 'Ajuda e suporte', icone: 'help',
-        texto: '• Use os botões rosa/azuis para navegar.\n• Deixe recados e depoimentos.\n• Clique nos ícones da área de trabalho para abrir o MSN, o Paint e mais.\n• Arraste as janelas pela barra azul.\n• O diário tem senha. Boa sorte. ;)\n• Emoticons do MSN viram imagem: :) :D :P ;) (L) (Y) (H)',
+        texto: '• Use os botões do topo e do lado para navegar.\n• Deixe recados, depoimentos e entre pros meus amigos.\n• Converse com todo mundo no Zap do Lucas.\n• Desenhe no Paint e mande pra mim.\n• Arraste as janelas pela barra azul.\n• Troque o papel de parede em Ferramentas.\n• Emoticons viram imagem: :) :D :P ;) (L) (Y) (H)',
     }),
     'sobre': () => dialogo({
         titulo: 'Sobre o Quarto do Lucas', icone: 'internet_explorer',
         texto: `QUARTO DO LUCAS\nVersão 1.0 (estilo orkut, 2004–2026)\n\nFeito à mão com HTML, CSS e JavaScript.\nMelhor visualizado em 1024×768. (H)\n\nÍcones: FatCow (CC BY 3.0) · GIFs: GifCities`,
     }),
     'trancar-diario': async () => {
-        if (nuvem) {
-            await nuvem.auth.signOut();
-            return atualizarDono(null);
-        }
-        mudarDiario(false);
-        caixaDiario();
-        if (rotaAtual().nome === 'diario') mostrarPagina();
+        if (!nuvem) return;
+        await nuvem.auth.signOut();
+        return atualizarDono(null);
+    },
+    'cancelar-edicao': () => {
+        edicao = null;
+        mostrarPagina();
+    },
+    'sorte-luucas': () => {
+        const paginas = Object.entries(PAGINAS).filter(([, pagina]) => !pagina.escondida).map(([id]) => id);
+        fecharAba(abaAtiva);
+        ir(paginas[Math.floor(Math.random() * paginas.length)]);
     },
     'mudar-voto': () => {
         guardar.salvar('voto', null);
@@ -1891,22 +2613,14 @@ const COMANDOS = {
     'pular-conexao': () => terminarConexao(),
     'conectar-spotify': () => conectarSpotify().catch(erroNuvem),
     'logoff': () => confirmar('Fazer logoff', 'Tem certeza que deseja fazer logoff?', () => location.reload()),
-    'desligar': () => {
-        $('#menu-iniciar').hidden = true;
-        $('#tela-desligar').hidden = false;
-    },
+    'desligar': () => desligar(),
 };
 
 
 // --- formularios ---
 
 async function entrarNoDiario(dados) {
-    if (!nuvem) {
-        if (dados.senha !== DADOS.senhaDiario) return false;
-        mudarDiario(true);
-        caixaDiario();
-        return true;
-    }
+    if (!nuvem) return false;
     const { data, error } = await nuvem.auth.signInWithPassword({ email: dados.email.trim(), password: dados.senha });
     if (error) {
         if (error.status === 400) return false; // email ou senha errado
@@ -1931,6 +2645,7 @@ async function enviarFormulario(form) {
         if (tipo === 'depoimento') {
             await depoimentos.adicionar({ autor: dados.autor.trim(), texto: dados.texto.trim() });
             mostrarPagina();
+            if (!souDono) dialogo({ titulo: 'Depoimento', icone: 'heart', texto: `Depoimento enviado! Só o ${DADOS.nome} vai ler. (L)` });
         }
         if (tipo === 'diario') {
             await diario.adicionar({ titulo: dados.titulo.trim(), texto: dados.texto.trim() });
@@ -1952,10 +2667,93 @@ async function enviarFormulario(form) {
             dialogo({ titulo: 'Paint', icone: 'email_go', texto: `Desenho enviado! O ${DADOS.nome} vai ver sua arte. (Y)\nSe ele aprovar, ela aparece no mural da página de recados.` });
             if (souDono) mostrarPagina();
         }
-        if (tipo === 'registro') {
-            await registros.adicionar({ texto: dados.texto.trim() });
+        if (tipo === 'registro' || tipo === 'noticia') {
+            const nomeLista = tipo === 'registro' ? 'registros' : 'noticias';
+            const item = emEdicao(nomeLista);
+            if (item) await LISTAS[nomeLista].atualizar(item.id, { texto: dados.texto.trim() });
+            else await LISTAS[nomeLista].adicionar({ texto: dados.texto.trim() });
+            edicao = null;
             preencherRegistros();
             mostrarPagina();
+        }
+        if (tipo === 'projeto') {
+            const link = dados.link.trim();
+            if (link && linkSeguro(link) === '#') {
+                return dialogo({ titulo: 'Projeto', icone: 'error', texto: 'O link tem que começar com http:// ou https://' });
+            }
+            const campos = {
+                nome: dados.nome.trim(),
+                descricao: dados.descricao.trim(),
+                link: link || null,
+                progresso: Math.max(0, Math.min(100, Number(dados.progresso) || 0)),
+            };
+            const item = emEdicao('projetos');
+            if (item) await projetos.atualizar(item.id, campos);
+            else await projetos.adicionar(campos);
+            edicao = null;
+            mostrarPagina();
+        }
+        if (tipo === 'avaliacao') {
+            const campos = { tipo: dados.tipo, titulo: dados.titulo.trim(), nota: Number(dados.nota), comentario: dados.comentario.trim() };
+            if (dados.capa?.size) campos.capa = await subirImagem(dados.capa, 'capas', 600);
+            const item = emEdicao('avaliacoes');
+            if (item) {
+                await avaliacoes.atualizar(item.id, campos);
+                if (campos.capa && item.capa) nuvem.storage.from('fotos').remove([item.capa]).catch(console.error);
+            } else {
+                await avaliacoes.adicionar(campos);
+            }
+            edicao = null;
+            mostrarPagina();
+        }
+        if (tipo === 'perfil') {
+            const valor = {
+                status: dados.status.trim(),
+                foto: DADOS.foto,
+                perfil: linhas(dados.perfil).map(linha => {
+                    const i = linha.indexOf(':');
+                    return i > 0 ? [linha.slice(0, i).trim(), linha.slice(i + 1).trim()] : [linha, ''];
+                }),
+                sobre: dados.sobre.split(/\n\s*\n/).map(p => p.trim()).filter(Boolean),
+                gosto: linhas(dados.gosto),
+                naoGosto: linhas(dados.naoGosto),
+                github: dados.github.trim(),
+            };
+            if (valor.github && linkSeguro(valor.github) === '#') {
+                return dialogo({ titulo: 'Perfil', icone: 'error', texto: 'O link do GitHub tem que começar com https://' });
+            }
+            if (dados.foto?.size) valor.foto = urlFotoPostada(await subirImagem(dados.foto, 'perfil', 600));
+            await salvarConfig('perfil', valor);
+            preencherPerfil();
+            mostrarPagina();
+            dialogo({ titulo: 'Perfil', icone: 'accept', texto: 'Perfil salvo! (Y)' });
+        }
+        if (tipo === 'enquete-admin') {
+            const opcoes = linhas(dados.opcoes).slice(0, 6);
+            if (opcoes.length < 2) {
+                return dialogo({ titulo: 'Enquete', icone: 'error', texto: 'Coloca pelo menos 2 opções.' });
+            }
+            const { error } = await nuvem.rpc('zerar_enquete');
+            if (error) throw error;
+            await salvarConfig('enquete', { versao: Date.now(), pergunta: dados.pergunta.trim(), opcoes });
+            resultadoEnquete = opcoes.map(() => 0);
+            preencherEnquete();
+            mostrarPagina();
+            dialogo({ titulo: 'Enquete', icone: 'accept', texto: 'Enquete nova no ar!' });
+        }
+        if (tipo === 'comunidade') {
+            const nova = { nome: dados.nome.trim(), icone: ICONES_COMUNIDADE.includes(dados.icone) ? dados.icone : 'group', membros: Math.max(0, Number(dados.membros) || 0) };
+            await salvarConfig('comunidades', [...DADOS.comunidades, nova]);
+            mostrarPagina();
+        }
+        if (tipo === 'amigo') {
+            if (!dados.foto?.size) {
+                return dialogo({ titulo: 'Amigos', icone: 'error', texto: 'Escolhe uma foto sua primeiro :)' });
+            }
+            const foto = await fotoQuadrada(dados.foto, 128);
+            await amigos.adicionar({ nome: dados.nome.trim(), foto });
+            mostrarPagina();
+            dialogo({ titulo: 'Amigos', icone: 'user_add', texto: 'Pronto! Agora você aparece nos meus amigos (L)' });
         }
         if (tipo === 'foto') {
             if (!arquivoEscolhido) {
@@ -2002,7 +2800,7 @@ document.addEventListener('click', e => {
     // fecha o menu iniciar
     if (!alvo.closest('#menu-iniciar, #botao-iniciar')) $('#menu-iniciar').hidden = true;
 
-    const el = alvo.closest('[data-abrir], [data-comando], [data-janela], [data-tarefa], [data-aba], [data-fechar-aba], [data-apagar], [data-apagar-foto], [data-publicar], [data-tocar], [data-player], [data-foto], [data-lightbox], [data-ferramenta], [data-cor], [data-notas], [data-lixeira], [data-msn], .emoticons button, [data-sair-guia], [data-dialogo-fechar]');
+    const el = alvo.closest('[data-abrir], [data-comando], [data-janela], [data-tarefa], [data-aba], [data-fechar-aba], [data-apagar], [data-apagar-foto], [data-apagar-comunidade], [data-editar], [data-publicar], [data-tocar], [data-player], [data-foto], [data-lightbox], [data-ferramenta], [data-cor], [data-cor-editor], [data-cores], [data-fundo], [data-notas], [data-lixeira], [data-msn], .emoticons button, [data-sair-guia], [data-dialogo-fechar]');
     if (!el) return;
     const d = el.dataset;
 
@@ -2016,12 +2814,28 @@ document.addEventListener('click', e => {
     if ('dialogoFechar' in d) { $('#fundo-dialogo').hidden = true; return; }
 
     if (d.apagar) {
-        const listas = { recados, depoimentos, diario, registros, desenhos };
+        const lista = LISTAS[d.lista];
         return confirmar('Apagar', 'Tem certeza que quer apagar?', () => {
-            listas[d.lista].remover(d.apagar).then(() => {
+            const item = lista.todos().find(i => String(i.id) === String(d.apagar));
+            if (item?.capa) nuvem?.storage.from('fotos').remove([item.capa]).catch(console.error);
+            lista.remover(d.apagar).then(() => {
+                if (edicao?.id === d.apagar) edicao = null;
                 preencherRegistros();
-                mostrarPagina();
+                if (d.lista === 'zap') desenharZap();
+                else mostrarPagina();
             }, erroNuvem);
+        });
+    }
+    if (d.editar) {
+        edicao = { lista: d.editar, id: d.id };
+        mostrarPagina();
+        $('#central form')?.scrollIntoView({ block: 'center' });
+        return;
+    }
+    if (d.apagarComunidade) {
+        return confirmar('Apagar', 'Sair dessa comunidade?', () => {
+            const lista = DADOS.comunidades.filter((_, i) => i !== Number(d.apagarComunidade));
+            salvarConfig('comunidades', lista).then(mostrarPagina, erroNuvem);
         });
     }
     if (d.publicar) {
@@ -2042,6 +2856,13 @@ document.addEventListener('click', e => {
     if (d.player === 'tocar') return playPause();
     if (d.player === 'anterior') return tocar(player.indice - 1);
     if (d.player === 'proxima') return tocar(player.indice + 1);
+    if (d.player === 'parar') return pararMusica();
+    if (d.player === 'eq' || d.player === 'pl') {
+        const painel = $(d.player === 'eq' ? '#wa-eq' : '#wa-playlist');
+        painel.hidden = !painel.hidden;
+        el.classList.toggle('ativo', !painel.hidden);
+        return;
+    }
 
     if (d.foto) return abrirFoto(d.album, Number(d.foto));
     if (d.lightbox === 'fechar') { $('#lightbox').hidden = true; return; }
@@ -2050,11 +2871,15 @@ document.addEventListener('click', e => {
 
     if (d.ferramenta) return ferramentaPaint(d.ferramenta);
     if (d.cor) {
-        paint.cor = d.cor;
-        $('#cor-atual').style.background = d.cor;
-        if (paint.ferramenta === 'borracha') ferramentaPaint('lapis');
+        trocarCorPaint(d.cor);
         return;
     }
+    if (d.corEditor) {
+        if (d.slot !== undefined) editorCores.slot = Number(d.slot);
+        return definirCorEditor(d.corEditor);
+    }
+    if (d.cores) return acaoEditorCores(d.cores);
+    if (d.fundo) return aplicarFundo(d.fundo);
 
     if (d.notas) return acaoNotas(d.notas);
     if (d.lixeira === 'esvaziar') {
@@ -2067,7 +2892,7 @@ document.addEventListener('click', e => {
         guardar.salvar('lixeira', DADOS.lixeira);
         return mostrarLixeira();
     }
-    if (d.msn === 'atencao') return msnAtencao();
+    if (d.msn === 'atencao') return zapAtencao();
 
     // botoes de emoticon
     if (el.matches('.emoticons button')) {
@@ -2093,7 +2918,7 @@ document.addEventListener('submit', e => {
     e.preventDefault();
 
     if (form.id === 'form-endereco') return abrirEndereco($('#endereco').value);
-    if (form.id === 'msn-form') return msnEnviar();
+    if (form.id === 'msn-form') return zapMandar();
     if (form.matches('[data-busca]')) {
         const termo = form.querySelector('input').value.trim();
         if (abaAtiva !== 'site') fecharAba(abaAtiva);
@@ -2107,9 +2932,13 @@ document.addEventListener('submit', e => {
 $('#msn-texto').addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
-        msnEnviar();
+        zapMandar();
     }
 });
+
+// pausa as novidades quando o mouse passa em cima
+document.addEventListener('mouseover', e => e.target.closest?.('.noticias marquee')?.stop());
+document.addEventListener('mouseout', e => e.target.closest?.('.noticias marquee')?.start());
 
 document.addEventListener('keydown', e => {
     if (!$('#lightbox').hidden) {
@@ -2146,14 +2975,46 @@ $('#botao-iniciar').addEventListener('click', () => {
     $('#menu-iniciar').hidden = !$('#menu-iniciar').hidden;
 });
 
-$('#tela-desligar').addEventListener('click', e => {
-    const tela = e.currentTarget;
-    tela.innerHTML = '<div>Iniciando o Windows...</div>';
+// --- desligar e ligar o pc ---
+
+const LOGO_WINDOWS = `
+    <div class="logo-windows">
+        <span class="bandeira grande" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+        <span class="nome-windows">Microsoft<br><b>Windows</b><sup>xp</sup></span>
+    </div>`;
+
+function desligar() {
+    $('#menu-iniciar').hidden = true;
+    player.audio.pause();
+    const tela = $('#tela-desligar');
+    tela.dataset.estado = 'desligando';
+    tela.className = 'tela-desligar desligando';
+    tela.innerHTML = `${LOGO_WINDOWS}<p class="piscar">O Windows está sendo desligado...</p>`;
+    tela.hidden = false;
+    setTimeout(() => {
+        tela.dataset.estado = 'desligado';
+        tela.className = 'tela-desligar seguro';
+        tela.innerHTML = '<div>Agora é seguro desligar o computador.<small>(clique em qualquer lugar para ligar de novo)</small></div>';
+    }, 2600);
+}
+
+function ligar() {
+    const tela = $('#tela-desligar');
+    if (tela.dataset.estado !== 'desligado') return;
+    tela.dataset.estado = 'ligando';
+    tela.className = 'tela-desligar boot';
+    tela.innerHTML = `${LOGO_WINDOWS}<div class="barra-boot"><span></span></div><small>Copyright © Quarto do Lucas</small>`;
+    setTimeout(() => {
+        tela.className = 'tela-desligar bem-vindo';
+        tela.innerHTML = '<div class="carregando-bem-vindo"></div><h1>Bem-vindo</h1>';
+    }, 3200);
     setTimeout(() => {
         tela.hidden = true;
-        tela.innerHTML = '<div>Agora é seguro desligar o computador.<small>(clique em qualquer lugar para ligar de novo)</small></div>';
-    }, 1500);
-});
+        tela.dataset.estado = '';
+    }, 5600);
+}
+
+$('#tela-desligar').addEventListener('click', ligar);
 
 $('#player-progresso').addEventListener('click', e => {
     const { duration } = player.audio;
@@ -2237,7 +3098,16 @@ $('#contador').addEventListener('click', () => {
 
 // arrastar foto pro admin
 document.addEventListener('change', e => {
-    if (e.target.matches('#soltar-foto input[type=file]')) escolherFoto(e.target.files[0]);
+    if (e.target.matches('#soltar-foto input[type=file]')) return escolherFoto(e.target.files[0]);
+    // mostra a foto escolhida nos outros formularios
+    if (e.target.matches('.form input[type=file]')) {
+        const arquivo = e.target.files[0];
+        const lugar = e.target.closest('label')?.querySelector('.previa-arquivo, .arquivo-escolhido');
+        if (!lugar || !arquivo) return;
+        lugar.innerHTML = arquivo.type.startsWith('image/')
+            ? `<img src="${URL.createObjectURL(arquivo)}" alt=""><br>${esc(arquivo.name)}`
+            : esc(arquivo.name);
+    }
 });
 document.addEventListener('dragover', e => {
     const zona = e.target.closest('#soltar-foto');
@@ -2266,7 +3136,7 @@ function relogio() {
 function iniciar() {
     preencherIcones();
     $$('.emoticons[data-preencher]').forEach(el => { el.innerHTML = botoesEmoticons(); });
-    aplicarPapel(guardar.ler('papel', 0));
+    aplicarFundo(guardar.ler('fundo', 'homespace'));
     aplicarZoom(guardar.ler('zoom', 1));
     preencherPerfil();
     caixaDiario();
@@ -2299,11 +3169,15 @@ async function carregarDaNuvem() {
         setTimeout(() => atualizarDono(sessao).catch(erroNuvem));
     });
     try {
-        await Promise.all([recados.carregar(), depoimentos.carregar(), registros.carregar(), fotosPostadas.carregar(), desenhos.carregar(), carregarEnquete()]);
+        await carregarConfig();
+        await Promise.all([recados.carregar(), registros.carregar(), fotosPostadas.carregar(), desenhos.carregar(),
+            noticias.carregar(), projetos.carregar(), avaliacoes.carregar(), amigos.carregar(), carregarEnquete()]);
     } catch (erro) {
-        [recados, depoimentos, registros, fotosPostadas, desenhos].forEach(l => { l.pronto = true; });
+        [recados, registros, fotosPostadas, desenhos, noticias, projetos, avaliacoes, amigos].forEach(l => { l.pronto = true; });
         erroNuvem(erro);
     }
+    depoimentos.pronto = true;
+    preencherPerfil();
     preencherEnquete();
     preencherRegistros();
     mostrarPagina();

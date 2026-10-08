@@ -68,9 +68,11 @@ create policy "todos escrevem" on public.recados for insert with check (true);
 create policy "dono apaga" on public.recados for delete using (public.eh_dono());
 
 drop policy if exists "todos leem" on public.depoimentos;
+drop policy if exists "dono le" on public.depoimentos;
 drop policy if exists "todos escrevem" on public.depoimentos;
 drop policy if exists "dono apaga" on public.depoimentos;
-create policy "todos leem" on public.depoimentos for select using (true);
+-- depoimento so eu leio
+create policy "dono le" on public.depoimentos for select using (public.eh_dono());
 create policy "todos escrevem" on public.depoimentos for insert with check (true);
 create policy "dono apaga" on public.depoimentos for delete using (public.eh_dono());
 
@@ -264,3 +266,169 @@ alter table public.spotify add column if not exists playlist jsonb;
 
 alter table public.spotify enable row level security;
 revoke all on public.spotify from anon, authenticated;
+
+
+-- configuracoes que mudo pelo admin (perfil, enquete, comunidades)
+create table if not exists public.config (
+    chave text primary key check (chave in ('perfil', 'enquete', 'comunidades')),
+    valor jsonb not null,
+    atualizado timestamptz not null default now()
+);
+
+alter table public.config enable row level security;
+
+drop policy if exists "todos leem" on public.config;
+drop policy if exists "dono escreve" on public.config;
+drop policy if exists "dono muda" on public.config;
+drop policy if exists "dono apaga" on public.config;
+create policy "todos leem" on public.config for select using (true);
+create policy "dono escreve" on public.config for insert with check (public.eh_dono());
+create policy "dono muda" on public.config for update using (public.eh_dono()) with check (public.eh_dono());
+create policy "dono apaga" on public.config for delete using (public.eh_dono());
+
+grant select on public.config to anon, authenticated;
+grant insert, update, delete on public.config to authenticated;
+
+-- zera a enquete quando troco as perguntas
+create or replace function public.zerar_enquete()
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+    if not public.eh_dono() then
+        raise exception 'so o dono';
+    end if;
+    delete from public.votos where true;
+end;
+$$;
+
+revoke execute on function public.zerar_enquete() from anon;
+grant execute on function public.zerar_enquete() to authenticated;
+
+
+-- novidades do quarto
+create table if not exists public.noticias (
+    id bigint generated always as identity primary key,
+    texto text not null check (char_length(btrim(texto)) between 1 and 300),
+    criado_em timestamptz not null default now()
+);
+
+-- projetos
+create table if not exists public.projetos (
+    id bigint generated always as identity primary key,
+    nome text not null check (char_length(btrim(nome)) between 1 and 80),
+    descricao text not null default '' check (char_length(descricao) <= 500),
+    link text check (link is null or link ~* '^https?://'),
+    progresso int not null default 0 check (progresso between 0 and 100),
+    criado_em timestamptz not null default now()
+);
+
+-- avaliacoes de livros, series e jogos
+create table if not exists public.avaliacoes (
+    id bigint generated always as identity primary key,
+    tipo text not null check (tipo in ('livro', 'serie', 'jogo')),
+    titulo text not null check (char_length(btrim(titulo)) between 1 and 80),
+    nota int not null check (nota between 1 and 5),
+    comentario text not null default '' check (char_length(comentario) <= 500),
+    capa text,
+    criado_em timestamptz not null default now()
+);
+
+-- essas tres todo mundo le e so eu escrevo
+do $$
+declare
+    tabela text;
+begin
+    foreach tabela in array array['noticias', 'projetos', 'avaliacoes'] loop
+        execute format('alter table public.%I enable row level security', tabela);
+        execute format('drop policy if exists "todos leem" on public.%I', tabela);
+        execute format('drop policy if exists "dono escreve" on public.%I', tabela);
+        execute format('drop policy if exists "dono muda" on public.%I', tabela);
+        execute format('drop policy if exists "dono apaga" on public.%I', tabela);
+        execute format('create policy "todos leem" on public.%I for select using (true)', tabela);
+        execute format('create policy "dono escreve" on public.%I for insert with check (public.eh_dono())', tabela);
+        execute format('create policy "dono muda" on public.%I for update using (public.eh_dono()) with check (public.eh_dono())', tabela);
+        execute format('create policy "dono apaga" on public.%I for delete using (public.eh_dono())', tabela);
+        execute format('grant select on public.%I to anon, authenticated', tabela);
+        execute format('grant insert, update, delete on public.%I to authenticated', tabela);
+    end loop;
+end;
+$$;
+
+-- registros tambem da pra editar
+drop policy if exists "dono muda" on public.registros;
+create policy "dono muda" on public.registros for update using (public.eh_dono()) with check (public.eh_dono());
+grant update on public.registros to authenticated;
+
+
+-- amigos (a pessoa se adiciona com foto, eu apago)
+create table if not exists public.amigos (
+    id bigint generated always as identity primary key,
+    nome text not null check (char_length(btrim(nome)) between 1 and 30),
+    foto text not null check (foto like 'data:image/jpeg;base64,%' and char_length(foto) <= 80000),
+    criado_em timestamptz not null default now()
+);
+
+drop trigger if exists antispam on public.amigos;
+create trigger antispam before insert on public.amigos
+    for each row execute function public.antispam();
+
+alter table public.amigos enable row level security;
+
+drop policy if exists "todos leem" on public.amigos;
+drop policy if exists "todos entram" on public.amigos;
+drop policy if exists "dono apaga" on public.amigos;
+create policy "todos leem" on public.amigos for select using (true);
+create policy "todos entram" on public.amigos for insert with check (true);
+create policy "dono apaga" on public.amigos for delete using (public.eh_dono());
+
+grant select, insert on public.amigos to anon, authenticated;
+grant delete on public.amigos to authenticated;
+
+
+-- zap do lucas (chat aberto, mensagem some em 7 dias)
+create table if not exists public.zap (
+    id bigint generated always as identity primary key,
+    nome text not null check (char_length(btrim(nome)) between 1 and 20),
+    texto text not null check (char_length(btrim(texto)) between 1 and 300),
+    dono boolean not null default false,
+    criado_em timestamptz not null default now()
+);
+
+create or replace function public.zap_limpeza()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    recentes int;
+begin
+    new.criado_em := now();
+    delete from public.zap where criado_em < now() - interval '7 days';
+    select count(*) into recentes from public.zap where criado_em > now() - interval '1 minute';
+    if recentes >= 30 then
+        raise exception 'muitas mensagens seguidas, tente mais tarde';
+    end if;
+    return new;
+end;
+$$;
+
+drop trigger if exists limpeza on public.zap;
+create trigger limpeza before insert on public.zap
+    for each row execute function public.zap_limpeza();
+
+alter table public.zap enable row level security;
+
+drop policy if exists "ultimos 7 dias" on public.zap;
+drop policy if exists "todos mandam" on public.zap;
+drop policy if exists "dono apaga" on public.zap;
+create policy "ultimos 7 dias" on public.zap for select using (criado_em > now() - interval '7 days');
+-- so eu mando mensagem marcada como dono
+create policy "todos mandam" on public.zap for insert with check (dono = false or public.eh_dono());
+create policy "dono apaga" on public.zap for delete using (public.eh_dono());
+
+grant select, insert on public.zap to anon, authenticated;
+grant delete on public.zap to authenticated;

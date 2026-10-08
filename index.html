@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://sdwlmxvpkexggupmrzmb.supabase.co https://ws.audioscrobbler.com; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
     <title>QUARTO DO LUCAS</title>
     <meta name="description" content="O quarto do Lucas na internet: recados, álbuns, diário e playlists no estilo orkut.">
     <link rel="icon" href="imagens/icones/16/internet_explorer.png">
@@ -15,10 +17,11 @@
     
     <div class="icones-desktop">
         <button class="icone-desktop" data-abrir="navegador"><img class="ico ico32" data-ico="internet_explorer" data-tam="32" alt="">Quarto do Lucas</button>
-        <button class="icone-desktop" data-abrir="msn"><img class="ico ico32" data-ico="msn_messenger" data-tam="32" alt="">MSN Messenger</button>
+        <button class="icone-desktop" data-abrir="msn"><img class="ico ico32" data-ico="msn_messenger" data-tam="32" alt="">Zap do Lucas</button>
         <button class="icone-desktop" data-abrir="paint"><img class="ico ico32" data-ico="palette" data-tam="32" alt="">Paint</button>
         <button class="icone-desktop" data-abrir="notas"><img class="ico ico32" data-ico="note" data-tam="32" alt="">Bloco de notas</button>
         <button class="icone-desktop" data-abrir="lixeira"><img class="ico ico32" data-ico="bin_recycle" data-tam="32" alt="">Lixeira</button>
+        <button class="icone-desktop" data-abrir="fundos"><img class="ico ico32" data-ico="monitor_wallpaper" data-tam="32" alt="">Papel de parede</button>
     </div>
 
     
@@ -105,19 +108,20 @@
             <button class="icone-btn" data-comando="favoritar" title="Adicionar aos favoritos"><img class="ico" data-ico="award_star_gold_1" alt=""></button>
             <button class="icone-btn" data-comando="imprimir" title="Imprimir"><img class="ico" data-ico="printer" alt=""></button>
             <a class="icone-btn" href="#recados" title="Recados"><img class="ico" data-ico="email" alt=""></a>
-            <button class="icone-btn" data-abrir="msn" title="MSN Messenger"><img class="ico" data-ico="msn_messenger" alt=""></button>
+            <button class="icone-btn" data-abrir="msn" title="Zap do Lucas"><img class="ico" data-ico="msn_messenger" alt=""></button>
         </div>
 
         <div class="area-pagina">
             <!-- conteúdo do site -->
             <div class="pagina-site" id="pagina-site">
                 <div class="topo">
-                    <a href="#inicio" class="marca"><img class="globo" src="imagens/gifs/globo.gif" alt="" width="64" height="64"><img class="logo" src="quarto__do_lucas_letras.png" alt="Quarto do Lucas"></a>
+                    <a href="#inicio" class="marca"><img class="globo" src="imagens/gifs/globo.gif" alt="" width="64" height="64"><span class="logo-3d">Quarto do Lucas</span></a>
                     <nav class="nav">
                         <a href="#inicio" data-rota="inicio">INÍCIO</a>
                         <a href="#perfil" data-rota="perfil">Perfil</a>
                         <a href="#albuns" data-rota="albuns">Álbuns</a>
                         <a href="#redes" data-rota="redes">Redes Sociais</a>
+                        <a href="#avaliacoes" data-rota="avaliacoes">Avaliações</a>
                         <a href="#diario" data-rota="diario">Diário</a>
                         <form data-busca>
                             <input type="search" placeholder="Pesquisar" aria-label="Pesquisar no site">
@@ -143,6 +147,7 @@
                             <a href="#photodump" data-rota="photodump"><img class="ico" data-ico="camera" alt=""> Photodump.</a>
                             <a href="#projetos" data-rota="projetos"><img class="ico" data-ico="wrench" alt=""> Projetos.</a>
                             <a href="#playlist" data-rota="playlist"><img class="ico" data-ico="music" alt=""> Playlist.</a>
+                            <a href="#avaliacoes" data-rota="avaliacoes"><img class="ico" data-ico="award_star_gold_1" alt=""> Avaliações.</a>
                             <a href="#recados" data-rota="recados"><img class="ico" data-ico="email" alt=""> Recados.</a>
                             <a href="#amigos" data-rota="amigos"><img class="ico" data-ico="group" alt=""> Amigos.</a>
                             <a href="#comunidades" data-rota="comunidades"><img class="ico" data-ico="comments" alt=""> Comunidades.</a>
@@ -181,16 +186,38 @@
                                 <h3><img src="imagens/gifs/cd.gif" alt="" width="32" height="26" class="gif-titulo"> Minha playlist</h3>
                                 <a class="mini-link" href="#playlist">ver tudo</a>
                             </div>
-                            <div class="player" id="player">
-                                <div class="tela-player parado"><span class="rolar" id="player-titulo">♪ aperte o play ♪</span></div>
-                                <div class="equalizador"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-                                <div class="progresso-player" id="player-progresso" title="Pular para..."><span></span></div>
+                            <div class="winamp" id="player">
+                                <div class="wa-barra"><span>METRIX</span><span class="wa-enfeite">▫ ▫ ✕</span></div>
+                                <div class="wa-corpo">
+                                    <div class="wa-lcd">
+                                        <div class="wa-rotulos"><span>ST.</span><span>MIN</span><span>SEC</span></div>
+                                        <div class="wa-tempo" id="wa-tempo">00:00</div>
+                                        <div class="equalizador"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+                                    </div>
+                                    <div class="wa-direita">
+                                        <div class="tela-player parado"><span class="rolar" id="player-titulo">♪ aperte o play ♪</span></div>
+                                        <div class="wa-info"><span>128 KBPS</span><span>44 KHZ</span></div>
+                                        <div class="progresso-player" id="player-progresso" title="Pular para..."><span></span></div>
+                                    </div>
+                                </div>
                                 <div class="controles-player">
                                     <button data-player="anterior" title="Anterior"><img class="ico" data-ico="control_start" alt=""></button>
                                     <button data-player="tocar" class="principal" id="player-play" title="Tocar">▶</button>
+                                    <button data-player="parar" title="Parar"><img class="ico" data-ico="control_stop" alt=""></button>
                                     <button data-player="proxima" title="Próxima"><img class="ico" data-ico="control_end" alt=""></button>
+                                    <button data-player="eq" class="wa-botao" title="Equalizador">EQ</button>
+                                    <button data-player="pl" class="wa-botao ativo" title="Playlist">PL</button>
                                 </div>
-                                <ul class="lista-player" id="lista-player"></ul>
+                                <div class="wa-eq" id="wa-eq" hidden>
+                                    <div class="wa-titulo">EQUALIZER</div>
+                                    <div class="wa-eq-topo"><span class="wa-led">ON</span><span class="wa-led">AUTO</span><span class="wa-curva"></span></div>
+                                    <div class="wa-sliders"><label><input type="range" min="-20" max="20" value="6" aria-label="60"><small>60</small></label><label><input type="range" min="-20" max="20" value="9" aria-label="170"><small>170</small></label><label><input type="range" min="-20" max="20" value="12" aria-label="310"><small>310</small></label><label><input type="range" min="-20" max="20" value="14" aria-label="600"><small>600</small></label><label><input type="range" min="-20" max="20" value="8" aria-label="1K"><small>1K</small></label><label><input type="range" min="-20" max="20" value="4" aria-label="3K"><small>3K</small></label><label><input type="range" min="-20" max="20" value="-6" aria-label="6K"><small>6K</small></label><label><input type="range" min="-20" max="20" value="-8" aria-label="12K"><small>12K</small></label><label><input type="range" min="-20" max="20" value="-2" aria-label="14K"><small>14K</small></label><label><input type="range" min="-20" max="20" value="10" aria-label="16K"><small>16K</small></label></div>
+                                </div>
+                                <div class="wa-playlist" id="wa-playlist">
+                                    <div class="wa-titulo">PLAYLIST</div>
+                                    <ul class="lista-player" id="lista-player"></ul>
+                                    <div class="wa-rodape"><span>ADD</span><span>SUB</span><span>SEL</span><span>OPT</span><b id="wa-total">--:--</b></div>
+                                </div>
                             </div>
                         </div>
 
@@ -234,19 +261,22 @@
 
             
             <div class="pagina-nova-guia" id="pagina-nova-guia" hidden>
-                <h1><img class="ico ico32" data-ico="internet_explorer" data-tam="32" alt=""> Nova guia</h1>
-                <form data-busca>
-                    <input type="search" placeholder="Pesquisar no Quarto do Lucas..." aria-label="Pesquisar">
-                    <button class="btn" type="submit">Pesquisar</button>
+                <div class="luucas" aria-label="Luucas"><span>L</span><span>u</span><span>u</span><span>c</span><span>a</span><span>s</span><sup>BETA</sup></div>
+                <form data-busca class="busca-luucas">
+                    <input type="search" maxlength="100" aria-label="Pesquisar no Luucas">
+                    <div>
+                        <button class="btn" type="submit">Pesquisa Luucas</button>
+                        <button class="btn" type="button" data-comando="sorte-luucas">Estou com sorte</button>
+                    </div>
                 </form>
-                <div class="atalhos">
-                    <a href="#inicio" data-sair-guia><img class="ico ico32" data-ico="house" data-tam="32" alt="">Início</a>
-                    <a href="#perfil" data-sair-guia><img class="ico ico32" data-ico="user" data-tam="32" alt="">Perfil</a>
-                    <a href="#albuns" data-sair-guia><img class="ico ico32" data-ico="photo_album" data-tam="32" alt="">Álbuns</a>
-                    <a href="#recados" data-sair-guia><img class="ico ico32" data-ico="email" data-tam="32" alt="">Recados</a>
-                    <a href="#playlist" data-sair-guia><img class="ico ico32" data-ico="music" data-tam="32" alt="">Playlist</a>
-                    <a href="#diario" data-sair-guia><img class="ico ico32" data-ico="lock" data-tam="32" alt="">Diário</a>
-                </div>
+                <p class="links-luucas">
+                    <a href="#inicio" data-sair-guia>Início</a> -
+                    <a href="#photodump" data-sair-guia>Fotos</a> -
+                    <a href="#recados" data-sair-guia>Recados</a> -
+                    <a href="#playlist" data-sair-guia>Playlist</a> -
+                    <a href="#avaliacoes" data-sair-guia>Avaliações</a>
+                </p>
+                <p class="rodape-luucas">©2006 Luucas - Pesquisando o Quarto do Lucas inteiro</p>
             </div>
         </div>
 
@@ -275,6 +305,7 @@
                 <button data-ferramenta="lapis" class="ativo" title="Lápis"><img class="ico" data-ico="pencil" alt=""></button>
                 <button data-ferramenta="pincel" title="Pincel"><img class="ico" data-ico="brushes" alt=""></button>
                 <button data-ferramenta="spray" title="Spray"><img class="ico" data-ico="spray" alt=""></button>
+                <button data-ferramenta="balde" title="Balde de tinta"><img class="ico" data-ico="paintcan" alt=""></button>
                 <button data-ferramenta="borracha" title="Borracha"><img class="ico" data-ico="draw_eraser" alt=""></button>
                 <button data-ferramenta="limpar" title="Limpar tudo"><img class="ico" data-ico="bin" alt=""></button>
                 <button data-ferramenta="salvar" title="Salvar como PNG"><img class="ico" data-ico="disk" alt=""></button>
@@ -297,14 +328,18 @@
         </form>
         <div class="paint-cores">
             <div class="cor-atual" id="cor-atual"></div>
-            <div class="paleta" id="paleta"></div>
+            <div>
+                <div class="paleta" id="paleta"></div>
+                <div class="paleta" id="paleta-personalizada" title="suas cores"></div>
+            </div>
+            <button class="btn pequeno" data-ferramenta="cores" title="Editar cores"><img class="ico" data-ico="palette" alt=""> editar cores...</button>
         </div>
     </div>
     <div class="rodape-app"><span>Para obter ajuda, clique em INICIAR e no menu Ajuda.</span><span id="paint-coords"></span></div>
 </div>
 
 
-<div class="janela janela-app" id="msn" data-titulo="Conversa - MSN" data-icone="msn_messenger" hidden style="left:auto; right:30px; top:90px;">
+<div class="janela janela-app" id="msn" data-titulo="Zap do Lucas" data-icone="msn_messenger" hidden style="left:auto; right:30px; top:90px;">
     <div class="barra-titulo">
         <span><img class="ico" data-ico="msn_messenger" alt=""> Conversa - ZAP DO LUCAS</span>
         <div class="botoes">
@@ -315,18 +350,18 @@
     <div class="msn-topo">
         <img class="avatar-msn" src="imagens/gifs/computador.gif" alt="" width="48" height="48">
         <div>
-            <b data-nome></b> <span style="color:#2fb32f">● (Online)</span>
-            <small data-status></small>
+            <b>Zap do Lucas</b> <span style="color:#2fb32f">● (Online)</span>
+            <small>todo mundo conversa aqui · as mensagens somem em 7 dias</small>
         </div>
     </div>
     <div class="msn-conversa" id="msn-conversa"></div>
-    <div class="msn-digitando" id="msn-digitando"></div>
+    <div class="zap-nome"><label for="zap-nome">seu nome:</label> <input id="zap-nome" maxlength="20" placeholder="como quer ser chamado?"></div>
     <div class="msn-acoes">
         <button class="btn pequeno" data-msn="atencao" title="Chamar a atenção"><img class="ico" data-ico="bell" alt=""> Chamar a atenção</button>
         <span class="emoticons" data-alvo="msn-texto" data-preencher></span>
     </div>
     <form class="msn-form" id="msn-form" style="margin-top:6px">
-        <textarea id="msn-texto" placeholder="Digite sua mensagem..." maxlength="400"></textarea>
+        <textarea id="msn-texto" placeholder="Digite sua mensagem..." maxlength="300"></textarea>
         <button class="btn" type="submit">Enviar</button>
     </form>
 </div>
@@ -369,16 +404,74 @@
 </div>
 
 
+<div class="janela janela-app" id="fundos" data-titulo="Propriedades de Vídeo" data-icone="monitor_wallpaper" hidden style="left:180px; top:50px;">
+    <div class="barra-titulo">
+        <span><img class="ico" data-ico="monitor_wallpaper" alt=""> Propriedades de Vídeo</span>
+        <div class="botoes">
+            <button data-janela="minimizar" title="Minimizar">_</button>
+            <button data-janela="fechar" class="fechar" title="Fechar">✕</button>
+        </div>
+    </div>
+    <div class="corpo-app">
+        <div class="monitor"><div class="tela-monitor" id="previa-fundo"></div><div class="pe-monitor"></div></div>
+        <p class="rotulo-fundos">Papel de parede:</p>
+        <div class="lista-fundos" id="lista-fundos"></div>
+    </div>
+    <div class="rodape-app"><span>clique num fundo pra usar</span></div>
+</div>
+
+
+<div class="janela janela-app" id="cores" data-titulo="Editar cores" data-icone="palette" hidden style="left:220px; top:90px;">
+    <div class="barra-titulo">
+        <span>Editar cores</span>
+        <div class="botoes">
+            <button data-janela="fechar" class="fechar" title="Fechar">✕</button>
+        </div>
+    </div>
+    <div class="corpo-app cores-corpo">
+        <div class="cores-esquerda">
+            <p><u>C</u>ores básicas:</p>
+            <div class="grade-cores" id="cores-basicas"></div>
+            <p>Cores <u>p</u>ersonalizadas:</p>
+            <div class="grade-cores" id="cores-personalizadas"></div>
+            <button class="btn-win" disabled>Definir cores personalizadas &gt;&gt;</button>
+            <div class="linha-botoes">
+                <button class="btn-win" data-cores="ok">OK</button>
+                <button class="btn-win" data-cores="cancelar">Cancelar</button>
+            </div>
+        </div>
+        <div class="cores-direita">
+            <div class="cores-quadros">
+                <canvas id="cores-espectro" width="176" height="176"></canvas>
+                <div class="cores-lum-caixa"><canvas id="cores-lum" width="12" height="176"></canvas><span id="cores-seta">◀</span></div>
+            </div>
+            <div class="cores-valores">
+                <div class="cores-amostra"><div id="cores-previa"></div><span>Cor|<u>S</u>ólida</span></div>
+                <div class="cores-campos">
+                    <label>Mati<u>z</u>: <input data-campo="h" inputmode="numeric" maxlength="3"></label>
+                    <label><u>V</u>ermelho: <input data-campo="r" inputmode="numeric" maxlength="3"></label>
+                    <label><u>S</u>at: <input data-campo="s" inputmode="numeric" maxlength="3"></label>
+                    <label>V<u>e</u>rde: <input data-campo="g" inputmode="numeric" maxlength="3"></label>
+                    <label><u>L</u>um: <input data-campo="l" inputmode="numeric" maxlength="3"></label>
+                    <label>A<u>z</u>ul: <input data-campo="b" inputmode="numeric" maxlength="3"></label>
+                </div>
+            </div>
+            <button class="btn-win largo" data-cores="adicionar"><u>A</u>dicionar às cores personalizadas</button>
+        </div>
+    </div>
+</div>
+
+
 <div class="menu-iniciar" id="menu-iniciar" hidden>
     <div class="cabeca"><div class="mini-foto" data-foto-perfil></div><span data-nome></span></div>
     <div class="itens">
         <button data-abrir="navegador"><img class="ico ico32" data-ico="internet_explorer" data-tam="32" alt="">Quarto do Lucas</button>
-        <button data-abrir="msn"><img class="ico ico32" data-ico="msn_messenger" data-tam="32" alt="">MSN Messenger</button>
+        <button data-abrir="msn"><img class="ico ico32" data-ico="msn_messenger" data-tam="32" alt="">Zap do Lucas</button>
         <button data-abrir="paint"><img class="ico ico32" data-ico="palette" data-tam="32" alt="">Paint</button>
         <button data-abrir="notas"><img class="ico ico32" data-ico="note" data-tam="32" alt="">Bloco de notas</button>
         <button data-abrir="lixeira"><img class="ico ico32" data-ico="bin_recycle" data-tam="32" alt="">Lixeira</button>
         <hr>
-        <button data-comando="papel-parede"><img class="ico ico32" data-ico="monitor_wallpaper" data-tam="32" alt="">Trocar papel de parede</button>
+        <button data-comando="papel-parede"><img class="ico ico32" data-ico="monitor_wallpaper" data-tam="32" alt="">Papel de parede</button>
         <button data-comando="ajuda"><img class="ico ico32" data-ico="help" data-tam="32" alt="">Ajuda e suporte</button>
     </div>
     <div class="pe">
@@ -434,9 +527,7 @@
     </div>
 </div>
 
-<div class="tela-desligar" id="tela-desligar" hidden>
-    <div>Agora é seguro desligar o computador.<small>(clique em qualquer lugar para ligar de novo)</small></div>
-</div>
+<div class="tela-desligar" id="tela-desligar" hidden></div>
 
 
 <script src="js/supabase.js"></script>
