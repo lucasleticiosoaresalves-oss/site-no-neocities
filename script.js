@@ -25,7 +25,7 @@ const DADOS = {
     // meu github (da pra mudar no admin)
     github: '',
 
-    // emoticons do msn: :) :D :P ;) :( :'( :O :@ (H) (L) (U) (Y) (K) (*) (8) (F) (co) (I) (^) (P)
+    // emoticons do msn: :) :D :P ;) :( :'( :O :@ (H) (L) (U) (Y) (K) (*) (8) (F) 8-| (A) (6) (C) (B) (pi)... (lista toda no GRUPOS_EMOTICONS)
     sobre: [
         'Oi! Seja bem-vindo(a) ao meu quarto na internet. (*)',
         'Fiz este cantinho inspirado na época do orkut, do MSN e do Windows XP - quando a internet era bagunçada, colorida e cheia de personalidade. Aqui eu guardo minhas fotos, músicas, projetos e uns pensamentos aleatórios.',
@@ -192,20 +192,37 @@ function gif(nome, largura) {
     return `<img class="gif" src="imagens/gifs/${nome}.gif" alt="" width="${w}" height="${Math.round(a * w / l)}">`;
 }
 
-// emoticons do msn
-const EMOTICONS = [
-    [":'(", 'emotion_cry'], [':)', 'emotion_smile'], [':D', 'emotion_bigsmile'], [':P', 'emotion_tongue'],
-    [';)', 'emotion_wink'], [':(', 'emotion_sad'], [':O', 'emotion_suprised'], [':@', 'emotion_angry'],
-    ['(H)', 'emotion_cool'], ['(L)', 'heart'], ['(U)', 'heart_break'], ['(Y)', 'thumb_up'], ['(K)', 'emotion_kiss'],
-    ['(*)', 'award_star_gold_1'], ['(8)', 'music'], ['(F)', 'flower'], ['(co)', 'computer'], ['(I)', 'lightbulb'],
-    ['(^)', 'cake'], ['(P)', 'camera'],
+// emoticons do msn (os de letra sozinha so funcionam em maiusculo pra nao pegar "amigo(s)")
+const GRUPOS_EMOTICONS = [
+    [[':)', ':-)'], 'emotion_smile'], [[':D', ':d', ':-D'], 'emotion_bigsmile'], [[';)', ';-)'], 'emotion_wink'],
+    [[':P', ':p', ':-P'], 'emotion_tongue'], [[':(', ':-('], 'emotion_sad'], [[":'("], 'emotion_cry'],
+    [[':O', ':o', ':-O'], 'emotion_suprised'], [[':@', ':-@'], 'emotion_angry'], [['(H)', '(h)'], 'emotion_cool'],
+    [[':$', ':-$'], 'emotion_shame'], [[':S', ':s', ':-S'], 'emotion_confuse'], [[':|', ':-|'], 'emotion_doubt'],
+    [['8-|'], 'emotion_nerd'], [['+o('], 'emotion_sick'], [['|-)'], 'emotion_sleep'], [['<:o)'], 'emotion_party'],
+    [['*-)'], 'emotion_question'], [['8o|'], 'emotion_mad'], [['^o)'], 'emotion_snooty'], [[':-#'], 'emotion_silent'],
+    [['(brb)'], 'emotion_bye_bye'], [['(6)'], 'emotion_devil'], [['(A)'], 'emotion_angel'], [['(K)'], 'emotion_kiss'],
+    [['(L)', '(l)'], 'heart'], [['(U)', '(u)'], 'heart_break'], [['(Y)', '(y)'], 'thumb_up'], [['(N)', '(n)'], 'thumb_down'],
+    [['(*)'], 'award_star_gold_1'], [['(8)'], 'music'], [['(F)'], 'flower'], [['(W)'], 'emotion_flower_dead'],
+    [['(M)'], 'msn_messenger'], [['(@)'], 'cat'], [['(&)'], 'dog'], [['(S)'], 'half_moon'], [['(#)'], 'weather_sun'],
+    [['(R)'], 'rainbow'], [['(E)'], 'email'], [['(~)'], 'film'], [['(T)'], 'telephone'], [['(mp)'], 'iphone'],
+    [['(G)'], 'gift_add'], [['(^)'], 'cake'], [['(C)'], 'tea_cup'], [['(D)'], 'drink'], [['(B)'], 'beer'],
+    [['(pi)'], 'pizza'], [['(I)'], 'lightbulb'], [['(O)'], 'clock'], [['(sn)'], 'snail'], [['(au)'], 'car'],
+    [['(ap)'], 'plane'], [['(um)'], 'umbrella'], [['(li)'], 'lightning'], [['(mo)'], 'money'], [['(co)'], 'computer'],
+    [['(P)'], 'camera'], [['(Z)'], 'user'], [['(X)'], 'user_student_female'], [['(haha)'], 'emotion_haha'],
+    [['(love)'], 'emotion_love'], [['(louco)'], 'emotion_crazy'], [['(ufa)'], 'emotion_whew'], [['(fome)'], 'emotion_hungry'],
+    [['(fantasma)'], 'emotion_ghost'], [['(caveira)'], 'emotion_skull'], [['(joaninha)'], 'ladybird'],
+    [['(borboleta)'], 'butterfly'], [['(sorvete)'], 'icecream'],
 ];
+const EMOTICONS = GRUPOS_EMOTICONS.flatMap(([codigos, nome]) => codigos.map(codigo => [codigo, nome]));
+// os maiores primeiro pra "8-|" nao virar "(8)" pela metade
 const REGEX_EMOTICONS = new RegExp('(' + EMOTICONS
-    .map(([codigo]) => codigo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-    .join('|') + ')', 'gi');
+    .map(([codigo]) => codigo)
+    .sort((x, y) => y.length - x.length)
+    .map(codigo => codigo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .join('|') + ')', 'g');
 
 function imagemEmoticon(codigo) {
-    const [, nome] = EMOTICONS.find(([c]) => c.toLowerCase() === codigo.toLowerCase());
+    const [, nome] = EMOTICONS.find(([c]) => c === codigo);
     return `<img class="ico emoticon" src="${urlIcone(nome)}" alt="${esc(codigo)}" title="${esc(codigo)}" width="16" height="16">`;
 }
 
@@ -318,11 +335,11 @@ function coracoes(n, nomeIcone) {
 }
 
 function botoesEmoticons() {
-    const lista = [':)', ':D', ':P', ';)', ':(', ":'(", ':O', '(H)', '(L)', '(Y)', '(*)', '(8)'];
-    return lista.map(codigo => {
-        const nome = EMOTICONS.find(([c]) => c === codigo)[1];
-        return `<button type="button" data-codigo="${esc(codigo)}" title="${esc(codigo)}">${icone(nome)}</button>`;
-    }).join('');
+    const botao = ([codigos, nome]) => `<button type="button" data-codigo="${esc(codigos[0])}" title="${esc(codigos[0])}">${icone(nome)}</button>`;
+    // os 12 de sempre e o resto escondido no "mais"
+    return GRUPOS_EMOTICONS.slice(0, 12).map(botao).join('')
+        + `<button type="button" class="mais-emoticons" data-mais-emoticons title="mais emoticons">▼</button>`
+        + `<span class="todos-emoticons" hidden>${GRUPOS_EMOTICONS.slice(12).map(botao).join('')}</span>`;
 }
 
 function emoticonsHTML(alvo) {
@@ -1757,6 +1774,19 @@ function atualizarPlayer(pagina = true) {
     if (pagina && rotaAtual().nome === 'playlist') mostrarPagina();
 }
 
+// cada dia da semana o winamp tem uma cor (a skin base e roxa)
+const CORES_WINAMP = [
+    ['domingo', 'roxo', 0], ['segunda', 'azul', -55], ['terça', 'verde-água', -95], ['quarta', 'verde', -165],
+    ['quinta', 'laranja', -225], ['sexta', 'rosa', 50], ['sábado', 'vermelho', 85],
+];
+
+function corWinamp() {
+    const [dia, cor, giro] = CORES_WINAMP[new Date().getDay()];
+    const winamp = $('#player');
+    winamp.style.filter = giro ? `hue-rotate(${giro}deg)` : '';
+    winamp.title = `winamp de ${dia}: ${cor}`;
+}
+
 // o som vem de um player do spotify escondido, o winamp so controla ele
 const embed = { iframe: null, id: '', pronto: false, fila: [], total: 0 };
 
@@ -2003,7 +2033,10 @@ function preencherOuvindo() {
     const caixa = $('#caixa-ouvindo');
     caixa.hidden = !DADOS.lastfm.usuario;
     if (caixa.hidden) return;
-    $('#ouvindo').innerHTML = blocoMaisOuvida() + listaOuvindo(7);
+    // na lateral fica so uma previa, o resto abre no clique
+    const aberto = ouvindo.aberto;
+    $('#ouvindo').innerHTML = blocoMaisOuvida() + listaOuvindo(aberto ? 7 : 2)
+        + (ouvindo.faixas.length > 2 ? `<button class="ver-mais-ouvidas" data-ver-ouvidas>${aberto ? '▲ mostrar menos' : `▼ ver todas (${Math.min(7, ouvindo.faixas.length)})`}</button>` : '');
     const naPagina = $('#ouvindo-pagina');
     if (naPagina) naPagina.innerHTML = blocoMaisOuvida() + listaOuvindo(7);
 }
@@ -3369,6 +3402,193 @@ $('#dino').addEventListener('pointerdown', e => {
 $('#dino').addEventListener('pointerup', () => dino.soltouPular());
 
 
+// --- traducao automatica (ingles ou espanhol pra quem nao e de pais que fala portugues) ---
+// usa o tradutor que vem dentro do chrome/edge, entao nada sai do computador da pessoa
+
+const FUSOS_PORTUGUES = /^(America\/(Sao_Paulo|Bahia|Fortaleza|Recife|Maceio|Belem|Manaus|Cuiaba|Campo_Grande|Porto_Velho|Boa_Vista|Rio_Branco|Araguaina|Santarem|Noronha|Eirunepe)|Europe\/Lisbon|Atlantic\/(Azores|Madeira|Cape_Verde)|Africa\/(Luanda|Maputo|Bissau|Sao_Tome)|Asia\/(Dili|Macau))$/;
+const FUSOS_ESPANHOL = /^(Europe\/Madrid|Africa\/Ceuta|Atlantic\/Canary|America\/(Mexico_City|Cancun|Merida|Monterrey|Matamoros|Chihuahua|Ciudad_Juarez|Ojinaga|Mazatlan|Bahia_Banderas|Hermosillo|Tijuana|Argentina\/.+|Buenos_Aires|Cordoba|Mendoza|Bogota|Lima|Santiago|Punta_Arenas|Caracas|Montevideo|Asuncion|La_Paz|Guayaquil|Havana|Panama|Costa_Rica|Guatemala|Tegucigalpa|El_Salvador|Managua|Santo_Domingo|Puerto_Rico)|Pacific\/(Galapagos|Easter)|Africa\/Malabo)$/;
+
+const IDIOMAS = { pt: 'Português', en: 'English', es: 'Español' };
+
+const AVISO_TRADUCAO = {
+    en: 'This site is in Portuguese. Your browser can translate it: right-click the page and choose "Translate to English".',
+    es: 'Este sitio está en portugués. Tu navegador puede traducirlo: haz clic derecho en la página y elige "Traducir al español".',
+};
+
+const traducao = {
+    idioma: 'pt', tradutor: null, nos: new Map(), atributos: new Map(), feitos: new WeakMap(),
+    cache: new Map(), observador: null, fila: [], rodando: false,
+};
+
+// descobre pelo fuso horario (pais) e pelo idioma do navegador
+function idiomaDoVisitante() {
+    const salvo = guardar.ler('idioma', '');
+    if (IDIOMAS[salvo]) return salvo;
+    let fuso = '';
+    try { fuso = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch { /* sem fuso */ }
+    const lingua = String(navigator.languages?.[0] || navigator.language || 'pt').toLowerCase();
+    if (FUSOS_PORTUGUES.test(fuso)) return 'pt';
+    if (FUSOS_ESPANHOL.test(fuso)) return 'es';
+    if (lingua.startsWith('pt')) return 'pt';
+    if (lingua.startsWith('es')) return 'es';
+    return 'en';
+}
+
+// partes que nao traduz (nomes, codigo, campos de digitar)
+const NAO_TRADUZ = 'script, style, textarea, input, select, canvas, svg, code, .nao-traduzir, .logo-3d, [data-nome], #relogio, #lista-player, .wa-tempo, #contador';
+
+function textoTraduzivel(texto) {
+    return /\p{L}{2,}/u.test(texto);
+}
+
+function guardarTexto(no) {
+    if (traducao.feitos.get(no) === no.nodeValue) return;
+    if (!textoTraduzivel(no.nodeValue)) return;
+    if (no.parentElement?.closest(NAO_TRADUZ)) return;
+    traducao.nos.set(no, no.nodeValue);
+    traducao.fila.push(() => traduzirTexto(no));
+}
+
+function procurarTextos(raiz) {
+    if (raiz.nodeType === Node.TEXT_NODE) return guardarTexto(raiz);
+    if (raiz.nodeType !== Node.ELEMENT_NODE || raiz.closest(NAO_TRADUZ)) return;
+    const andar = document.createTreeWalker(raiz, NodeFilter.SHOW_TEXT);
+    while (andar.nextNode()) guardarTexto(andar.currentNode);
+    [raiz, ...raiz.querySelectorAll('[placeholder], [title]')].forEach(el => {
+        ['placeholder', 'title'].forEach(nome => {
+            const valor = el.getAttribute?.(nome);
+            if (!valor || !textoTraduzivel(valor) || el.closest('.nao-traduzir')) return;
+            const chave = `${nome}`;
+            const guardados = traducao.atributos.get(el) || {};
+            if (guardados[`${chave}-feito`] === valor) return;
+            guardados[chave] = valor;
+            traducao.atributos.set(el, guardados);
+            traducao.fila.push(async () => {
+                const pronto = await traduzir(valor);
+                if (el.getAttribute(nome) !== valor) return;
+                guardados[`${chave}-feito`] = pronto;
+                el.setAttribute(nome, pronto);
+            });
+        });
+    });
+}
+
+async function traduzir(texto) {
+    const limpo = texto.trim();
+    if (!traducao.cache.has(limpo)) traducao.cache.set(limpo, traducao.tradutor.translate(limpo).catch(() => limpo));
+    const pronto = await traducao.cache.get(limpo);
+    return texto.match(/^\s*/)[0] + pronto + texto.match(/\s*$/)[0];
+}
+
+async function traduzirTexto(no) {
+    const original = traducao.nos.get(no);
+    if (original === undefined || traducao.idioma === 'pt') return;
+    const pronto = await traduzir(original);
+    if (traducao.nos.get(no) !== original || traducao.idioma === 'pt') return;
+    traducao.feitos.set(no, pronto);
+    no.nodeValue = pronto;
+}
+
+// vai traduzindo um pouco por vez pra nao travar a pagina
+async function andarFila() {
+    if (traducao.rodando) return;
+    traducao.rodando = true;
+    while (traducao.fila.length && traducao.idioma !== 'pt') {
+        const lote = traducao.fila.splice(0, 20);
+        await Promise.all(lote.map(f => f()));
+    }
+    traducao.rodando = false;
+}
+
+function vigiarPagina() {
+    if (traducao.observador) return;
+    traducao.observador = new MutationObserver(mudancas => {
+        if (traducao.idioma === 'pt') return;
+        mudancas.forEach(m => {
+            if (m.type === 'characterData') guardarTexto(m.target);
+            else m.addedNodes.forEach(procurarTextos);
+        });
+        andarFila();
+    });
+    traducao.observador.observe(document.body, { childList: true, subtree: true, characterData: true });
+}
+
+// desiste se o navegador demorar demais pra responder
+function comPrazo(promessa, ms) {
+    return Promise.race([promessa, new Promise((_, falhou) => setTimeout(() => falhou(new Error('demorou')), ms))]);
+}
+
+async function criarTradutor(idioma) {
+    if (!('Translator' in self)) return null;
+    try {
+        const disponivel = await comPrazo(self.Translator.availability({ sourceLanguage: 'pt', targetLanguage: idioma }), 3000);
+        if (disponivel === 'unavailable') return null;
+        return await comPrazo(self.Translator.create({ sourceLanguage: 'pt', targetLanguage: idioma }), 60000);
+    } catch {
+        return null;
+    }
+}
+
+function avisoTraducao(idioma) {
+    const aviso = $('#aviso-traducao');
+    aviso.hidden = !AVISO_TRADUCAO[idioma];
+    if (aviso.hidden) return;
+    $('#aviso-traducao-texto').textContent = AVISO_TRADUCAO[idioma];
+}
+
+async function trocarIdioma(idioma, escolhido = false) {
+    if (escolhido) guardar.salvar('idioma', idioma);
+    traducao.idioma = idioma;
+    $$('[data-comando^="idioma-"]').forEach(b => b.classList.toggle('marcado', b.dataset.comando === `idioma-${idioma}`));
+    // volta tudo pro portugues
+    if (idioma === 'pt') {
+        traducao.fila = [];
+        traducao.nos.forEach((original, no) => { if (no.isConnected) no.nodeValue = original; });
+        traducao.atributos.forEach((guardados, el) => {
+            ['placeholder', 'title'].forEach(nome => { if (guardados[nome]) el.setAttribute(nome, guardados[nome]); });
+        });
+        traducao.nos.clear();
+        traducao.atributos.clear();
+        document.documentElement.lang = 'pt-BR';
+        $('#aviso-traducao').hidden = true;
+        return;
+    }
+    traducao.tradutor?.destroy?.();
+    traducao.tradutor = null;
+    // enquanto o tradutor nao fica pronto mostra o aviso
+    avisoTraducao(idioma);
+    const tradutor = await criarTradutor(idioma);
+    if (traducao.idioma !== idioma) return tradutor?.destroy?.();
+    traducao.tradutor = tradutor;
+    if (!traducao.tradutor) {
+        // navegador sem tradutor embutido: mostra o aviso
+        avisoTraducao(idioma);
+        return;
+    }
+    $('#aviso-traducao').hidden = true;
+    traducao.cache.clear();
+    traducao.nos.clear();
+    traducao.atributos.clear();
+    traducao.feitos = new WeakMap();
+    document.documentElement.lang = idioma;
+    procurarTextos(document.body);
+    vigiarPagina();
+    andarFila();
+}
+
+function iniciarTraducao() {
+    const idioma = idiomaDoVisitante();
+    if (idioma === 'pt') return;
+    // o chrome pode precisar baixar o tradutor e isso so pode depois de um clique
+    trocarIdioma(idioma).then(() => {
+        if (traducao.tradutor || !('Translator' in self)) return;
+        const tentar = () => trocarIdioma(traducao.idioma);
+        document.addEventListener('pointerdown', tentar, { once: true });
+        document.addEventListener('keydown', tentar, { once: true });
+    });
+}
+
+
 // --- comandos dos menus ---
 
 // papeis de parede (imagens/fundos)
@@ -3448,6 +3668,10 @@ function montarFavoritos() {
 }
 
 const COMANDOS = {
+    'idioma-pt': () => trocarIdioma('pt', true),
+    'idioma-en': () => trocarIdioma('en', true),
+    'idioma-es': () => trocarIdioma('es', true),
+    'fechar-aviso-traducao': () => { $('#aviso-traducao').hidden = true; },
     'internet': () => alternarInternet(),
     'nova-guia': novaAba,
     'imprimir': () => window.print(),
@@ -3751,7 +3975,7 @@ document.addEventListener('click', e => {
     // fecha o menu iniciar
     if (!alvo.closest('#menu-iniciar, #botao-iniciar')) $('#menu-iniciar').hidden = true;
 
-    const el = alvo.closest('[data-abrir], [data-comando], [data-janela], [data-tarefa], [data-aba], [data-fechar-aba], [data-apagar], [data-apagar-foto], [data-apagar-comunidade], [data-editar], [data-publicar], [data-tocar], [data-player], [data-foto], [data-lightbox], [data-ferramenta], [data-cor], [data-cor-editor], [data-cores], [data-fundo], [data-notas], [data-lixeira], [data-arquivo-lixeira], [data-tirar-mp3], [data-apagar-lixeira], [data-editar-lixeira], [data-cancelar-lixeira], [data-msn], .emoticons button, [data-sair-guia], [data-dialogo-fechar]');
+    const el = alvo.closest('[data-abrir], [data-comando], [data-janela], [data-tarefa], [data-aba], [data-fechar-aba], [data-apagar], [data-apagar-foto], [data-apagar-comunidade], [data-editar], [data-publicar], [data-tocar], [data-player], [data-foto], [data-lightbox], [data-ferramenta], [data-cor], [data-cor-editor], [data-cores], [data-fundo], [data-notas], [data-lixeira], [data-arquivo-lixeira], [data-tirar-mp3], [data-apagar-lixeira], [data-editar-lixeira], [data-cancelar-lixeira], [data-msn], [data-ver-ouvidas], .emoticons button, [data-sair-guia], [data-dialogo-fechar]');
     if (!el) return;
     const d = el.dataset;
 
@@ -3878,7 +4102,18 @@ document.addEventListener('click', e => {
     }
     if (d.msn === 'atencao') return zapAtencao();
 
+    if (el.matches('[data-ver-ouvidas]')) {
+        ouvindo.aberto = !ouvindo.aberto;
+        return preencherOuvindo();
+    }
+
     // botoes de emoticon
+    if (el.matches('[data-mais-emoticons]')) {
+        const todos = el.nextElementSibling;
+        todos.hidden = !todos.hidden;
+        el.textContent = todos.hidden ? '▼' : '▲';
+        return;
+    }
     if (el.matches('.emoticons button')) {
         const campo = document.getElementById(el.closest('.emoticons').dataset.alvo);
         campo.setRangeText(el.dataset.codigo, campo.selectionStart, campo.selectionEnd, 'end');
@@ -4134,6 +4369,8 @@ function iniciar() {
     preencherEnquete();
     montarFavoritos();
     atualizarPlayer();
+    corWinamp();
+    iniciarTraducao();
     dino.iniciar();
     if (semInternet()) mostrarConexao();
     $('#notas-texto').value = guardar.ler('notas', '');

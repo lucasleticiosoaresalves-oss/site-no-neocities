@@ -8,7 +8,7 @@
     <title>QUARTO DO LUCAS</title>
     <meta name="description" content="O quarto do Lucas na internet: recados, álbuns, diário e playlists no estilo orkut.">
     <link rel="icon" href="imagens/icones/16/internet_explorer.png">
-    <link rel="stylesheet" href="style.css?v=28">
+    <link rel="stylesheet" href="style.css?v=30">
 </head>
 <body>
 
@@ -88,6 +88,11 @@
                 <div class="submenu">
                     <button data-comando="papel-parede">Trocar papel de parede</button>
                     <button data-comando="limpar-dados">Excluir histórico e dados do site...</button>
+                    <hr>
+                    <span class="titulo-submenu nao-traduzir">Idioma / Language</span>
+                    <button class="nao-traduzir" data-comando="idioma-pt"><img class="ico" data-ico="flag_brazil" alt=""> Português</button>
+                    <button class="nao-traduzir" data-comando="idioma-en"><img class="ico" data-ico="flag_usa" alt=""> English</button>
+                    <button class="nao-traduzir" data-comando="idioma-es"><img class="ico" data-ico="flag_spain" alt=""> Español</button>
                 </div>
             </div>
             <div class="menu">
@@ -112,6 +117,13 @@
         </div>
 
         <div class="area-pagina">
+            <!-- aviso quando o navegador nao tem tradutor -->
+            <div class="aviso-traducao nao-traduzir" id="aviso-traducao" hidden>
+                <img class="ico" data-ico="information" alt="">
+                <span id="aviso-traducao-texto"></span>
+                <button class="btn pequeno" data-comando="idioma-pt">Português</button>
+                <button class="fechar-aviso" data-comando="fechar-aviso-traducao" title="fechar">✕</button>
+            </div>
             <!-- quando a internet cai -->
             <div class="sem-internet" id="sem-internet" hidden>
                 <canvas id="dino" width="1200" height="300" aria-label="jogo do dinossauro de óculos"></canvas>
@@ -551,6 +563,6 @@
 
 <script src="js/supabase.js"></script>
 
-<script src="script.js?v=28"></script>
+<script src="script.js?v=30"></script>
 </body>
 </html>
