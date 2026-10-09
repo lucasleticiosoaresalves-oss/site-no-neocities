@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://sdwlmxvpkexggupmrzmb.supabase.co https://ws.audioscrobbler.com; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; frame-src https://open.spotify.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://sdwlmxvpkexggupmrzmb.supabase.co https://ws.audioscrobbler.com; media-src 'self' blob: https://sdwlmxvpkexggupmrzmb.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self'">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <title>QUARTO DO LUCAS</title>
     <meta name="description" content="O quarto do Lucas na internet: recados, álbuns, diário e playlists no estilo orkut.">
     <link rel="icon" href="imagens/icones/16/internet_explorer.png">
-    <link rel="stylesheet" href="style.css?v=8">
+    <link rel="stylesheet" href="style.css?v=28">
 </head>
 <body>
 
@@ -112,6 +112,22 @@
         </div>
 
         <div class="area-pagina">
+            <!-- quando a internet cai -->
+            <div class="sem-internet" id="sem-internet" hidden>
+                <canvas id="dino" width="1200" height="300" aria-label="jogo do dinossauro de óculos"></canvas>
+                <div class="texto-sem-internet">
+                    <h2>Sem internet</h2>
+                    <p>Tente:</p>
+                    <ul>
+                        <li>Verificar os cabos de rede, o modem e o roteador</li>
+                        <li>Reconectar à rede Wi-Fi</li>
+                        <li>Jogar com o dinossauro enquanto isso</li>
+                    </ul>
+                    <p class="codigo-erro">ERR_INTERNET_DISCONNECTED</p>
+                    <p class="dica">espaço ou ↑ pula (segura pra pular mais alto) · ↓ abaixa · no celular é só tocar</p>
+                    <button class="btn" data-comando="internet"><img class="ico" data-ico="network_wireless" alt=""> reconectar</button>
+                </div>
+            </div>
             <!-- conteúdo do site -->
             <div class="pagina-site" id="pagina-site">
                 <div class="topo">
@@ -187,6 +203,7 @@
                                 <a class="mini-link" href="#playlist">ver tudo</a>
                             </div>
                             <div class="winamp" id="player">
+                                <div id="spotify-escondido" aria-hidden="true"></div>
                                 <div class="wa-barra"><span>METRIX</span><span class="wa-enfeite">▫ ▫ ✕</span></div>
                                 <div class="wa-corpo">
                                     <div class="wa-lcd">
@@ -487,7 +504,7 @@
     <div class="tarefas" id="tarefas"></div>
     <div class="bandeja">
         <span title="Volume"><img class="ico" data-ico="sound" alt=""></span>
-        <span title="Conectado à internet"><img class="ico" data-ico="network_wireless" alt=""></span>
+        <button class="icone-net" id="icone-net" data-comando="internet" title="Conectado à internet (clique pra desconectar)"><img class="ico" data-ico="network_wireless" alt=""></button>
         <span id="relogio">--:--</span>
     </div>
 </div>
@@ -534,6 +551,6 @@
 
 <script src="js/supabase.js"></script>
 
-<script src="script.js?v=8"></script>
+<script src="script.js?v=28"></script>
 </body>
 </html>

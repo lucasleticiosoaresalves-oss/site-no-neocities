@@ -132,13 +132,11 @@ const DADOS = {
     // primeira mensagem do zap
     zapBoasVindas: 'oiee! valeu por visitar meu quarto :D',
 
+    // o que tem na lixeira (mudo pelo admin)
     lixeira: [
-        { nome: 'trabalho_FINAL_agora_vai_v7.doc', icone: 'file_extension_doc' },
-        { nome: 'foto_feia_nao_postar.jpg', icone: 'file_extension_jpg' },
-        { nome: 'musica_baixada.mp3', icone: 'music' },
-        { nome: 'senhas_secretas.txt', icone: 'file_extension_txt' },
-        { nome: 'virus_nao_abrir.exe', icone: 'file_extension_exe' },
-        { nome: 'carta_de_amor_nunca_enviada.txt', icone: 'email' },
+        { nome: 'trabalho_FINAL_agora_vai_v7.doc', conteudo: 'introdução: ...\n\n(nunca terminei)' },
+        { nome: 'senhas_secretas.txt', conteudo: 'achou que ia ser fácil né :P' },
+        { nome: 'virus_nao_abrir.exe', conteudo: 'eu falei pra não abrir!!! :@' },
     ],
 };
 
@@ -342,13 +340,15 @@ let souDono = false; // true quando eu to logado
 
 function erroNuvem(erro) {
     console.error(erro);
-    const spam = /muitas mensagens/.test(erro?.message || '');
-    dialogo({
-        titulo: 'Erro', icone: 'error',
-        texto: spam
-            ? 'Muita gente escrevendo ao mesmo tempo!\nEspere alguns minutos e tente de novo.'
-            : 'Não consegui falar com o servidor. :(\nTente de novo daqui a pouco.',
-    });
+    const mensagem = String(erro?.message || erro || '');
+    let texto = 'Não consegui falar com o servidor. :(\nTente de novo daqui a pouco.';
+    if (/muitas mensagens/.test(mensagem)) texto = 'Muita gente escrevendo ao mesmo tempo!\nEspere alguns minutos e tente de novo.';
+    else if (mensagem === 'foto-invalida') texto = 'Não consegui abrir essa foto. :(\nTente outra imagem (JPG ou PNG).';
+    else if (erro?.code === '23514') texto = 'Alguma coisa ficou grande demais ou vazia.\nConfere e tenta de novo.';
+    else if (/fetch|network|load failed/i.test(mensagem)) texto = 'Sem conexão com o servidor. :(\nConfere a internet e tenta de novo.';
+    // o codigo do erro ajuda a descobrir o que aconteceu
+    const codigo = [erro?.code, mensagem].filter(Boolean).join(' - ').slice(0, 120);
+    dialogo({ titulo: 'Erro', icone: 'error', texto: codigo ? `${texto}\n\n[erro: ${codigo}]` : texto });
 }
 
 function lista(chave, inicial, tabela) {
@@ -483,6 +483,8 @@ function aplicarConfig(chave, valor) {
         DADOS.enquete = { versao: valor.versao || 0, pergunta: valor.pergunta, opcoes: valor.opcoes.map(o => [o, 0]) };
     }
     if (chave === 'comunidades') DADOS.comunidades = valor;
+    if (chave === 'lixeira') DADOS.lixeira = valor;
+    if (chave === 'mp3') DADOS.mp3 = valor;
 }
 
 async function salvarConfig(chave, valor) {
@@ -621,6 +623,18 @@ function paginaInicio() {
             <marquee direction="up" scrollamount="1">
                 <ul>${noticias.todos().map((n, i) => `<li><b>[${esc(n.data)}]</b> ${textoRico(n.texto)}${i === 0 ? ' ' + gif('novo') : ''}</li>`).join('')}</ul>
             </marquee>
+        </div>` : ''}
+        ${avaliacoes.todos().length ? `
+        <div class="caixa">
+            <div class="caixa-titulo"><h2>Avaliações</h2><a class="mini-link" href="#avaliacoes">ver todas</a></div>
+            <div class="avaliacoes-inicio">
+                ${avaliacoes.todos().slice(0, 6).map(a => `
+                    <a class="avaliacao-inicio" href="#avaliacoes/${esc(a.tipo)}" title="${esc(a.titulo)}">
+                        ${capaAvaliacao(a)}
+                        <span class="texto">${esc(a.titulo)}</span>
+                        ${estrelas(a.nota)}
+                    </a>`).join('')}
+            </div>
         </div>` : ''}`;
 }
 
@@ -868,9 +882,8 @@ function paginaPlaylist() {
         ${DADOS.lastfm.usuario ? `
         <div class="caixa">
             <h2>Ouvidas recentemente <small>no Spotify</small></h2>
-            <div id="ouvindo-pagina">${listaOuvindo(10)}</div>
-            <p class="dica">atualiza sozinho a cada minuto · via Last.fm</p>
-        </div>` : ''}
+            <div id="ouvindo-pagina">${blocoMaisOuvida()}${listaOuvindo(7)}</div>
+                    </div>` : ''}
         <div class="caixa">
             <h2>Playlist <small>(${musicas().length} ${musicas().length === 1 ? "música" : "músicas"}${spotify.musicas?.length ? ` · <span class="texto-brilho nome-playlist">${esc(spotify.playlist?.nome || 'minha playlist')}</span> no Spotify` : ''})</small></h2>
             <div class="centro">${gif('notas')}</div>
@@ -879,14 +892,12 @@ function paginaPlaylist() {
                 <tbody>
                     ${musicas().map((m, i) => `
                         <tr class="${i === player.indice && player.comecou ? 'tocando' : ''}">
-                            <td>${i + 1}</td><td>${esc(m.titulo)}</td><td>${esc(m.artista)}</td><td>${duracao(m.duracao)}</td>
-                            <td><button class="btn pequeno" data-tocar="${i}">▶ ${m.arquivo ? 'tocar' : 'ouvir'}</button></td>
+                            <td>${i + 1}</td><td><a href="${esc(linkMinhaPlaylist(m))}" target="_blank" rel="noopener" title="abrir minha playlist no Spotify">${esc(m.titulo)}</a>${m.arquivo ? ` ${icone('sound')}` : ''}</td><td>${esc(m.artista)}</td><td>${duracao(m.duracao)}</td>
+                            <td><button class="btn pequeno" data-tocar="${i}">▶ tocar</button></td>
                         </tr>`).join('')}
                 </tbody>
             </table>
-            <p class="dica">${spotify.musicas?.length
-                ? `músicas da minha playlist do Spotify${spotify.playlist?.link ? ` (<a href="${esc(spotify.playlist.link)}" target="_blank" rel="noopener">abrir no Spotify</a>)` : ''} · o ▶ abre a música no Spotify`
-                : 'músicas sem arquivo abrem no YouTube numa nova aba.'}</p>
+            ${spotify.playlist?.link ? `<p class="centro"><a class="link-playlist" href="${esc(linkSeguro(spotify.playlist.link))}" target="_blank" rel="noopener">${icone('headphone')} ouvir no Spotify</a></p>` : ''}
         </div>`;
 }
 
@@ -1051,8 +1062,10 @@ const SECOES_ADMIN = [
     ['projetos', 'wrench', 'Projetos'],
     ['enquete', 'chart_bar', 'Enquete'],
     ['comunidades', 'comments', 'Comunidades'],
+    ['lixeira', 'bin_recycle', 'Lixeira'],
     ['recebidos', 'email', 'Recebidos'],
     ['spotify', 'music', 'Spotify'],
+    ['winamp', 'cd', 'Winamp (mp3)'],
 ];
 
 const ICONES_COMUNIDADE = [
@@ -1082,7 +1095,7 @@ function paginaAdmin(secao) {
     const atual = SECOES_ADMIN.some(([id]) => id === secao) ? secao : 'perfil';
     const telas = {
         perfil: adminPerfil, fotos: adminFotos, textos: adminTextos, avaliacoes: adminAvaliacoes, projetos: adminProjetos,
-        enquete: adminEnquete, comunidades: adminComunidades, recebidos: adminRecebidos, spotify: adminSpotify,
+        enquete: adminEnquete, comunidades: adminComunidades, lixeira: adminLixeira, recebidos: adminRecebidos, spotify: adminSpotify, winamp: adminWinamp,
     };
     return `
         <div class="caixa">
@@ -1280,6 +1293,68 @@ function adminComunidades() {
                     <input name="membros" type="number" min="0" max="99999999" value="1000" style="width:120px" aria-label="Membros"> membros
                 </div>
                 <button class="btn rosa" type="submit">adicionar</button>
+            </form>
+        </div>`;
+}
+
+function adminWinamp() {
+    const lista = spotify.musicas || [];
+    const mp3 = DADOS.mp3 || {};
+    return `
+        <div class="caixa">
+            <h2>Músicas inteiras no Winamp</h2>
+            <p class="dica" style="margin-top:0">A lista vem da sua playlist do Spotify. Sem mp3 o Winamp toca só um pedacinho (coisa do Spotify).
+                Colocando o mp3 da música aqui ela toca inteira pra todo mundo.</p>
+            ${lista.length ? lista.map(m => {
+                const id = idSpotify(m);
+                return `
+                <div class="recado"><div class="corpo">
+                    ${icone(mp3[id] ? 'sound' : 'music')} <b>${esc(m.artista)} - ${esc(m.titulo)}</b>
+                    ${mp3[id]
+                        ? `<span class="dica">mp3 colocado ✓</span> <button class="btn-x" data-tirar-mp3="${esc(id)}">tirar mp3</button>`
+                        : `<form class="form form-mp3" data-form="mp3">
+                            <input type="hidden" name="id" value="${esc(id)}">
+                            <label class="btn pequeno">${icone('music')} escolher mp3
+                                <input type="file" name="arquivo" accept="audio/*,.mp3" class="so-leitor" required>
+                                <span class="arquivo-escolhido"></span>
+                            </label>
+                            <button class="btn rosa pequeno" type="submit">${icone('disk')} colocar</button>
+                        </form>`}
+                </div></div>`;
+            }).join('') : '<p class="vazio">a playlist do Spotify ainda não carregou</p>'}
+        </div>`;
+}
+
+let edicaoLixeira = null;
+
+function adminLixeira() {
+    const editando = DADOS.lixeira[edicaoLixeira];
+    return `
+        <div class="caixa">
+            <h2>Lixeira <small>(${DADOS.lixeira.length} arquivos)</small></h2>
+            <p class="dica" style="margin-top:0">Esconda coisas aqui. Quem abrir a Lixeira vê os arquivos e pode clicar pra ler o que tem dentro.</p>
+            ${DADOS.lixeira.map((a, i) => `
+                <div class="recado"><div class="corpo">
+                    ${icone(iconeArquivo(a.nome))} <b>${esc(a.nome)}</b>${a.imagem ? ` ${icone('picture_add')}` : ''}
+                    <p style="margin:4px 0;white-space:pre-wrap">${esc((a.conteudo || '').slice(0, 140))}${(a.conteudo || '').length > 140 ? '...' : ''}</p>
+                    <div class="meta"><button class="btn-x" data-editar-lixeira="${i}">editar</button> <button class="btn-x" data-apagar-lixeira="${i}">apagar</button></div>
+                </div></div>`).join('') || '<p class="vazio">a lixeira está vazia</p>'}
+        </div>
+        <div class="caixa">
+            <h2>${editando ? 'Editar arquivo' : 'Jogar um arquivo na lixeira'}</h2>
+            <form class="form" data-form="lixeira">
+                <input name="nome" placeholder="nome do arquivo (ex: diario_secreto.txt)" maxlength="60" required value="${esc(editando?.nome || '')}">
+                <textarea name="conteudo" rows="6" maxlength="3000" placeholder="o que tem dentro do arquivo...">${esc(editando?.conteudo || '')}</textarea>
+                <label class="btn pequeno">${icone('picture_add')} ${editando?.imagem ? 'trocar a imagem' : 'imagem dentro do arquivo (opcional)'}
+                    <input type="file" name="imagem" accept="image/*" class="so-leitor">
+                    <span class="arquivo-escolhido"></span>
+                </label>
+                ${editando?.imagem ? '<label><input type="checkbox" name="semImagem"> tirar a imagem</label>' : ''}
+                <span class="dica">o ícone muda pelo final do nome: .txt, .doc, .jpg, .mp3, .exe...</span>
+                <div class="linha">
+                    <button class="btn rosa" type="submit">${icone('disk')} ${editando ? 'salvar' : 'jogar na lixeira'}</button>
+                    ${editando ? '<button class="btn" type="button" data-cancelar-lixeira="1">cancelar</button>' : ''}
+                </div>
             </form>
         </div>`;
 }
@@ -1505,10 +1580,16 @@ function caixaDiario() {
         : `<h3>Diário</h3><div class="cadeado">${gif('cadeado', 64)}</div>${formSenha()}`;
 }
 
+// minha foto pequena (registros)
+function minhaFotoMini() {
+    const foto = imagemSegura(DADOS.foto);
+    return foto ? `<img class="avatar" src="${esc(foto)}" alt="">` : avatar(DADOS.nome);
+}
+
 function preencherRegistros() {
     $('#registros').innerHTML = registros.todos().map(r => `
         <div class="registro">
-            ${avatar(DADOS.nome)}
+            ${minhaFotoMini()}
             <div>
                 <p><span class="data">[${esc(r.data)}]:</span> ${textoRico(r.texto)}</p>
                 <a class="mini-link" href="#recados">comentar</a>
@@ -1597,10 +1678,6 @@ async function preencherContador() {
 }
 
 
-// --- player ---
-
-const player = { indice: 0, audio: new Audio(), tocando: false, comecou: false };
-
 // --- playlist do spotify ---
 
 const URL_SPOTIFY = DADOS.supabase.url ? `${DADOS.supabase.url}/functions/v1/spotify` : '';
@@ -1608,7 +1685,21 @@ const spotify = { musicas: null, playlist: null, conectado: false, atualizado: n
 
 // se o spotify nao carregar usa a lista do DADOS
 function musicas() {
-    return spotify.musicas?.length ? spotify.musicas : DADOS.musicas;
+    if (!spotify.musicas?.length) return DADOS.musicas;
+    // se eu coloquei mp3 nessa musica ela toca inteira
+    return spotify.musicas.map(m => {
+        const caminho = (DADOS.mp3 || {})[idSpotify(m)];
+        return caminho && nuvem ? { ...m, arquivo: urlMusica(caminho) } : m;
+    });
+}
+
+function urlMusica(caminho) {
+    return nuvem.storage.from('musicas').getPublicUrl(caminho).data.publicUrl;
+}
+
+// clicar na musica abre a minha playlist
+function linkMinhaPlaylist(m) {
+    return linkSeguro(spotify.playlist?.link || m.link || linkYoutube(m));
 }
 
 async function carregarPlaylistSpotify() {
@@ -1621,9 +1712,12 @@ async function carregarPlaylistSpotify() {
         spotify.atualizado = dados.atualizado || null;
         spotify.playlist = dados.playlist || null;
         if (dados.musicas?.length) {
-            const tocandoAntes = player.comecou;
             spotify.musicas = dados.musicas;
-            if (!tocandoAntes) player.indice = 0;
+            if (!player.comecou) {
+                player.indice = 0;
+                // ja deixa o player do spotify pronto pro play
+                carregarSpotify(idSpotify(spotify.musicas[0]));
+            }
             atualizarPlayer();
         }
     } catch (erro) {
@@ -1638,11 +1732,15 @@ async function conectarSpotify() {
     window.open(`${URL_SPOTIFY}/login?token=${encodeURIComponent(data.session.access_token)}`, '_blank', 'noopener');
 }
 
+// --- player (winamp) ---
+
+const player = { indice: 0, audio: new Audio(), tocando: false, comecou: false, parado: false };
+
 function linkYoutube(m) {
     return 'https://www.youtube.com/results?search_query=' + encodeURIComponent(`${m.titulo} ${m.artista}`);
 }
 
-function atualizarPlayer() {
+function atualizarPlayer(pagina = true) {
     const m = musicas()[player.indice];
     const caixa = $('#player');
     caixa.classList.toggle('tocando', player.tocando);
@@ -1652,11 +1750,74 @@ function atualizarPlayer() {
     $('#player-play').title = player.tocando ? 'Pausar' : 'Tocar';
     $('#lista-player').innerHTML = musicas().map((musica, i) => `
         <li class="${i === player.indice && player.comecou ? 'atual' : ''}">
-            <button data-tocar="${i}"><span>${i + 1}. ${esc(musica.artista)} - ${esc(musica.titulo)}</span><span>${duracao(musica.duracao)}</span></button>
+            <a href="${esc(linkMinhaPlaylist(musica))}" target="_blank" rel="noopener" title="abrir minha playlist no Spotify"><span>${i + 1}. ${esc(musica.artista)} - ${esc(musica.titulo)}</span><span>${duracao(musica.duracao)}</span></a>
         </li>`).join('');
     const total = musicas().reduce((soma, m) => soma + (Number(m.duracao) || 0), 0);
     $('#wa-total').textContent = total ? `${duracao(total)}` : '--:--';
-    if (rotaAtual().nome === 'playlist') mostrarPagina();
+    if (pagina && rotaAtual().nome === 'playlist') mostrarPagina();
+}
+
+// o som vem de um player do spotify escondido, o winamp so controla ele
+const embed = { iframe: null, id: '', pronto: false, fila: [], total: 0 };
+
+function idSpotify(m) {
+    return /open\.spotify\.com\/track\/([A-Za-z0-9]+)/.exec(m?.link || '')?.[1] || '';
+}
+
+function mandarSpotify(comando) {
+    if (!embed.pronto) return embed.fila.push(comando);
+    embed.iframe.contentWindow.postMessage(comando, 'https://open.spotify.com');
+}
+
+function carregarSpotify(id) {
+    if (!id || id === embed.id) return;
+    if (!embed.iframe) {
+        embed.iframe = document.createElement('iframe');
+        embed.iframe.title = 'spotify';
+        embed.iframe.allow = 'autoplay; encrypted-media';
+        embed.iframe.width = 300;
+        embed.iframe.height = 80;
+        $('#spotify-escondido').append(embed.iframe);
+    }
+    embed.id = id;
+    embed.pronto = false;
+    embed.fila = [];
+    embed.total = 0;
+    embed.iframe.src = `https://open.spotify.com/embed/track/${id}`;
+}
+
+// recados que o player do spotify manda
+window.addEventListener('message', e => {
+    if (!embed.iframe || e.source !== embed.iframe.contentWindow || e.origin !== 'https://open.spotify.com') return;
+    const { type, payload } = e.data || {};
+    if (type === 'ready') {
+        embed.pronto = true;
+        mandarSpotify({ command: 'load_complete_ack' });
+        embed.fila.splice(0).forEach(mandarSpotify);
+    }
+    if (type === 'playback_update' && payload) tempoSpotify(payload);
+});
+
+function tempoSpotify({ isPaused, isBuffering, position, duration }) {
+    if (musicas()[player.indice]?.arquivo) return;
+    embed.total = duration;
+    // depois do stop fica no 00:00
+    if (player.parado) {
+        if (isPaused) return;
+        player.parado = false;
+    }
+    $('#player-progresso span').style.width = duration ? (position / duration * 100) + '%' : '0';
+    $('#wa-tempo').textContent = duracao(position, true);
+    const tocando = !isPaused || Boolean(isBuffering);
+    if (tocando !== player.tocando) {
+        player.tocando = tocando;
+        atualizarPlayer(false);
+    }
+    // acabou a musica, vai pra proxima
+    if (isPaused && duration && position >= duration - 800 && player.comecou) {
+        embed.total = 0;
+        tocar(player.indice + 1);
+    }
 }
 
 function tocar(i) {
@@ -1664,42 +1825,68 @@ function tocar(i) {
     player.indice = (i + total) % total;
     player.comecou = true;
     const m = musicas()[player.indice];
-
+    const id = idSpotify(m);
+    player.parado = false;
     if (m.arquivo) {
+        // mp3 inteiro
+        if (embed.id) mandarSpotify({ command: 'pause' });
         player.audio.src = m.arquivo;
-        player.audio.play().then(() => {
-            player.tocando = true;
-            atualizarPlayer();
-        }).catch(() => {
+        player.audio.play().catch(() => {
             player.tocando = false;
             atualizarPlayer();
-            dialogo({ titulo: 'Windows Media Player', icone: 'error', texto: `Não consegui tocar o arquivo "${m.arquivo}".\nVerifique se ele está na pasta do site.` });
         });
-    } else {
+    } else if (id) {
         player.audio.pause();
+        carregarSpotify(id);
+        mandarSpotify({ command: 'play' });
+    } else {
         player.tocando = false;
-        window.open(m.link || linkYoutube(m), '_blank', 'noopener');
+        window.open(linkMinhaPlaylist(m), '_blank', 'noopener');
     }
     atualizarPlayer();
 }
 
 function playPause() {
     const m = musicas()[player.indice];
-    if (!player.comecou || !m.arquivo) return tocar(player.indice);
-    if (player.tocando) {
-        player.audio.pause();
-        player.tocando = false;
-        atualizarPlayer();
-    } else {
-        player.audio.play().then(() => { player.tocando = true; atualizarPlayer(); }).catch(() => {});
+    if (player.comecou && m.arquivo && player.audio.src) {
+        if (player.audio.paused) player.audio.play().catch(() => {});
+        else player.audio.pause();
+        return;
     }
+    if (!player.comecou || !embed.id) return tocar(player.indice);
+    player.parado = false;
+    mandarSpotify({ command: 'toggle' });
 }
 
+function pararMusica() {
+    if (embed.id) {
+        mandarSpotify({ command: 'seek', timestamp: 0 });
+        mandarSpotify({ command: 'pause' });
+    }
+    player.audio.pause();
+    if (player.audio.src) player.audio.currentTime = 0;
+    player.parado = true;
+    player.tocando = false;
+    $('#wa-tempo').textContent = '00:00';
+    $('#player-progresso span').style.width = '0';
+    atualizarPlayer();
+}
+
+function pularPara(parte) {
+    const m = musicas()[player.indice];
+    if (m?.arquivo && player.audio.duration) player.audio.currentTime = parte * player.audio.duration;
+    else if (embed.id && embed.total) mandarSpotify({ command: 'seek', timestamp: parte * embed.total / 1000 });
+}
+
+// tempo do mp3
 player.audio.addEventListener('timeupdate', () => {
     const { currentTime, duration } = player.audio;
     $('#player-progresso span').style.width = duration ? (currentTime / duration * 100) + '%' : '0';
     $('#wa-tempo').textContent = duracao(currentTime * 1000, true);
 });
+player.audio.addEventListener('play', () => { player.tocando = true; atualizarPlayer(false); });
+player.audio.addEventListener('pause', () => { player.tocando = false; atualizarPlayer(false); });
+player.audio.addEventListener('ended', () => tocar(player.indice + 1));
 
 // tempo em mm:ss
 function duracao(ms, sempre = false) {
@@ -1708,46 +1895,83 @@ function duracao(ms, sempre = false) {
     return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }
 
-function pararMusica() {
-    player.audio.pause();
-    player.audio.currentTime = 0;
-    player.tocando = false;
-    $('#wa-tempo').textContent = '00:00';
-    atualizarPlayer();
-}
-player.audio.addEventListener('ended', () => {
-    const proxima = musicas()[(player.indice + 1) % musicas().length];
-    if (proxima.arquivo) tocar(player.indice + 1);
-    else { player.tocando = false; atualizarPlayer(); }
-});
-
 
 // --- ouvindo agora (last.fm) ---
 
-const ouvindo = { faixas: [], carregado: false, erro: false };
+// guarda as ultimas pra aparecer na hora mesmo se o last.fm demorar
+const ouvidasSalvas = guardar.ler('ouvindo', []);
+const ouvindo = { faixas: ouvidasSalvas, carregado: ouvidasSalvas.length > 0, erro: false, semana: guardar.ler('mais-ouvida', null) };
+
+// capa padrao do last.fm (estrelinha) nao serve
+const CAPA_VAZIA = '2a96cbd8b46e442fc41c2b86b821562f';
+
+function urlLastfm(metodo, extra = '') {
+    const { usuario, chave } = DADOS.lastfm;
+    return `https://ws.audioscrobbler.com/2.0/?method=${metodo}&format=json&user=${encodeURIComponent(usuario)}&api_key=${encodeURIComponent(chave)}${extra}`;
+}
+
+function capaLastfm(imagens, tamanho = 'medium') {
+    const capa = imagens?.find(i => i.size === tamanho)?.['#text'] || '';
+    return capa.includes(CAPA_VAZIA) ? '' : capa;
+}
 
 async function carregarLastfm() {
     const { usuario, chave } = DADOS.lastfm;
     if (!usuario || !chave) return;
-    const url = 'https://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&format=json&limit=10'
-        + `&user=${encodeURIComponent(usuario)}&api_key=${encodeURIComponent(chave)}`;
     try {
-        const json = await (await fetch(url)).json();
+        const json = await (await fetch(urlLastfm('user.getrecenttracks', '&limit=8'))).json();
         if (json.error) throw new Error(json.message);
+        // a lista gira: a mais nova entra em cima e a mais velha sai
         ouvindo.faixas = (json.recenttracks?.track || []).map(t => ({
             titulo: t.name,
             artista: t.artist?.['#text'] || '',
-            capa: t.image?.find(i => i.size === 'medium')?.['#text'] || '',
+            capa: capaLastfm(t.image),
             agora: t['@attr']?.nowplaying === 'true',
             quando: t.date ? Number(t.date.uts) * 1000 : Date.now(),
-        }));
+        })).slice(0, 7);
+        guardar.salvar('ouvindo', ouvindo.faixas);
         ouvindo.erro = false;
     } catch (erro) {
         console.error(erro);
-        ouvindo.erro = true;
+        ouvindo.erro = !ouvindo.faixas.length;
     }
     ouvindo.carregado = true;
     preencherOuvindo();
+}
+
+// musica que eu mais ouvi nos ultimos 7 dias
+async function carregarMaisOuvida() {
+    const { usuario, chave } = DADOS.lastfm;
+    if (!usuario || !chave) return;
+    try {
+        const json = await (await fetch(urlLastfm('user.gettoptracks', '&period=7day&limit=1'))).json();
+        const t = json.toptracks?.track?.[0];
+        if (!t) return;
+        const faixa = { titulo: t.name, artista: t.artist?.name || '', vezes: Number(t.playcount) || 0, capa: '' };
+        // a capa vem das ouvidas recentes ou do track.getInfo
+        faixa.capa = ouvindo.faixas.find(f => f.titulo === faixa.titulo && f.capa)?.capa || '';
+        if (!faixa.capa) {
+            const info = await (await fetch(urlLastfm('track.getInfo', `&artist=${encodeURIComponent(faixa.artista)}&track=${encodeURIComponent(faixa.titulo)}`))).json();
+            faixa.capa = capaLastfm(info.track?.album?.image, 'large');
+        }
+        ouvindo.semana = faixa;
+        guardar.salvar('mais-ouvida', faixa);
+        preencherOuvindo();
+    } catch (erro) {
+        console.error(erro);
+    }
+}
+
+function blocoMaisOuvida() {
+    const f = ouvindo.semana;
+    if (!f) return '';
+    return `
+        <p class="titulo-mais-ouvida">★ mais ouvida da semana!</p>
+        <a class="faixa" href="${linkSpotify(f)}" target="_blank" rel="noopener">
+            ${f.capa ? `<img src="${esc(f.capa)}" alt="" width="34" height="34" loading="lazy">` : icone('cd', 32)}
+            <span><b class="texto-brilho">${esc(f.titulo)}</b><br>${esc(f.artista)}${f.vezes ? `<br><small>${f.vezes}x essa semana</small>` : ''}</span>
+        </a>
+        <p class="titulo-mais-ouvida">ouvidas por último</p>`;
 }
 
 function tempoAtras(ms) {
@@ -1779,9 +2003,9 @@ function preencherOuvindo() {
     const caixa = $('#caixa-ouvindo');
     caixa.hidden = !DADOS.lastfm.usuario;
     if (caixa.hidden) return;
-    $('#ouvindo').innerHTML = listaOuvindo(4);
+    $('#ouvindo').innerHTML = blocoMaisOuvida() + listaOuvindo(7);
     const naPagina = $('#ouvindo-pagina');
-    if (naPagina) naPagina.innerHTML = listaOuvindo(10);
+    if (naPagina) naPagina.innerHTML = blocoMaisOuvida() + listaOuvindo(7);
 }
 
 
@@ -1838,15 +2062,43 @@ async function subirImagem(arquivo, pasta, maximo) {
 }
 
 // foto quadradinha pros amigos
+// abre a imagem (se o navegador nao tiver createImageBitmap usa o jeito antigo)
+async function abrirImagem(arquivo) {
+    try {
+        return await createImageBitmap(arquivo);
+    } catch {
+        const url = URL.createObjectURL(arquivo);
+        try {
+            const img = new Image();
+            img.src = url;
+            await img.decode();
+            return img;
+        } catch {
+            throw new Error('foto-invalida');
+        } finally {
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+    }
+}
+
 async function fotoQuadrada(arquivo, lado = 128) {
-    if (!arquivo.type.startsWith('image/')) throw new Error('isso não é uma imagem');
-    const bitmap = await createImageBitmap(arquivo);
-    const menor = Math.min(bitmap.width, bitmap.height);
+    const imagem = await abrirImagem(arquivo);
+    const largura = imagem.width || imagem.naturalWidth;
+    const altura = imagem.height || imagem.naturalHeight;
+    const menor = Math.min(largura, altura);
     const canvas = document.createElement('canvas');
     canvas.width = lado;
     canvas.height = lado;
-    canvas.getContext('2d').drawImage(bitmap, (bitmap.width - menor) / 2, (bitmap.height - menor) / 2, menor, menor, 0, 0, lado, lado);
-    return canvas.toDataURL('image/jpeg', 0.8);
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, lado, lado);
+    ctx.drawImage(imagem, (largura - menor) / 2, (altura - menor) / 2, menor, menor, 0, 0, lado, lado);
+    // vai baixando a qualidade se ficar pesada
+    for (const qualidade of [0.8, 0.6, 0.4]) {
+        const foto = canvas.toDataURL('image/jpeg', qualidade);
+        if (foto.startsWith('data:image/jpeg;base64,') && foto.length <= 80000) return foto;
+    }
+    throw new Error('foto-invalida');
 }
 
 async function apagarFotoPostada(id) {
@@ -1879,9 +2131,9 @@ function mostrarFoto() {
 
 // --- janelinha de aviso ---
 
-function dialogo({ titulo, texto, icone: nomeIcone = 'information', botoes = [{ texto: 'OK' }] }) {
+function dialogo({ titulo, texto, imagem = '', icone: nomeIcone = 'information', botoes = [{ texto: 'OK' }] }) {
     $('#dialogo-titulo').textContent = titulo;
-    $('#dialogo-texto').innerHTML = textoRico(texto);
+    $('#dialogo-texto').innerHTML = textoRico(texto) + (imagemSegura(imagem) ? `<img class="imagem-dialogo" src="${esc(imagemSegura(imagem))}" alt="">` : '');
     $('#dialogo-icone').innerHTML = icone(nomeIcone, 32);
     const acoes = $('#dialogo-acoes');
     acoes.innerHTML = '';
@@ -2468,12 +2720,653 @@ function acaoNotas(acao) {
     }
 }
 
-function mostrarLixeira() {
-    const itens = guardar.ler('lixeira', DADOS.lixeira);
-    $('#lista-lixeira').innerHTML = itens.map(i => `<li>${icone(i.icone || 'page_white')}${esc(i.nome)}</li>`).join('')
-        || '<li style="color:#888">A Lixeira está vazia.</li>';
-    $('#lixeira-info').textContent = `${itens.length} objeto(s)`;
+// icone pelo final do nome do arquivo
+function iconeArquivo(nome) {
+    const extensao = String(nome).split('.').pop().toLowerCase();
+    if (['doc', 'docx', 'rtf'].includes(extensao)) return 'file_extension_doc';
+    if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(extensao)) return 'file_extension_jpg';
+    if (['mp3', 'wav', 'wma', 'ogg'].includes(extensao)) return 'music';
+    if (extensao === 'exe') return 'file_extension_exe';
+    if (extensao === 'txt') return 'file_extension_txt';
+    return 'page_white';
 }
+
+// cada visitante pode esvaziar a lixeira so pra ele
+function itensLixeira() {
+    return guardar.ler('lixeira-vazia', false) ? [] : DADOS.lixeira;
+}
+
+function mostrarLixeira() {
+    const itens = itensLixeira();
+    $('#lista-lixeira').innerHTML = itens.map((i, n) => `<li><button data-arquivo-lixeira="${n}" title="abrir">${icone(iconeArquivo(i.nome))}${esc(i.nome)}</button></li>`).join('')
+        || '<li style="color:#888">A Lixeira está vazia.</li>';
+    $('#lixeira-info').textContent = `${itens.length} objeto(s) · clique pra abrir`;
+}
+
+function abrirArquivoLixeira(n) {
+    const arquivo = itensLixeira()[n];
+    if (!arquivo) return;
+    dialogo({
+        titulo: `${arquivo.nome} - Bloco de notas`,
+        icone: iconeArquivo(arquivo.nome),
+        texto: arquivo.conteudo || '(arquivo vazio)',
+        imagem: arquivo.imagem ? urlFotoPostada(arquivo.imagem) : '',
+    });
+}
+
+
+// --- sem internet (jogo do dinossauro de oculos) ---
+
+const net = { desligadaPorMim: false, caiuDeVerdade: !navigator.onLine };
+
+function semInternet() {
+    return net.desligadaPorMim || net.caiuDeVerdade;
+}
+
+function alternarInternet() {
+    net.desligadaPorMim = !net.desligadaPorMim;
+    // se a internet de verdade voltou, o botao liga de novo
+    if (!net.desligadaPorMim) net.caiuDeVerdade = !navigator.onLine;
+    mostrarConexao();
+}
+
+function mostrarConexao() {
+    const caiu = semInternet();
+    $('.area-pagina').classList.toggle('offline', caiu);
+    $('#sem-internet').hidden = !caiu;
+    const icone = $('#icone-net');
+    icone.innerHTML = `<img class="ico" src="${urlIcone(caiu ? 'disconnect' : 'network_wireless')}" alt="">`;
+    icone.title = caiu ? 'Sem conexão (clique pra conectar)' : 'Conectado à internet (clique pra desconectar)';
+    icone.classList.toggle('caiu', caiu);
+    if (caiu) {
+        document.title = 'Não é possível acessar esta página';
+        status('Sem conexão com a Internet');
+        $('#navegador').scrollIntoView({ block: 'start' });
+        dino.reiniciar();
+        dino.desenhar();
+    } else {
+        dino.parar();
+        mostrarPagina();
+        status('Concluído');
+    }
+}
+
+window.addEventListener('offline', () => { net.caiuDeVerdade = true; mostrarConexao(); });
+window.addEventListener('online', () => { net.caiuDeVerdade = false; mostrarConexao(); });
+
+// --- jogo do dinossauro (igual ao do chrome, so que de oculos) ---
+// os numeros sao os mesmos do jogo original (tela de 600 x 150)
+
+const JOGO = {
+    largura: 600, altura: 150, fps: 60,
+    velocidade: 6, velocidadeMax: 13, aceleracao: 0.001,
+    espacoCoef: 0.6, espacoMaxCoef: 1.5, tempoLivre: 3000,
+    maxGrupo: 3, maxRepetido: 2, noiteCada: 700, noiteDura: 12000,
+    gameOverEspera: 1200, chao: 138,
+};
+
+const TREX = {
+    largura: 44, altura: 47, larguraAbaixado: 59, alturaAbaixado: 25,
+    x: 50, gravidade: 0.6, puloInicial: -10, alturaMin: 30, alturaMax: 30,
+    quedaVel: -5, quedaRapida: 3,
+    // so o dinossauro um pouco maior que o original (o pe continua no chao)
+    escala: 1.2,
+};
+TREX.chao = JOGO.altura - TREX.altura - 10;
+
+// caixas de colisao do original
+const CAIXAS_TREX = {
+    correndo: [[22, 0, 17, 16], [1, 18, 30, 9], [10, 35, 14, 8], [1, 24, 29, 5], [5, 30, 21, 4], [9, 34, 15, 4]],
+    abaixado: [[1, 18, 55, 25]],
+};
+
+const TIPOS_OBSTACULO = [
+    { tipo: 'pequeno', largura: 17, altura: 35, y: 105, varios: 4, espaco: 120, apartir: 0,
+        caixas: [[0, 7, 5, 27], [4, 0, 6, 34], [10, 4, 7, 14]] },
+    // no original o grupo de cacto grande so vem depois, aqui vem desde o comeco
+    { tipo: 'grande', largura: 25, altura: 50, y: 90, varios: 4, espaco: 120, apartir: 0,
+        caixas: [[0, 12, 7, 38], [8, 0, 7, 49], [13, 10, 10, 38]] },
+    { tipo: 'passaro', largura: 46, altura: 40, y: [100, 75, 50], yCelular: [100, 50], varios: 999, espaco: 150, apartir: 8.5,
+        quadros: 2, quadroMs: 1000 / 6, extra: 0.8,
+        caixas: [[15, 15, 16, 5], [18, 21, 24, 6], [2, 14, 4, 3], [6, 10, 4, 7], [10, 8, 6, 9]] },
+];
+
+const CELULAR = matchMedia('(pointer: coarse)').matches;
+
+// --- desenhos (cada letra e 1 pixel do jogo original) ---
+
+function mapa(linhas, tamanho = 2) {
+    // linhas de blocos: cada # vira um quadrado de 2x2
+    const pontos = [];
+    linhas.forEach((linha, l) => [...linha].forEach((ch, c) => {
+        if (ch !== ' ') pontos.push([c * tamanho, l * tamanho, tamanho, ch]);
+    }));
+    return pontos;
+}
+
+// desenho do t-rex igualzinho ao do jogo do chrome (codigo aberto do chromium), 1 letra = 1 pixel
+const TREX_CORPO = [
+    '',
+    '',
+    '                        ################',
+    '                        ################',
+    '                      ####################',
+    '                      ####  ##############',
+    '                      ####  ##############',
+    '                      ####################',
+    '                      ####################',
+    '                      ####################',
+    '                      ####################',
+    '                      ####################',
+    '                      ####################',
+    '                      ##########',
+    '                      ##########',
+    '                      ################',
+    '                      ################',
+    '  ##                ##########',
+    '  ##                ##########',
+    '  ##             #############',
+    '  ##             #############',
+    '  ####        ####################',
+    '  ####        ####################',
+    '  ######    ##################  ##',
+    '  ######    ##################  ##',
+    '  ############################',
+    '  ############################',
+    '  ############################',
+    '  ############################',
+    '    ##########################',
+    '    ########################',
+    '      ######################',
+    '      ######################',
+    '        ##################',
+    '        ##################',
+    '          ##############',
+    '          ##############',
+];
+
+const TREX_PERNAS = [
+    ['            ######  ####', '            ######  ####', '            ####      ##', '            ####      ##', '            ##        ##', '            ##        ##', '            ####      ####', '            ####      ####', '', ''],
+    ['            ######    #####', '            ######    #####', '            ####', '            ####', '            ##', '            ##', '            ####', '            ####', '', ''],
+    ['            ####    ####', '            ####    ####', '              ####    ##', '              ####    ##', '                      ##', '                      ##', '                      ####', '                      ####', '', ''],
+];
+
+const ABAIXADO_CORPO = [
+    '',
+    '',
+    '  ##',
+    '  ##                                   ################',
+    '  ######        #################      ################',
+    '  ######        #################    ####################',
+    '  #######################################  ##############',
+    '  #######################################  ##############',
+    '    #####################################################',
+    '    #####################################################',
+    '      ###################################################',
+    '      ###################################################',
+    '        #################################################',
+    '        #################################################',
+    '          #####################################',
+    '          #####################################',
+    '            #######################    ##############',
+    '            #######################    ##############',
+    '              #####################',
+    '              ############     ##',
+];
+
+const ABAIXADO_PERNAS = [
+    ['             ##    ######      ##', '             ##    ######      ####', '             ####  ####        ####', '             ####  ####', '                   ##', '                   ##', '                   ####', '                   ####', '', ''],
+    ['             ######    #####   ##', '             ######    #####   ####', '             ####              ####', '             ####', '             ##', '             ##', '             ####', '             ####', '', ''],
+];
+
+// oculos em pixel de verdade (o armacao, w lente, h brilho, p olho)
+const LENTE = [
+    ' oooooo ',
+    'ohhwwwwo',
+    'ohwwwwwo',
+    'owwppwwo',
+    'owwppwwo',
+    'owwwwwwo',
+    ' oooooo ',
+];
+function oculos(x, y) {
+    const pontos = [];
+    const pinta = (dx, dy, desenho) => desenho.forEach((linha, l) => [...linha].forEach((ch, c) => {
+        if (ch !== ' ') pontos.push([x + dx + c, y + dy + l, 1, ch]);
+    }));
+    pinta(0, 0, LENTE);
+    pinta(10, 0, LENTE);
+    pinta(8, 2, ['oo']);
+    pinta(-4, 2, ['oooo']);
+    return pontos;
+}
+
+const SPRITES = {
+    correndo: TREX_PERNAS.map(p => [...mapa([...TREX_CORPO, ...p], 1), ...oculos(23, 2)]),
+    abaixado: ABAIXADO_PERNAS.map(p => [...mapa([...ABAIXADO_CORPO, ...p], 1), ...oculos(39, 3)]),
+};
+
+// cacto bonitinho: tronco e bracos com ponta redonda e espinhos
+function cacto(largura, altura, troncoX, troncoL, bracos) {
+    const pontos = [];
+    const bloco = (x, y, l, a) => {
+        for (let i = 0; i < l; i++) for (let j = 0; j < a; j++) pontos.push([x + i, y + j, 1, '#']);
+    };
+    const redondo = (x, y, l, a) => {
+        bloco(x + 1, y, l - 2, 1);
+        bloco(x, y + 1, l, a - 1);
+    };
+    redondo(troncoX, 0, troncoL, altura);
+    bracos.forEach(({ x, l, topo, baixo, lado }) => {
+        redondo(x, topo, l, baixo - topo);
+        // cotovelo ligando no tronco
+        const de = lado < 0 ? x : troncoX + troncoL;
+        const ate = lado < 0 ? troncoX : x + l;
+        bloco(Math.min(de, ate), baixo - 3, Math.abs(ate - de), 3);
+        bloco(lado < 0 ? x + 1 : x, baixo - 1, l - 1, 1);
+    });
+    // espinhos
+    for (let y = 4; y < altura - 4; y += 6) {
+        pontos.push([troncoX - 1, y, 1, '#']);
+        pontos.push([troncoX + troncoL, y + 3, 1, '#']);
+    }
+    return pontos.filter(([x, y]) => x >= 0 && x < largura && y >= 0 && y < altura);
+}
+
+const SPRITE_CACTO = {
+    pequeno: cacto(17, 35, 6, 5, [{ x: 1, l: 4, topo: 9, baixo: 21, lado: -1 }, { x: 12, l: 4, topo: 6, baixo: 17, lado: 1 }]),
+    grande: cacto(25, 50, 9, 7, [{ x: 1, l: 6, topo: 13, baixo: 32, lado: -1 }, { x: 18, l: 6, topo: 9, baixo: 27, lado: 1 }]),
+};
+
+const PASSARO_QUADROS = [
+    [
+        '      #         ',
+        '      ##        ',
+        '   #  ###       ',
+        '  ##  ####      ',
+        ' ###  #####     ',
+        '##############  ',
+        '   ##########   ',
+        '      ######    ',
+    ],
+    [
+        '                ',
+        '                ',
+        '   #            ',
+        '  ##            ',
+        ' ###            ',
+        '##############  ',
+        '   ##########   ',
+        '      #####     ',
+        '      ###       ',
+        '      ##        ',
+        '      #         ',
+    ],
+].map(q => mapa(q, 3));
+
+const CORES_JOGO = { '#': '#535353', o: '#2b2b2b', w: '#dedede', h: '#f2f2f2', p: '#1a1a1a' };
+
+// --- o jogo ---
+
+const dino = {
+    ctx: null, quadro: null, ultimo: 0, rodando: false, acabou: false, horaDoFim: 0,
+    vel: JOGO.velocidade, distancia: 0, tempo: 0, recorde: 0,
+    obstaculos: [], historico: [], nuvens: [], chaoX: 0,
+    piscar: 0, noite: false, noiteTempo: 0,
+    trex: null,
+
+    iniciar() {
+        const canvas = $('#dino');
+        // desenha em dobro pra ficar nitido
+        canvas.width = JOGO.largura * 2;
+        canvas.height = JOGO.altura * 2;
+        this.ctx = canvas.getContext('2d');
+        this.recorde = guardar.ler('dino-recorde', 0);
+        this.reiniciar();
+    },
+
+    reiniciar() {
+        this.parar();
+        this.vel = JOGO.velocidade;
+        this.distancia = 0;
+        this.tempo = 0;
+        this.obstaculos = [];
+        this.historico = [];
+        this.nuvens = [{ x: 150, y: 40 }, { x: 420, y: 60 }];
+        this.acabou = false;
+        this.piscar = 0;
+        this.noite = false;
+        this.noiteTempo = 0;
+        $('#dino').classList.remove('noite');
+        this.trex = { y: TREX.chao, vy: 0, pulando: false, abaixado: false, quedaRapida: false, alturaMinOk: false, passo: 0 };
+    },
+
+    parar() {
+        this.rodando = false;
+        cancelAnimationFrame(this.quadro);
+    },
+
+    comecar() {
+        if (this.rodando) return;
+        this.rodando = true;
+        this.ultimo = performance.now();
+        this.quadro = requestAnimationFrame(t => this.loop(t));
+    },
+
+    // --- controles iguais ao original ---
+    apertouPular() {
+        if (this.acabou) {
+            if (performance.now() - this.horaDoFim < JOGO.gameOverEspera) return;
+            this.reiniciar();
+        }
+        this.comecar();
+        const t = this.trex;
+        if (!t.pulando && !t.abaixado) {
+            t.pulando = true;
+            t.vy = TREX.puloInicial - this.vel / 10;
+            t.alturaMinOk = false;
+            t.quedaRapida = false;
+        }
+    },
+    soltouPular() {
+        const t = this.trex;
+        // soltar cedo faz o pulo ser mais baixo
+        if (t.pulando && t.alturaMinOk && t.vy < TREX.quedaVel) t.vy = TREX.quedaVel;
+    },
+    apertouAbaixar() {
+        if (!this.rodando || this.acabou) return;
+        const t = this.trex;
+        if (t.pulando) {
+            t.quedaRapida = true;
+            t.vy = 1;
+        } else {
+            t.abaixado = true;
+        }
+    },
+    soltouAbaixar() {
+        this.trex.quedaRapida = false;
+        this.trex.abaixado = false;
+    },
+
+    loop(agora) {
+        if (!this.rodando) return;
+        const delta = Math.min(50, agora - this.ultimo);
+        this.ultimo = agora;
+        this.atualizar(delta);
+        this.desenhar();
+        if (this.rodando) this.quadro = requestAnimationFrame(t => this.loop(t));
+    },
+
+    atualizar(delta) {
+        const quadros = delta / (1000 / JOGO.fps);
+        const t = this.trex;
+
+        // pulo
+        if (t.pulando) {
+            t.y += Math.round(t.vy * (t.quedaRapida ? TREX.quedaRapida : 1) * quadros);
+            t.vy += TREX.gravidade * quadros;
+            if (t.y < TREX.chao - TREX.alturaMin || t.quedaRapida) t.alturaMinOk = true;
+            if (t.y < TREX.alturaMax || t.quedaRapida) this.soltouPular();
+            if (t.y > TREX.chao) {
+                t.y = TREX.chao;
+                t.vy = 0;
+                t.pulando = false;
+                t.quedaRapida = false;
+            }
+        }
+        t.passo += delta;
+
+        this.tempo += delta;
+        const temObstaculo = this.tempo > JOGO.tempoLivre;
+
+        // chao, nuvens e obstaculos andando
+        const anda = this.vel * JOGO.fps / 1000 * delta;
+        this.chaoX = (this.chaoX + anda) % JOGO.largura;
+        this.nuvens.forEach(n => { n.x -= 0.2 * JOGO.fps / 1000 * delta * 2; });
+        this.nuvens = this.nuvens.filter(n => n.x > -50);
+        const ultimaNuvem = this.nuvens[this.nuvens.length - 1];
+        if (this.nuvens.length < 6 && (!ultimaNuvem || ultimaNuvem.x < JOGO.largura - 100 - Math.random() * 300)) {
+            this.nuvens.push({ x: JOGO.largura, y: 30 + Math.random() * 41 });
+        }
+
+        if (temObstaculo) {
+            this.obstaculos.forEach(o => {
+                o.x -= Math.floor((this.vel + o.extra) * JOGO.fps / 1000 * delta);
+                o.tempo += delta;
+            });
+            this.obstaculos = this.obstaculos.filter(o => o.x + o.largura > 0);
+            const ultimo = this.obstaculos[this.obstaculos.length - 1];
+            if (!ultimo) this.novoObstaculo();
+            else if (!ultimo.seguinte && ultimo.x + ultimo.largura + ultimo.espaco < JOGO.largura) {
+                this.novoObstaculo();
+                ultimo.seguinte = true;
+            }
+        }
+
+        // bateu?
+        const primeiro = this.obstaculos[0];
+        if (temObstaculo && primeiro && this.bateu(primeiro)) {
+            this.fimDeJogo();
+            return;
+        }
+
+        this.distancia += this.vel * quadros;
+        if (this.vel < JOGO.velocidadeMax) this.vel += JOGO.aceleracao * quadros;
+
+        // placar pisca a cada 100
+        const pontos = this.pontos();
+        if (pontos > 0 && pontos % 100 === 0 && pontos !== this.ultimoPisca) {
+            this.ultimoPisca = pontos;
+            this.piscar = 1500;
+        }
+        if (this.piscar > 0) this.piscar -= delta;
+
+        // modo noite a cada 700
+        if (this.noiteTempo > 0) {
+            this.noiteTempo += delta;
+            if (this.noiteTempo > JOGO.noiteDura) {
+                this.noiteTempo = 0;
+                this.noite = false;
+                $('#dino').classList.remove('noite');
+            }
+        } else if (pontos > 0 && pontos % JOGO.noiteCada === 0 && pontos !== this.ultimaNoite) {
+            this.ultimaNoite = pontos;
+            this.noiteTempo = delta;
+            this.noite = true;
+            $('#dino').classList.add('noite');
+        }
+    },
+
+    pontos() {
+        return Math.round(Math.ceil(this.distancia) * 0.025);
+    },
+
+    novoObstaculo() {
+        const podem = TIPOS_OBSTACULO.filter(o => this.vel >= o.apartir
+            && !(this.historico.length >= JOGO.maxRepetido && this.historico.every(h => h === o.tipo)));
+        const tipo = podem[Math.floor(Math.random() * podem.length)];
+        let tamanho = 1 + Math.floor(Math.random() * JOGO.maxGrupo);
+        if (tamanho > 1 && tipo.varios > this.vel) tamanho = 1;
+        const largura = tipo.largura * tamanho;
+        const alturas = Array.isArray(tipo.y) ? (CELULAR ? tipo.yCelular : tipo.y) : [tipo.y];
+        const espacoMin = Math.round(largura * this.vel + tipo.espaco * JOGO.espacoCoef);
+        const espacoMax = Math.round(espacoMin * JOGO.espacoMaxCoef);
+        // caixas de colisao: a do meio estica com o grupo
+        const caixas = tipo.caixas.map(c => [...c]);
+        if (tamanho > 1) {
+            caixas[1][2] = largura - caixas[0][2] - caixas[2][2];
+            caixas[2][0] = largura - caixas[2][2];
+        }
+        this.obstaculos.push({
+            ...tipo, tamanho, largura, caixas, x: JOGO.largura, tempo: 0, seguinte: false,
+            y: alturas[Math.floor(Math.random() * alturas.length)],
+            extra: tipo.extra ? (Math.random() > 0.5 ? tipo.extra : -tipo.extra) : 0,
+            espaco: espacoMin + Math.floor(Math.random() * (espacoMax - espacoMin + 1)),
+        });
+        this.historico = [tipo.tipo, ...this.historico].slice(0, JOGO.maxRepetido);
+    },
+
+    bateu(o) {
+        const t = this.trex;
+        const abaixado = t.abaixado && !t.pulando;
+        const tx = TREX.x, ty = abaixado ? TREX.chao : t.y;
+        const tl = abaixado ? TREX.larguraAbaixado : TREX.largura;
+        const ta = TREX.altura;
+        // caixa de fora primeiro (com 1px de folga)
+        const fora = (ax, ay, al, aa, bx, by, bl, ba) => ax < bx + bl && ax + al > bx && ay < by + ba && ay + aa > by;
+        const grande = TREX.escala;
+        if (!fora(tx + 1, ty - ta * (grande - 1) + 1, tl * grande - 2, ta * grande - 2, o.x + 1, o.y + 1, o.largura - 2, o.altura - 2)) return false;
+        const caixasTrex = abaixado ? CAIXAS_TREX.abaixado : CAIXAS_TREX.correndo;
+        // caixas crescem junto com o dinossauro, presas no pe
+        const e = TREX.escala, sobe = ta * (e - 1);
+        return caixasTrex.some(([x, y, l, a]) => o.caixas.some(([ox, oy, ol, oa]) =>
+            fora(tx + x * e, ty + y * e - sobe, l * e, a * e, o.x + ox, o.y + oy, ol, oa)));
+    },
+
+    fimDeJogo() {
+        this.acabou = true;
+        this.horaDoFim = performance.now();
+        this.parar();
+        const pontos = this.pontos();
+        if (pontos > this.recorde) {
+            this.recorde = pontos;
+            guardar.salvar('dino-recorde', pontos);
+        }
+        this.desenhar();
+    },
+
+    pinta(pontos, x, y) {
+        pontos.forEach(([px, py, tam, cor]) => {
+            this.ctx.fillStyle = CORES_JOGO[cor];
+            this.ctx.fillRect(x + px, y + py, tam, tam);
+        });
+    },
+
+    desenharTrex() {
+        const t = this.trex;
+        // desenha maior a partir do pe
+        const e = TREX.escala, pe = (t.abaixado && !t.pulando) ? TREX.chao + TREX.altura : t.y + TREX.altura;
+        this.ctx.save();
+        this.ctx.translate(TREX.x, pe);
+        this.ctx.scale(e, e);
+        this.ctx.translate(-TREX.x, -pe);
+        this.desenharTrexNormal();
+        this.ctx.restore();
+    },
+
+    desenharTrexNormal() {
+        const t = this.trex;
+        if (t.abaixado && !t.pulando) {
+            const quadro = SPRITES.abaixado[Math.floor(t.passo / 125) % 2];
+            this.pinta(quadro, TREX.x, TREX.chao + 17);
+            return;
+        }
+        let pernas = 0;
+        if (this.rodando && !t.pulando && !this.acabou) pernas = 1 + Math.floor(t.passo / 83) % 2;
+        this.pinta(SPRITES.correndo[pernas], TREX.x, t.y);
+        // olhinhos fechados quando bate
+        if (this.acabou) {
+            this.ctx.fillStyle = CORES_JOGO.w;
+            [24, 34].forEach(c => this.ctx.fillRect(TREX.x + c, t.y + 3, 6, 5));
+            this.ctx.fillStyle = CORES_JOGO.o;
+            [25, 35].forEach(c => this.ctx.fillRect(TREX.x + c, t.y + 5, 4, 1));
+        }
+    },
+
+    desenhar() {
+        const ctx = this.ctx;
+        if (!ctx) return;
+        ctx.setTransform(2, 0, 0, 2, 0, 0);
+        ctx.clearRect(0, 0, JOGO.largura, JOGO.altura);
+
+        // nuvens
+        ctx.fillStyle = '#e0e0e0';
+        this.nuvens.forEach(n => {
+            ctx.fillRect(n.x + 14, n.y, 18, 2);
+            ctx.fillRect(n.x + 10, n.y + 2, 26, 3);
+            ctx.fillRect(n.x + 4, n.y + 5, 38, 4);
+            ctx.fillRect(n.x, n.y + 9, 46, 3);
+        });
+
+        // chao com pedrinhas
+        ctx.fillStyle = '#535353';
+        ctx.fillRect(0, JOGO.chao, JOGO.largura, 1);
+        for (let i = 0; i < 30; i++) {
+            const x = ((i * 53 - this.chaoX) % JOGO.largura + JOGO.largura) % JOGO.largura;
+            ctx.fillRect(x, JOGO.chao + 3 + (i % 3) * 3, 1 + (i % 4), 1);
+        }
+
+        // obstaculos
+        this.obstaculos.forEach(o => {
+            if (o.tipo === 'passaro') {
+                const quadro = PASSARO_QUADROS[Math.floor(o.tempo / o.quadroMs) % 2];
+                this.pinta(quadro, o.x, o.y + 6);
+            } else {
+                for (let i = 0; i < o.tamanho; i++) this.pinta(SPRITE_CACTO[o.tipo], o.x + i * (o.largura / o.tamanho), o.y);
+            }
+        });
+
+        this.desenharTrex();
+
+        // placar
+        ctx.font = 'bold 11px "Courier New", monospace';
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#535353';
+        const zeros = n => String(n).padStart(5, '0');
+        const pontos = this.pontos();
+        const piscando = this.piscar > 0 && Math.floor(this.piscar / 250) % 2 === 0;
+        const atual = piscando ? '     ' : zeros(this.piscar > 0 ? this.ultimoPisca : pontos);
+        ctx.fillText(`${this.recorde ? `HI ${zeros(this.recorde)}  ` : ''}${atual}`, 590, 18);
+
+        ctx.textAlign = 'center';
+        if (this.acabou) {
+            ctx.font = 'bold 14px "Courier New", monospace';
+            ctx.fillText('G A M E   O V E R', 300, 52);
+            // botao de recomecar
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = '#535353';
+            ctx.beginPath();
+            ctx.arc(300, 78, 9, Math.PI * 0.35, Math.PI * 1.9);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(306, 64);
+            ctx.lineTo(312, 72);
+            ctx.lineTo(302, 74);
+            ctx.fill();
+        } else if (!this.rodando) {
+            ctx.font = '10px Verdana, sans-serif';
+            ctx.fillStyle = '#757575';
+            ctx.fillText(CELULAR ? 'toque pra começar' : 'aperte espaço pra começar', 300, 60);
+        }
+    },
+};
+
+// teclado: espaco ou seta pra cima pula, seta pra baixo abaixa, enter recomeca
+document.addEventListener('keydown', e => {
+    if (!semInternet() || e.target.closest('input, textarea')) return;
+    if (e.code === 'Space' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (!e.repeat) dino.apertouPular();
+    } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        dino.apertouAbaixar();
+    } else if (e.key === 'Enter' && dino.acabou) {
+        dino.horaDoFim = 0;
+        dino.apertouPular();
+    }
+});
+document.addEventListener('keyup', e => {
+    if (!semInternet()) return;
+    if (e.code === 'Space' || e.key === 'ArrowUp') dino.soltouPular();
+    if (e.key === 'ArrowDown') dino.soltouAbaixar();
+});
+// clicar ou tocar no jogo pula (depois de perder, clicar recomeca na hora)
+$('#dino').addEventListener('pointerdown', e => {
+    e.preventDefault();
+    if (dino.acabou) dino.horaDoFim = 0;
+    dino.apertouPular();
+});
+$('#dino').addEventListener('pointerup', () => dino.soltouPular());
 
 
 // --- comandos dos menus ---
@@ -2555,6 +3448,7 @@ function montarFavoritos() {
 }
 
 const COMANDOS = {
+    'internet': () => alternarInternet(),
     'nova-guia': novaAba,
     'imprimir': () => window.print(),
     'fechar': () => acaoJanela($('#navegador'), 'fechar'),
@@ -2608,7 +3502,7 @@ const COMANDOS = {
     }),
     'sobre': () => dialogo({
         titulo: 'Sobre o Quarto do Lucas', icone: 'internet_explorer',
-        texto: `QUARTO DO LUCAS\nVersão 1.0 (estilo orkut, 2004–2026)\n\nFeito à mão com HTML, CSS e JavaScript.\nMelhor visualizado em 1024×768. (H)\n\nÍcones: FatCow (CC BY 3.0) · GIFs: GifCities`,
+        texto: `QUARTO DO LUCAS\nVersão 1.0 (estilo orkut, 2006–2026)\n\nFeito à mão com HTML, CSS e JavaScript.\nMelhor visualizado em 1024×768. (H)\n\nÍcones: FatCow (CC BY 3.0) · GIFs: GifCities`,
     }),
     'trancar-diario': async () => {
         if (!nuvem) return;
@@ -2771,6 +3665,33 @@ async function enviarFormulario(form) {
             mostrarPagina();
             dialogo({ titulo: 'Enquete', icone: 'accept', texto: 'Enquete nova no ar!' });
         }
+        if (tipo === 'mp3') {
+            const arquivo = dados.arquivo;
+            if (!arquivo?.size) return dialogo({ titulo: 'Winamp', icone: 'error', texto: 'Escolhe o arquivo da música.' });
+            if (!arquivo.type.startsWith('audio/') && !/\.mp3$/i.test(arquivo.name)) return dialogo({ titulo: 'Winamp', icone: 'error', texto: 'Isso não é um arquivo de música.' });
+            if (arquivo.size > 20 * 1024 * 1024) return dialogo({ titulo: 'Winamp', icone: 'error', texto: 'Arquivo grande demais (máximo 20 MB).' });
+            const extensao = (arquivo.name.split('.').pop() || 'mp3').toLowerCase().replace(/[^a-z0-9]/g, '') || 'mp3';
+            const caminho = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${extensao}`;
+            const { error } = await nuvem.storage.from('musicas').upload(caminho, arquivo, { contentType: arquivo.type || 'audio/mpeg' });
+            if (error) throw error;
+            await salvarConfig('mp3', { ...(DADOS.mp3 || {}), [dados.id]: caminho });
+            atualizarPlayer();
+            mostrarPagina();
+            dialogo({ titulo: 'Winamp', icone: 'accept', texto: 'Pronto! Agora essa música toca inteira no Winamp (8)' });
+        }
+        if (tipo === 'lixeira') {
+            const antigo = DADOS.lixeira[edicaoLixeira];
+            const arquivo = { nome: dados.nome.trim().slice(0, 60), conteudo: dados.conteudo.slice(0, 3000) };
+            if (antigo?.imagem && !dados.semImagem) arquivo.imagem = antigo.imagem;
+            if (dados.imagem?.size) arquivo.imagem = await subirImagem(dados.imagem, 'lixeira', 1200);
+            const lista = [...DADOS.lixeira];
+            if (antigo) lista[edicaoLixeira] = arquivo;
+            else lista.unshift(arquivo);
+            await salvarConfig('lixeira', lista.slice(0, 40));
+            edicaoLixeira = null;
+            mostrarPagina();
+            mostrarLixeira();
+        }
         if (tipo === 'comunidade') {
             const nova = { nome: dados.nome.trim(), icone: ICONES_COMUNIDADE.includes(dados.icone) ? dados.icone : 'group', membros: Math.max(0, Number(dados.membros) || 0) };
             await salvarConfig('comunidades', [...DADOS.comunidades, nova]);
@@ -2830,7 +3751,7 @@ document.addEventListener('click', e => {
     // fecha o menu iniciar
     if (!alvo.closest('#menu-iniciar, #botao-iniciar')) $('#menu-iniciar').hidden = true;
 
-    const el = alvo.closest('[data-abrir], [data-comando], [data-janela], [data-tarefa], [data-aba], [data-fechar-aba], [data-apagar], [data-apagar-foto], [data-apagar-comunidade], [data-editar], [data-publicar], [data-tocar], [data-player], [data-foto], [data-lightbox], [data-ferramenta], [data-cor], [data-cor-editor], [data-cores], [data-fundo], [data-notas], [data-lixeira], [data-msn], .emoticons button, [data-sair-guia], [data-dialogo-fechar]');
+    const el = alvo.closest('[data-abrir], [data-comando], [data-janela], [data-tarefa], [data-aba], [data-fechar-aba], [data-apagar], [data-apagar-foto], [data-apagar-comunidade], [data-editar], [data-publicar], [data-tocar], [data-player], [data-foto], [data-lightbox], [data-ferramenta], [data-cor], [data-cor-editor], [data-cores], [data-fundo], [data-notas], [data-lixeira], [data-arquivo-lixeira], [data-tirar-mp3], [data-apagar-lixeira], [data-editar-lixeira], [data-cancelar-lixeira], [data-msn], .emoticons button, [data-sair-guia], [data-dialogo-fechar]');
     if (!el) return;
     const d = el.dataset;
 
@@ -2882,6 +3803,7 @@ document.addEventListener('click', e => {
         });
     }
 
+
     if (d.tocar) return tocar(Number(d.tocar));
     if (d.player === 'tocar') return playPause();
     if (d.player === 'anterior') return tocar(player.indice - 1);
@@ -2914,13 +3836,45 @@ document.addEventListener('click', e => {
     if (d.notas) return acaoNotas(d.notas);
     if (d.lixeira === 'esvaziar') {
         return confirmar('Confirmar exclusão', 'Tem certeza que deseja excluir permanentemente todos os itens da Lixeira?', () => {
-            guardar.salvar('lixeira', []);
+            guardar.salvar('lixeira-vazia', true);
             mostrarLixeira();
         });
     }
     if (d.lixeira === 'restaurar') {
-        guardar.salvar('lixeira', DADOS.lixeira);
+        guardar.salvar('lixeira-vazia', false);
         return mostrarLixeira();
+    }
+    if (d.arquivoLixeira) return abrirArquivoLixeira(Number(d.arquivoLixeira));
+    if (d.tirarMp3) {
+        return confirmar('Winamp', 'Tirar o mp3 dessa música? Ela volta a tocar só um pedacinho.', async () => {
+            try {
+                const mp3 = { ...(DADOS.mp3 || {}) };
+                const caminho = mp3[d.tirarMp3];
+                delete mp3[d.tirarMp3];
+                if (caminho) await nuvem.storage.from('musicas').remove([caminho]);
+                await salvarConfig('mp3', mp3);
+                atualizarPlayer();
+                mostrarPagina();
+            } catch (erro) {
+                erroNuvem(erro);
+            }
+        });
+    }
+    if (d.apagarLixeira) {
+        return confirmar('Lixeira', 'Tirar esse arquivo da lixeira?', () => {
+            const lista = DADOS.lixeira.filter((_, i) => i !== Number(d.apagarLixeira));
+            salvarConfig('lixeira', lista).then(() => { mostrarPagina(); mostrarLixeira(); }, erroNuvem);
+        });
+    }
+    if (d.editarLixeira) {
+        edicaoLixeira = Number(d.editarLixeira);
+        mostrarPagina();
+        $('#central form')?.scrollIntoView({ block: 'center' });
+        return;
+    }
+    if (d.cancelarLixeira) {
+        edicaoLixeira = null;
+        return mostrarPagina();
     }
     if (d.msn === 'atencao') return zapAtencao();
 
@@ -3015,6 +3969,7 @@ const LOGO_WINDOWS = `
 
 function desligar() {
     $('#menu-iniciar').hidden = true;
+    if (embed.id) mandarSpotify({ command: 'pause' });
     player.audio.pause();
     const tela = $('#tela-desligar');
     tela.dataset.estado = 'desligando';
@@ -3047,10 +4002,8 @@ function ligar() {
 $('#tela-desligar').addEventListener('click', ligar);
 
 $('#player-progresso').addEventListener('click', e => {
-    const { duration } = player.audio;
-    if (!duration) return;
     const r = e.currentTarget.getBoundingClientRect();
-    player.audio.currentTime = (e.clientX - r.left) / r.width * duration;
+    pularPara((e.clientX - r.left) / r.width);
 });
 
 $('#notas-texto').addEventListener('input', e => {
@@ -3181,6 +4134,8 @@ function iniciar() {
     preencherEnquete();
     montarFavoritos();
     atualizarPlayer();
+    dino.iniciar();
+    if (semInternet()) mostrarConexao();
     $('#notas-texto').value = guardar.ler('notas', '');
     infoNotas();
     mostrarPagina();
@@ -3194,7 +4149,9 @@ function iniciar() {
     carregarPlaylistSpotify();
     if (DADOS.lastfm.usuario) {
         carregarLastfm();
-        setInterval(carregarLastfm, 60000);
+        setInterval(carregarLastfm, 30000);
+        carregarMaisOuvida();
+        setInterval(carregarMaisOuvida, 10 * 60000);
     }
 }
 
