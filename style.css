@@ -1499,3 +1499,8 @@ img.foto-amigo { object-fit: cover; background: #fff; padding: 0; }
 @media (max-width: 1100px) {
     .grade-perfil { grid-template-rows: none; grid-auto-rows: 340px; }
 }
+
+/* celular e tablet: registro diario sem rolagem dentro (trava a tela), mostra tudo direto */
+@media (max-width: 1100px), (pointer: coarse) {
+    #registros { height: auto; overflow: visible; cursor: auto; }
+}
