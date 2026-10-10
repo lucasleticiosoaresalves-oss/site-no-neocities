@@ -602,7 +602,7 @@ function formRecado(id, compacto) {
 
 function paginaInicio() {
     const nomeSorte = guardar.ler('nome-sorte', '') || meuNome();
-    const ultimos = recados.todos().slice(0, 3);
+    const ultimos = recados.todos().slice(0, 12);
     const total = recados.todos().length;
     return `
         <div class="caixa">
@@ -630,7 +630,7 @@ function paginaInicio() {
                 <div class="sub-caixa">
                     <div class="caixa-titulo"><h3>Recados <small>(${total})</small></h3><a class="mini-link" href="#recados">ver todos</a></div>
                     ${formRecado('texto-recado-inicio', true)}
-                    <div>${ultimos.map(r => blocoRecado(r, false)).join('') || mensagemVazia(recados, 'nenhum recado ainda')}</div>
+                    <div class="previa-recados">${ultimos.map(r => blocoRecado(r, false)).join('') || mensagemVazia(recados, 'nenhum recado ainda')}</div>
                 </div>
                 <div class="sub-caixa">
                     <div class="caixa-titulo"><h3>Meus álbuns</h3><a class="mini-link" href="#albuns">ver todos</a></div>
@@ -644,13 +644,13 @@ function paginaInicio() {
                 </div>
                 <div class="sub-caixa">
                     <div class="caixa-titulo"><h3>Amigos <small>(${amigos.todos().length})</small></h3><a class="mini-link" href="#amigos">ver</a></div>
-                    ${amigos.todos().length ? `<div class="grade-amigos">
+                    ${amigos.todos().length ? `<div class="grade-amigos lista-amigos">
                         ${amigos.todos().slice(0, 6).map(a => `<div class="amigo">${fotoAmigo(a)}${esc(a.nome)}</div>`).join('')}
                     </div>` : mensagemVazia(amigos, 'nenhum amigo ainda')}
                     <div class="caixa-titulo" style="margin-top:10px"><h3>Comunidades <small>(${DADOS.comunidades.length})</small></h3><a class="mini-link" href="#comunidades">ver</a></div>
                     <div class="lugar-comunidades">
                         <div class="grade-amigos lista-comunidades">
-                            ${DADOS.comunidades.map(c => `<a class="comunidade" href="#comunidades" title="${esc(c.nome)}"><span class="icone">${icone(c.icone, 32)}</span>${esc(c.nome)}</a>`).join('')}
+                            ${DADOS.comunidades.slice(0, 6).map(c => `<a class="comunidade" href="#comunidades" title="${esc(c.nome)}"><span class="icone">${icone(c.icone, 32)}</span>${esc(c.nome)}</a>`).join('')}
                         </div>
                     </div>
                 </div>
@@ -1735,6 +1735,12 @@ function caixaDiario() {
         : `<h3>Diário</h3><div class="cadeado">${gif('cadeado', 64)}</div>${formSenha()}`;
 }
 
+// clicar nos recados do inicio abre a pagina de recados
+document.addEventListener('click', e => {
+    if (!e.target.closest?.('.previa-recados') || e.target.closest('a, button')) return;
+    location.hash = '#recados';
+});
+
 // mini mural com os desenhos aprovados (embaixo do diario)
 function caixaMural() {
     const caixa = $('#caixa-mural');
@@ -1765,6 +1771,7 @@ function minhaFotoMini() {
 }
 
 function preencherRegistros() {
+    $('#registros').classList.add('rola');
     $('#registros').innerHTML = registros.todos().map(r => `
         <div class="registro">
             ${minhaFotoMini()}
@@ -3706,11 +3713,11 @@ document.addEventListener('keydown', e => {
 });
 
 
-// comunidades do inicio: clicar e arrastar com o mouse rola a lista (igual dedo)
+// caixas de tamanho fixo: clicar e arrastar com o mouse rola o conteudo (igual dedo)
 (() => {
     let arrasto = null;
     document.addEventListener('pointerdown', e => {
-        const lista = e.target.closest?.('.lista-comunidades');
+        const lista = e.target.closest?.('.rola');
         if (!lista || e.pointerType !== 'mouse' || lista.scrollHeight <= lista.clientHeight) return;
         arrasto = { lista, y: e.clientY, inicio: lista.scrollTop, mexeu: false };
     });

@@ -1475,10 +1475,27 @@ img.foto-amigo { object-fit: cover; background: #fff; padding: 0; }
 .mini-mural button:hover { border-color: #cc9900; background: #ffffcc; }
 .mini-mural img { width: 100%; aspect-ratio: 46 / 29; object-fit: cover; }
 
-/* comunidades no inicio: preenchem o espaco que sobra na caixa sem aumentar ela */
-.grade-perfil > .sub-caixa:last-child { display: flex; flex-direction: column; }
-.lugar-comunidades { flex: 1; position: relative; min-height: 150px; }
-.lista-comunidades { position: absolute; inset: 0; overflow-y: auto; align-content: start; scrollbar-width: none; cursor: grab; }
-/* sem barra: desliza com o dedo, a rodinha do mouse ou clicando e arrastando */
-.lista-comunidades::-webkit-scrollbar { display: none; }
-.lista-comunidades.arrastando { cursor: grabbing; user-select: none; }
+/* caixas de tamanho fixo: o conteudo novo entra pra dentro e desliza (sem barra) */
+.rola { overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; cursor: grab; }
+.rola::-webkit-scrollbar { display: none; }
+.rola.arrastando { cursor: grabbing; user-select: none; }
+
+/* caixas do inicio: mostram so uma previa e nao mudam de tamanho (o resto fica no "ver tudo") */
+.grade-perfil { grid-template-rows: 380px; }
+.grade-perfil > .sub-caixa { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.previa-recados { flex: 1; min-height: 0; overflow: hidden; cursor: pointer; }
+/* recado comprido aparece cortado com ... (o inteiro fica na pagina de recados) */
+.previa-recados .recado .corpo { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.previa-recados .recado .corpo .meta { display: none; }
+.grade-perfil .lista-amigos { flex: none; height: 118px; overflow: hidden; align-content: start; }
+.lugar-comunidades { flex: 1; min-height: 0; overflow: hidden; }
+.lista-comunidades { align-content: start; }
+
+/* registro diario: unica caixa que desliza */
+#registros { height: 230px; }
+.avaliacoes-inicio { height: 196px; overflow: hidden; align-content: start; }
+.mini-mural { height: 132px; overflow: hidden; align-content: start; }
+
+@media (max-width: 1100px) {
+    .grade-perfil { grid-template-rows: none; grid-auto-rows: 340px; }
+}
