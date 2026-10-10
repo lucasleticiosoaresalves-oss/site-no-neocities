@@ -274,7 +274,17 @@ function corDoNome(nome) {
     return CORES_AVATAR[soma % CORES_AVATAR.length];
 }
 
+// amigo cadastrado com esse nome (sem ligar pra maiuscula e acento)
+function amigoPeloNome(nome) {
+    const chave = semAcento(String(nome || '').trim());
+    if (!chave) return null;
+    return amigos.todos().find(a => semAcento(String(a.nome).trim()) === chave) || null;
+}
+
 function avatar(nome, classe = '') {
+    const cadastrado = amigoPeloNome(nome);
+    const foto = cadastrado && imagemSegura(cadastrado.foto);
+    if (foto) return `<img class="avatar foto-amigo ${classe}" src="${esc(foto)}" alt="" title="${esc(cadastrado.nome)} é amigo do ${esc(DADOS.nome)}">`;
     const amigo = DADOS.amigos.find(a => a.nome === nome);
     if (amigo?.icone) return `<img class="avatar com-icone ${classe}" src="${urlIcone(amigo.icone, 32)}" alt="">`;
     const letra = (String(nome).trim()[0] || '?').toUpperCase();
@@ -555,12 +565,22 @@ function resultadoSorte(nome) {
 
 // --- paginas ---
 
+// nome que a pessoa usou da ultima vez (cadastro de amigo, recado, zap...)
+function meuNome() {
+    return guardar.ler('meu-nome', '') || guardar.ler('nome-zap', '') || guardar.ler('nome-sorte', '');
+}
+
+function lembrarNome(nome) {
+    const limpo = String(nome || '').trim();
+    if (limpo && !souDono) guardar.salvar('meu-nome', limpo.slice(0, 30));
+}
+
 function blocoRecado(r, comBotao, nomeLista = 'recados') {
     return `
         <div class="recado">
             ${avatar(r.autor)}
             <div class="corpo">
-                <b>${esc(r.autor)}:</b> ${formatar(r.texto)}
+                <b>${esc(r.autor)}${amigoPeloNome(r.autor) ? ` ${icone('heart')}` : ''}:</b> ${formatar(r.texto)}
                 <div class="meta"><span>${esc(r.data)}</span>${comBotao && podeApagar() ? `<button class="btn-x" data-apagar="${r.id}" data-lista="${nomeLista}">apagar</button>` : ''}</div>
             </div>
         </div>`;
@@ -569,7 +589,7 @@ function blocoRecado(r, comBotao, nomeLista = 'recados') {
 function formRecado(id, compacto) {
     return `
         <form class="form" data-form="recado">
-            <input name="autor" placeholder="seu nome" maxlength="30" required>
+            <input name="autor" placeholder="seu nome" maxlength="30" value="${esc(souDono ? DADOS.nome : meuNome())}" required>
             <textarea name="texto" id="${id}" placeholder="Escrever recado para ${esc(DADOS.nome)}..." maxlength="500" required ${compacto ? 'rows="2"' : 'rows="3"'}></textarea>
             <div class="linha">
                 <button class="btn rosa" type="submit">Enviar recado</button>
@@ -581,7 +601,7 @@ function formRecado(id, compacto) {
 }
 
 function paginaInicio() {
-    const nomeSorte = guardar.ler('nome-sorte', '');
+    const nomeSorte = guardar.ler('nome-sorte', '') || meuNome();
     const ultimos = recados.todos().slice(0, 3);
     const total = recados.todos().length;
     return `
@@ -740,7 +760,7 @@ function paginaDepoimentos() {
             <div class="centro">${gif('coracao')}</div>
             <div class="sub-caixa">
                 <form class="form" data-form="depoimento">
-                    <input name="autor" placeholder="seu nome" maxlength="30" required>
+                    <input name="autor" placeholder="seu nome" maxlength="30" value="${esc(meuNome())}" required>
                     <textarea name="texto" id="texto-depoimento" placeholder="Escreva um depoimento sobre o ${esc(DADOS.nome)}..." maxlength="1000" required></textarea>
                     <div class="linha"><button class="btn rosa" type="submit">Enviar depoimento</button>${emoticonsHTML('texto-depoimento')}</div>
                 </form>
@@ -943,8 +963,9 @@ function paginaAmigos() {
                     <input type="file" name="foto" accept="image/*" class="so-leitor" required>
                     <span class="previa-arquivo">${icone('user_add', 32)}<br>escolha sua foto</span>
                 </label>
-                <input name="nome" placeholder="seu nome ou apelido" maxlength="30" required>
+                <input name="nome" placeholder="seu nome ou apelido" maxlength="30" value="${esc(meuNome())}" required>
                 <button class="btn rosa" type="submit">${icone('user_add')} entrar pros amigos</button>
+                ${amigoPeloNome(meuNome()) ? `<span class="dica">${icone('heart')} você já está nos amigos como <b>${esc(amigoPeloNome(meuNome()).nome)}</b>!</span>` : ''}
                 <span class="dica">seu nome e sua foto ficam públicos aqui. quer sair? é só pedir pro ${esc(DADOS.nome)}.</span>
             </form>` : '<p class="vazio">precisa do servidor ligado</p>'}
         </div>`;
@@ -1449,7 +1470,21 @@ const PAGINAS = {
     comunidades: { titulo: 'Comunidades', render: paginaComunidades },
     busca: { titulo: 'Pesquisa', render: paginaBusca, escondida: true },
     admin: { titulo: 'Admin', render: paginaAdmin, escondida: true },
+    secreto: { titulo: 'Área secreta', render: paginaSecreta, escondida: true },
 };
+
+// area secreta (abre pela calculadora)
+function paginaSecreta() {
+    return `
+        <div class="caixa">
+            <div class="area-secreta">
+                ${gif('cadeado')}
+                <h2>ÁREA SECRETA</h2>
+                <p>você descobriu a senha. parabéns. (H)</p>
+                <p class="piscar-cursor">em breve tem coisa aqui</p>
+            </div>
+        </div>`;
+}
 
 
 // --- navegacao (usa o # do endereco) ---
@@ -1472,11 +1507,13 @@ function mostrarPagina() {
     const menuAtivo = pagina?.menu || nome;
     $$('[data-rota]').forEach(a => a.classList.toggle('ativo', a.dataset.rota === menuAtivo));
     document.title = `${titulo} - QUARTO DO LUCAS`;
+    tituloComZap();
     $('#titulo-navegador').textContent = `${titulo} - QUARTO DO LUCAS - Microsoft Internet Explorer`;
     atualizarEndereco();
     atualizarAbas();
 
     // efeito de carregando
+    caixaMural();
     const barra = $('#progresso-status');
     clearTimeout(carregando);
     status('Abrindo página ' + DADOS.endereco + '#' + nome + '...');
@@ -1493,8 +1530,20 @@ function mostrarPagina() {
 }
 
 function ir(rota) {
-    if (location.hash === '#' + rota) mostrarPagina();
-    else location.hash = rota;
+    if (location.hash === '#' + rota) {
+        mostrarPagina();
+        descerProConteudo();
+    } else {
+        location.hash = rota;
+    }
+}
+
+// no celular o conteudo fica embaixo do perfil, entao desce ate ele quando troca de aba
+const CELULAR_ESTREITO = matchMedia('(max-width: 720px)');
+function descerProConteudo() {
+    if (!CELULAR_ESTREITO.matches) return;
+    const suave = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+    requestAnimationFrame(() => $('#central').scrollIntoView({ behavior: suave ? 'smooth' : 'auto', block: 'start' }));
 }
 
 function status(texto) {
@@ -1527,7 +1576,8 @@ function atualizarEndereco() {
 function abrirEndereco(texto) {
     const valor = texto.trim();
     if (!valor) return;
-    if (abaAtiva !== 'site') fecharAba(abaAtiva);
+    const aba = abas.find(a => a.id === abaAtiva);
+    if (aba?.tipo === 'nova') aba.tipo = 'site';
     const posHash = valor.indexOf('#');
     if (posHash >= 0) return ir(valor.slice(posHash + 1) || 'inicio');
     const semBarra = valor.replace(/\/+$/, '');
@@ -1542,16 +1592,22 @@ function abrirEndereco(texto) {
 
 // --- abas ---
 
-let abas = [{ id: 'site', tipo: 'site' }];
+// cada aba de site lembra a pagina dela (rota)
+let abas = [{ id: 'site', tipo: 'site', rota: 'inicio' }];
 let abaAtiva = 'site';
 let contadorAbas = 0;
 
+function tituloDaRota(rota) {
+    return PAGINAS[String(rota || 'inicio').split('/')[0]]?.titulo || 'Erro';
+}
+
 function atualizarAbas() {
-    const titulo = PAGINAS[rotaAtual().nome]?.titulo || 'Erro';
+    const ativa = abas.find(a => a.id === abaAtiva);
+    if (ativa?.tipo === 'site') ativa.rota = location.hash.slice(1) || 'inicio';
     $('#abas').innerHTML = abas.map(a => `
         <button class="aba ${a.id === abaAtiva ? 'ativa' : ''}" data-aba="${a.id}">
-            ${icone('internet_explorer')} ${a.tipo === 'nova' ? 'Nova guia' : 'QUARTO DO LUCAS · ' + esc(titulo)}
-            ${a.tipo === 'nova' ? `<span class="fechar-aba" data-fechar-aba="${a.id}" title="Fechar guia">✕</span>` : ''}
+            ${icone('internet_explorer')} ${a.tipo === 'nova' ? 'Nova guia' : 'QUARTO DO LUCAS · ' + esc(tituloDaRota(a.rota))}
+            ${abas.length > 1 ? `<span class="fechar-aba" data-fechar-aba="${a.id}" title="Fechar guia">✕</span>` : ''}
         </button>`).join('') + '<button class="aba nova" data-comando="nova-guia" title="Nova guia">+</button>';
 
     const nova = abas.find(a => a.id === abaAtiva).tipo === 'nova';
@@ -1563,21 +1619,101 @@ function novaAba() {
     const id = 'nova' + (++contadorAbas);
     abas.push({ id, tipo: 'nova' });
     trocarAba(id);
-    $('#pagina-nova-guia input').focus();
+    // cada aba nova comeca com a pesquisa vazia
+    const campo = $('#pagina-nova-guia input');
+    campo.value = '';
+    campo.focus();
 }
 
 function trocarAba(id) {
+    const antiga = abas.find(a => a.id === abaAtiva);
+    if (antiga?.tipo === 'site') antiga.rota = location.hash.slice(1) || 'inicio';
     abaAtiva = id;
+    const nova = abas.find(a => a.id === id);
+    // cada aba de site mostra a pagina dela
+    if (nova.tipo === 'site' && (location.hash.slice(1) || 'inicio') !== nova.rota) {
+        history.replaceState(null, '', '#' + nova.rota);
+        mostrarPagina();
+    }
     atualizarAbas();
     atualizarEndereco();
 }
 
 function fecharAba(id) {
+    if (abas.length <= 1) return;
+    const posicao = abas.findIndex(a => a.id === id);
     abas = abas.filter(a => a.id !== id);
-    if (abaAtiva === id) abaAtiva = 'site';
+    if (abaAtiva === id) {
+        abaAtiva = null;
+        return trocarAba(abas[Math.max(0, posicao - 1)].id);
+    }
     atualizarAbas();
     atualizarEndereco();
 }
+
+// a aba "nova guia" vira uma aba do site quando pesquisa ou clica num link
+function abaNovaViraSite(rota) {
+    const aba = abas.find(a => a.id === abaAtiva);
+    if (aba?.tipo !== 'nova') return false;
+    aba.tipo = 'site';
+    aba.rota = rota;
+    if ((location.hash.slice(1) || 'inicio') === rota) {
+        mostrarPagina();
+        atualizarAbas();
+        atualizarEndereco();
+    } else {
+        location.hash = rota;
+    }
+    return true;
+}
+
+// depois de arrastar, o clique que vem junto nao conta (so ele, logo em seguida)
+function ignorarCliqueLogo(el) {
+    const bloqueia = ev => { ev.stopPropagation(); ev.preventDefault(); };
+    el.addEventListener('click', bloqueia, { capture: true, once: true });
+    setTimeout(() => el.removeEventListener('click', bloqueia, { capture: true }), 60);
+}
+
+// arrastar as abas pro lado pra mudar a ordem
+(() => {
+    let arrasto = null;
+    $('#abas').addEventListener('pointerdown', e => {
+        const aba = e.target.closest('.aba[data-aba]');
+        if (!aba || e.target.closest('[data-fechar-aba]')) return;
+        arrasto = { aba, id: aba.dataset.aba, x: e.clientX, mexeu: false };
+    });
+    window.addEventListener('pointermove', e => {
+        if (!arrasto) return;
+        const dx = e.clientX - arrasto.x;
+        if (!arrasto.mexeu && Math.abs(dx) < 6) return;
+        arrasto.mexeu = true;
+        arrasto.aba.classList.add('arrastando');
+        arrasto.aba.style.transform = `translateX(${dx}px)`;
+        // troca de lugar quando passa do meio da vizinha
+        const outras = $$('#abas .aba[data-aba]').filter(b => b !== arrasto.aba);
+        const meio = arrasto.aba.getBoundingClientRect();
+        const centro = meio.left + meio.width / 2;
+        const de = abas.findIndex(a => a.id === arrasto.id);
+        let para = outras.filter(b => { const r = b.getBoundingClientRect(); return centro > r.left + r.width / 2; }).length;
+        if (para !== de) {
+            const [movida] = abas.splice(de, 1);
+            abas.splice(para, 0, movida);
+            atualizarAbas();
+            arrasto.aba = $(`#abas .aba[data-aba="${arrasto.id}"]`);
+            arrasto.x = e.clientX;
+            arrasto.aba.classList.add('arrastando');
+        }
+    });
+    window.addEventListener('pointerup', () => {
+        if (!arrasto) return;
+        if (arrasto.mexeu) {
+            arrasto.aba.classList.remove('arrastando');
+            arrasto.aba.style.transform = '';
+            ignorarCliqueLogo($('#abas'));
+        }
+        arrasto = null;
+    });
+})();
 
 
 // --- colunas dos lados ---
@@ -1595,6 +1731,29 @@ function caixaDiario() {
            <a class="btn" href="#diario" style="display:inline-block;text-decoration:none">ler o diário</a>
            <p style="margin:6px 0 0"><button class="btn-x" data-comando="trancar-diario">trancar</button></p>`
         : `<h3>Diário</h3><div class="cadeado">${gif('cadeado', 64)}</div>${formSenha()}`;
+}
+
+// mini mural com os desenhos aprovados (embaixo do diario)
+function caixaMural() {
+    const caixa = $('#caixa-mural');
+    if (!caixa) return;
+    const lista = desenhosPublicos().slice(0, 4);
+    caixa.innerHTML = `<h3>${icone('palette')} Mural</h3>`
+        + (lista.length
+            ? `<div class="mini-mural">${lista.map((d, i) => `
+                <button data-desenho-mural="${i}" title="${esc(d.titulo)} por ${esc(d.autor)}">
+                    <img src="${esc(imagemSegura(d.imagem))}" alt="${esc(d.titulo)}" loading="lazy">
+                </button>`).join('')}</div>
+               <a class="mini-link" href="#recados">ver o mural todo</a>`
+            : `<p class="vazio">nenhum desenho aqui ainda...</p>`)
+        + `<p style="margin:4px 0 0"><button class="btn pequeno" data-abrir="paint">${icone('palette')} desenhar</button></p>`;
+}
+
+function abrirDesenhoMural(i) {
+    lightbox.fotos = desenhosPublicos().map(d => ({ src: imagemSegura(d.imagem), legenda: `${d.titulo} - por ${d.autor}` }));
+    lightbox.indice = i;
+    mostrarFoto();
+    $('#lightbox').hidden = false;
 }
 
 // minha foto pequena (registros)
@@ -2164,9 +2323,11 @@ function mostrarFoto() {
 
 // --- janelinha de aviso ---
 
-function dialogo({ titulo, texto, imagem = '', icone: nomeIcone = 'information', botoes = [{ texto: 'OK' }] }) {
+function dialogo({ titulo, texto, imagem = '', rodape = '', icone: nomeIcone = 'information', botoes = [{ texto: 'OK' }] }) {
     $('#dialogo-titulo').textContent = titulo;
-    $('#dialogo-texto').innerHTML = textoRico(texto) + (imagemSegura(imagem) ? `<img class="imagem-dialogo" src="${esc(imagemSegura(imagem))}" alt="">` : '');
+    $('#dialogo-texto').innerHTML = textoRico(texto)
+        + (imagemSegura(imagem) ? `<img class="imagem-dialogo" src="${esc(imagemSegura(imagem))}" alt="">` : '')
+        + (rodape ? `<small class="rodape-dialogo">${esc(rodape)}</small>` : '');
     $('#dialogo-icone').innerHTML = icone(nomeIcone, 32);
     const acoes = $('#dialogo-acoes');
     acoes.innerHTML = '';
@@ -2195,7 +2356,8 @@ let zTopo = 100;
 function focarJanela(janela) {
     $$('#navegador, .janela-app').forEach(j => j.classList.remove('ativa'));
     janela.classList.add('ativa');
-    if (janela.classList.contains('janela-app')) janela.style.zIndex = ++zTopo;
+    // quem foi clicado vem pra frente, as outras continuam abertas atras
+    janela.style.zIndex = ++zTopo;
     atualizarTarefas();
 }
 
@@ -2204,13 +2366,30 @@ function abrirJanela(id) {
     janela.hidden = false;
     janela.classList.remove('minimizada');
     focarJanela(janela);
-    if (id === 'paint') iniciarPaint();
+    if (id === 'paint') {
+        iniciarPaint();
+        const autor = $('#paint-enviar [name=autor]');
+        if (!autor.value) autor.value = meuNome();
+    }
     if (id === 'msn') abrirZap();
     if (id === 'fundos') montarFundos();
     if (id === 'notas') $('#notas-texto').focus();
     if (id === 'lixeira') mostrarLixeira();
+    if (id === 'calculadora') mostrarCalc();
     if (id === 'navegador') janela.scrollIntoView({ block: 'nearest' });
     $('#menu-iniciar').hidden = true;
+    // no celular abre em cascata pra uma nao esconder a outra inteira
+    if (janela.classList.contains('janela-app') && innerWidth <= 720) {
+        const abertas = $$('.janela-app').filter(j => !j.hidden && j !== janela && !j.classList.contains('minimizada')).length;
+        janela.style.top = (10 + abertas * 26) + 'px';
+        janela.style.left = (5 + Math.min(abertas * 8, 40)) + 'px';
+    }
+    // se a janela passar do fim da tela, sobe ela
+    if (janela.classList.contains('janela-app')) {
+        const r = janela.getBoundingClientRect();
+        if (r.bottom > innerHeight - 32) janela.style.top = Math.max(4, innerHeight - 32 - r.height) + 'px';
+        if (r.right > innerWidth) janela.style.left = Math.max(4, innerWidth - r.width - 4) + 'px';
+    }
 }
 
 function acaoJanela(janela, acao) {
@@ -2642,7 +2821,7 @@ function desenharZap() {
     conversa.innerHTML = `<p><span class="quem dono-zap">${esc(DADOS.nome)} diz:</span>${textoRico(DADOS.zapBoasVindas)}</p>`
         + mensagensZap().map(m => (m.texto === '/atencao'
             ? `<p class="sistema">${esc(m.nome)} chamou a atenção!${apagar(m)}</p>`
-            : `<p><span class="quem ${m.dono ? 'dono-zap' : ''}">${esc(m.nome)}${m.dono ? ' ' + icone('award_star_gold_1') : ''} diz: <small>${horaZap(m)}</small></span>${textoRico(m.texto)}${apagar(m)}</p>`)).join('');
+            : `<p><span class="quem ${m.dono ? 'dono-zap' : ''}">${!m.dono && amigoPeloNome(m.nome) ? avatar(m.nome, 'mini-zap') + ' ' : ''}${esc(m.nome)}${m.dono ? ' ' + icone('award_star_gold_1') : ''} diz: <small>${horaZap(m)}</small></span>${textoRico(m.texto)}${apagar(m)}</p>`)).join('');
     if (noFim) conversa.scrollTop = conversa.scrollHeight;
 }
 
@@ -2655,6 +2834,79 @@ async function atualizarZap() {
         if (zapEstado.ultimoId && novas.some(m => m.texto === '/atencao' && m.nome !== nomeZap())) tremerJanela($('#msn'));
         zapEstado.ultimoId = Math.max(zapEstado.ultimoId, ...ids, 0);
         desenharZap();
+        if (zapAbertoNaTela()) marcarZapVisto(ids);
+    } catch (erro) {
+        console.error(erro);
+    }
+}
+
+// --- aviso de mensagem nova no zap (mesmo com a janela fechada) ---
+
+// maiorNaAbertura: ultima mensagem que ja existia quando a pessoa abriu o site
+const avisoZap = { naoLidas: 0, ultimoAvisado: 0, maiorNaAbertura: null };
+
+function zapAbertoNaTela() {
+    const janela = $('#msn');
+    return !janela.hidden && !janela.classList.contains('minimizada') && !document.hidden;
+}
+
+// mensagem que eu mesmo mandei nao conta
+function mensagemMinha(m) {
+    if (souDono) return Boolean(m.dono);
+    return !m.dono && semAcento(m.nome) === semAcento(guardar.ler('nome-zap', '') || '\u0000');
+}
+
+function marcarZapVisto(ids) {
+    const maior = Math.max(0, ...ids.map(Number));
+    if (maior > guardar.ler('zap-visto', 0)) guardar.salvar('zap-visto', maior);
+    avisoZap.naoLidas = 0;
+    mostrarAvisoZap(null);
+}
+
+function mostrarAvisoZap(ultima) {
+    const n = avisoZap.naoLidas;
+    // bolinha com o numero de nao lidas em todos os icones do zap
+    $$('.contador-zap').forEach(bolinha => {
+        bolinha.hidden = !n;
+        bolinha.textContent = n > 99 ? '99+' : n;
+    });
+    tituloComZap();
+    if (!n) return ($('#balao-zap').hidden = true);
+    // balaozinho so pra mensagem que chegou agora, com o site aberto
+    const chegouAgora = ultima && avisoZap.maiorNaAbertura !== null && Number(ultima.id) > avisoZap.maiorNaAbertura;
+    if (chegouAgora && Number(ultima.id) > avisoZap.ultimoAvisado) {
+        avisoZap.ultimoAvisado = Number(ultima.id);
+        const texto = ultima.texto === '/atencao' ? 'chamou a sua atenção!' : ultima.texto;
+        $('#balao-zap-texto').innerHTML = `<b>${esc(ultima.nome)}</b> diz: ${textoRico(texto.length > 90 ? texto.slice(0, 90) + '...' : texto)}`;
+        const novasAgora = avisoZap.naoLidasAgora;
+        $('#balao-zap-titulo').textContent = novasAgora > 1 ? `${novasAgora} mensagens novas no Zap` : 'Mensagem nova no Zap';
+        const balao = $('#balao-zap');
+        balao.hidden = false;
+        clearTimeout(avisoZap.timerBalao);
+        avisoZap.timerBalao = setTimeout(() => { balao.hidden = true; }, 9000);
+    }
+}
+
+// "(2) Inicio - QUARTO DO LUCAS" no titulo da aba
+function tituloComZap() {
+    const base = document.title.replace(/^\(\d+\+?\) /, '');
+    document.title = avisoZap.naoLidas ? `(${avisoZap.naoLidas}) ${base}` : base;
+}
+
+async function checarZap() {
+    if (!nuvem) return;
+    try {
+        const { data, error } = await nuvem.from('zap').select('id, nome, texto, dono').order('id', { ascending: false }).limit(30);
+        if (error) throw error;
+        // primeira visita: todas as mensagens contam como novas ate abrir o zap
+        const maior = Math.max(0, ...data.map(m => Number(m.id)));
+        if (avisoZap.maiorNaAbertura === null) avisoZap.maiorNaAbertura = maior;
+        if (zapAbertoNaTela()) return marcarZapVisto(data.map(m => m.id));
+        const visto = guardar.ler('zap-visto', 0);
+        const novas = data.filter(m => Number(m.id) > visto && !mensagemMinha(m));
+        avisoZap.naoLidas = novas.length;
+        avisoZap.naoLidasAgora = novas.filter(m => Number(m.id) > avisoZap.maiorNaAbertura).length;
+        mostrarAvisoZap(novas[0] || null);
     } catch (erro) {
         console.error(erro);
     }
@@ -2662,9 +2914,10 @@ async function atualizarZap() {
 
 function abrirZap() {
     const campo = $('#zap-nome');
-    campo.value = souDono ? DADOS.nome : guardar.ler('nome-zap', '');
+    campo.value = souDono ? DADOS.nome : (guardar.ler('nome-zap', '') || meuNome());
     campo.disabled = souDono;
     atualizarZap();
+    $('#balao-zap').hidden = true;
     clearInterval(zapEstado.timer);
     zapEstado.timer = setInterval(() => {
         if ($('#msn').hidden) return clearInterval(zapEstado.timer);
@@ -2684,7 +2937,10 @@ async function enviarZap(texto) {
         dialogo({ titulo: 'Zap do Lucas', icone: 'error', texto: 'Esse nome é do dono do site. Escolhe outro :P' });
         return false;
     }
-    if (!souDono) guardar.salvar('nome-zap', nome);
+    if (!souDono) {
+        guardar.salvar('nome-zap', nome);
+        lembrarNome(nome);
+    }
     const mensagem = { nome, texto, dono: souDono };
     if (nuvem) {
         await zap.adicionar(mensagem);
@@ -2776,16 +3032,706 @@ function mostrarLixeira() {
     $('#lixeira-info').textContent = `${itens.length} objeto(s) · clique pra abrir`;
 }
 
+// quem abrir o virus 3 vezes leva susto
+let aberturasVirus = 0;
+
 function abrirArquivoLixeira(n) {
     const arquivo = itensLixeira()[n];
     if (!arquivo) return;
+    if (/virus/i.test(arquivo.nome)) {
+        aberturasVirus++;
+        if (aberturasVirus >= 3) {
+            aberturasVirus = 0;
+            return ataqueDoVirus();
+        }
+    }
     dialogo({
         titulo: `${arquivo.nome} - Bloco de notas`,
         icone: iconeArquivo(arquivo.nome),
         texto: arquivo.conteudo || '(arquivo vazio)',
         imagem: arquivo.imagem ? urlFotoPostada(arquivo.imagem) : '',
+        rodape: /virus/i.test(arquivo.nome) && aberturasVirus === 2 ? '(não é como você pensa)' : '',
     });
 }
+
+
+// --- o virus: glitch e um olho amarelo encarando ---
+
+// numeros "aleatorios" que sao sempre os mesmos (pra textura nao ficar tremendo)
+function semente(i) {
+    const s = Math.sin(i * 12.9898 + 78.233) * 43758.5453;
+    return s - Math.floor(s);
+}
+
+// medidas tiradas do desenho de referencia (tela de 1080 x 1256)
+const OLHO = {
+    largura: 1080, altura: 1256,
+    centro: [540, 590], raioX: 1000, raioY: 415,
+    iris: [540, 515], raioIris: 372,
+    pupila: [556, 487], pupilaX: 62, pupilaY: 68,
+    // espinhos que caem da palpebra de cima: [x, comprimento, largura da base, inclinacao]
+    ciliosCima: [[-260, 70, 60, 30], [-90, 95, 72, 26], [95, 110, 80, 22], [205, 85, 90, 14], [268, 55, 40, 6], [575, 120, 42, 10], [860, 100, 70, -12], [985, 115, 80, -20], [1060, 90, 60, -18], [1190, 95, 72, -26], [1350, 70, 60, -30]],
+    // espinhos finos cor de areia embaixo: [x, comprimento]
+    ciliosBaixo: [[-310, 60], [-180, 80], [-55, 90], [70, 95], [205, 110], [345, 100], [497, 115], [650, 100], [792, 108], [930, 98], [1050, 90], [1170, 88], [1290, 78], [1400, 58]],
+};
+
+// borda de cima e de baixo do olho em cada x (abertura 0 = fechado, 1 = aberto)
+// raiva: 0 normal, 1 bravo (a palpebra de cima desce torta) / olhar: pra onde a iris foi
+const estadoOlho = { raiva: 0, olharX: 0, olharY: 0 };
+
+function bordasOlho(x, abertura) {
+    const [, cy] = OLHO.centro;
+    // formato de amendoa: as pontas fecham em bico
+    const s = Math.max(0, 1 - ((x - OLHO.centro[0]) / OLHO.raioX) ** 2);
+    const fechado = cy + 335 * s;
+    // a palpebra de cima acompanha um pouco quando o olho olha pra cima ou pra baixo
+    let cima = fechado + (cy - OLHO.raioY * s - fechado) * abertura + estadoOlho.olharY * 0.7 * abertura * s;
+    const baixo = fechado + (cy + OLHO.raioY * s - fechado) * abertura;
+    // bravo: a palpebra desce e fica inclinada (mais baixa do lado de dentro)
+    if (estadoOlho.raiva) {
+        const desce = estadoOlho.raiva * abertura * s * (150 + (x - OLHO.centro[0]) * 0.22);
+        cima = Math.min(baixo - 40 * abertura * s, cima + Math.max(0, desce));
+    }
+    return { cima, baixo };
+}
+
+// a parte de dentro do olho (branco + iris) so precisa ser desenhada uma vez
+let olhoPronto = null;
+let irisPronta = null;
+
+function desenharDentroDoOlho() {
+    const tela = document.createElement('canvas');
+    tela.width = OLHO.largura + 1000;
+    tela.height = OLHO.altura;
+    let ctx = tela.getContext('2d');
+    ctx.translate(500, 0);
+    const [ix, iy] = OLHO.iris, R = OLHO.raioIris;
+    const [px, py] = OLHO.pupila;
+
+    // branco do olho: claro embaixo, escurecendo pras bordas e pra cima
+    let g = ctx.createRadialGradient(540, 930, 40, 540, 760, 820);
+    g.addColorStop(0, '#d9d3c9');
+    g.addColorStop(0.35, '#bdb6aa');
+    g.addColorStop(0.7, '#7e766a');
+    g.addColorStop(1, '#3a332a');
+    ctx.fillStyle = g;
+    ctx.fillRect(-500, 0, OLHO.largura + 1000, OLHO.altura);
+
+    // a iris fica numa camada separada pra poder olhar em volta
+    const camadaIris = document.createElement('canvas');
+    camadaIris.width = tela.width;
+    camadaIris.height = tela.height;
+    ctx = camadaIris.getContext('2d');
+    ctx.translate(500, 0);
+
+    // sombra da iris no branco
+    g = ctx.createRadialGradient(ix, iy + 20, R * 0.95, ix, iy + 20, R * 1.15);
+    g.addColorStop(0, 'rgba(40, 30, 18, .55)');
+    g.addColorStop(1, 'rgba(40, 30, 18, 0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(ix, iy + 20, R * 1.15, 0, Math.PI * 2);
+    ctx.fill();
+
+    // iris marrom
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(ix, iy, R, 0, Math.PI * 2);
+    ctx.clip();
+    g = ctx.createRadialGradient(px, py, 40, ix, iy, R);
+    g.addColorStop(0, '#5e4520');
+    g.addColorStop(0.55, '#4b3517');
+    g.addColorStop(0.85, '#33230d');
+    g.addColorStop(1, '#1d1306');
+    ctx.fillStyle = g;
+    ctx.fillRect(ix - R, iy - R, R * 2, R * 2);
+
+    // crescente dourado abracando a pupila por baixo
+    const brilho = document.createElement('canvas');
+    brilho.width = OLHO.largura;
+    brilho.height = OLHO.altura;
+    const b = brilho.getContext('2d');
+    g = b.createRadialGradient(px, py + 30, 60, px, py + 20, 345);
+    g.addColorStop(0, 'rgba(255, 240, 170, 0)');
+    g.addColorStop(0.2, 'rgba(255, 250, 205, 1)');
+    g.addColorStop(0.42, 'rgba(255, 232, 130, 1)');
+    g.addColorStop(0.68, 'rgba(235, 180, 75, .8)');
+    g.addColorStop(0.9, 'rgba(170, 115, 40, .25)');
+    g.addColorStop(1, 'rgba(120, 80, 30, 0)');
+    b.fillStyle = g;
+    b.fillRect(0, 0, OLHO.largura, OLHO.altura);
+    // so a metade de baixo fica acesa (a de cima esta na sombra)
+    b.globalCompositeOperation = 'destination-in';
+    g = b.createLinearGradient(0, py + 35, 0, py + 70);
+    g.addColorStop(0, 'rgba(0, 0, 0, 0)');
+    g.addColorStop(1, 'rgba(0, 0, 0, 1)');
+    b.fillStyle = g;
+    b.fillRect(0, 0, OLHO.largura, OLHO.altura);
+    ctx.drawImage(brilho, 0, 0);
+
+    // fibras da iris
+    ctx.lineCap = 'round';
+    for (let i = 0; i < 3200; i++) {
+        const ang = semente(i) * Math.PI * 2;
+        const r1 = 75 + semente(i + 999) * 280;
+        const r2 = Math.min(R - 8, r1 + 6 + semente(i + 1999) * 30);
+        const embaixo = Math.sin(ang) > 0.05 && r1 < 300;
+        const clara = semente(i + 2999) > (embaixo ? 0.35 : 0.8);
+        ctx.strokeStyle = clara
+            ? `rgba(255, ${embaixo ? 250 : 190}, ${embaixo ? 210 : 110}, ${0.1 + semente(i + 3999) * (embaixo ? 0.4 : 0.12)})`
+            : `rgba(40, 24, 6, ${0.1 + semente(i + 4999) * 0.25})`;
+        ctx.lineWidth = 1 + semente(i + 5999) * 2.2;
+        ctx.beginPath();
+        ctx.moveTo(px + Math.cos(ang) * r1, py + Math.sin(ang) * r1);
+        ctx.lineTo(px + Math.cos(ang) * r2, py + Math.sin(ang) * r2);
+        ctx.stroke();
+    }
+
+    // aro escuro da iris
+    g = ctx.createRadialGradient(ix, iy, R * 0.82, ix, iy, R);
+    g.addColorStop(0, 'rgba(18, 10, 2, 0)');
+    g.addColorStop(1, 'rgba(18, 10, 2, .97)');
+    ctx.fillStyle = g;
+    ctx.fillRect(ix - R, iy - R, R * 2, R * 2);
+
+    // risquinhos escuros em volta da pupila (o anel tracejado do desenho)
+    ctx.strokeStyle = 'rgba(15, 8, 2, .85)';
+    ctx.lineWidth = 3;
+    for (let a = -2.9; a < 2.9; a += 0.11) {
+        if (Math.abs(a) < 0.35) continue;
+        const r = 165 + semente(a * 100) * 25;
+        const lado = Math.cos(a) < 0 ? -1 : 1;
+        if (Math.abs(Math.cos(a)) < 0.35) continue;
+        const x = px + Math.cos(a) * r, y = py + Math.sin(a) * r;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + lado * 9, y + 2);
+        ctx.stroke();
+    }
+    ctx.restore();
+
+    // reflexos brancos em cima e a esquerda da pupila
+    ctx.strokeStyle = 'rgba(255, 255, 255, .9)';
+    ctx.lineWidth = 3;
+    [[418, 352, 14], [404, 398, 18], [398, 432, 12], [736, 385, 10], [748, 420, 12]].forEach(([x, y, t]) => {
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + t * 0.5, y - t);
+        ctx.stroke();
+    });
+    olhoPronto = tela;
+    irisPronta = camadaIris;
+}
+
+// veias que aparecem quando o olho fica bravo (saem dos cantos)
+const VEIAS_OLHO = Array.from({ length: 26 }, (_, i) => {
+    const lado = i % 2 ? 1 : -1;
+    const x = 540 + lado * (520 + semente(i + 70) * 260);
+    const y = 470 + semente(i + 80) * 330;
+    const fx = 540 + lado * (330 + semente(i + 90) * 120);
+    const fy = y + (semente(i + 100) - 0.5) * 160;
+    return { x, y, fx, fy, cx: (x + fx) / 2 + (semente(i + 110) - 0.5) * 120, cy: (y + fy) / 2 + (semente(i + 120) - 0.5) * 120, grossura: 1.5 + semente(i + 130) * 3 };
+});
+
+function desenharOlho(ctx, abertura, pupila = 1, tremor = 0) {
+    const L = OLHO.largura, A = OLHO.altura;
+    if (!olhoPronto) desenharDentroDoOlho();
+    // fundo preto na tela toda e o desenho encaixado no meio
+    const T = ctx.canvas.width, U = ctx.canvas.height;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, T, U);
+    const escala = Math.min(T / L, U / A);
+    ctx.setTransform(escala, 0, 0, escala, (T - L * escala) / 2, (U - A * escala) / 2);
+    if (abertura <= 0.005) {
+        desenharPalpebras(ctx, 0);
+        return;
+    }
+
+    // abertura do olho
+    const caminho = () => {
+        ctx.beginPath();
+        for (let x = -500; x <= L + 500; x += 15) ctx.lineTo(x, bordasOlho(x, abertura).cima);
+        for (let x = L + 500; x >= -500; x -= 15) ctx.lineTo(x, bordasOlho(x, abertura).baixo);
+        ctx.closePath();
+    };
+    ctx.save();
+    caminho();
+    ctx.clip();
+    ctx.drawImage(olhoPronto, -500, 0);
+    // veias vermelhas quando esta bravo
+    if (estadoOlho.raiva) {
+        ctx.fillStyle = `rgba(150, 20, 10, ${0.22 * estadoOlho.raiva})`;
+        ctx.fillRect(-500, 0, L + 1000, A);
+        ctx.strokeStyle = `rgba(170, 25, 15, ${0.75 * estadoOlho.raiva})`;
+        ctx.lineCap = 'round';
+        VEIAS_OLHO.forEach(v => {
+            ctx.lineWidth = v.grossura;
+            ctx.beginPath();
+            ctx.moveTo(v.x, v.y);
+            ctx.quadraticCurveTo(v.cx, v.cy, v.fx, v.fy);
+            ctx.stroke();
+        });
+    }
+    const ox = estadoOlho.olharX + tremor, oy = estadoOlho.olharY;
+    ctx.drawImage(irisPronta, -500 + ox, oy);
+
+    // pupila
+    const px = OLHO.pupila[0] + ox, py = OLHO.pupila[1] + oy;
+    const g = ctx.createRadialGradient(px, py, 10, px, py, OLHO.pupilaY * pupila * 1.3);
+    g.addColorStop(0, '#000');
+    g.addColorStop(0.72, '#050200');
+    g.addColorStop(0.82, 'rgba(10, 5, 0, .7)');
+    g.addColorStop(1, 'rgba(10, 5, 0, 0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.ellipse(px, py, OLHO.pupilaX * pupila * 1.3, OLHO.pupilaY * pupila * 1.3, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // sombra da palpebra de cima
+    const topo = bordasOlho(540, abertura).cima;
+    const s = ctx.createLinearGradient(0, topo - 20, 0, topo + 300);
+    s.addColorStop(0, 'rgba(10, 6, 0, .98)');
+    s.addColorStop(0.4, 'rgba(25, 16, 5, .7)');
+    s.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = s;
+    ctx.fillRect(-500, 0, L + 1000, A);
+
+    // linha molhada brilhando em cima da palpebra de baixo
+    const brilho = ctx.createLinearGradient(140, 0, 940, 0);
+    brilho.addColorStop(0, 'rgba(255, 245, 225, 0)');
+    brilho.addColorStop(0.55, 'rgba(255, 250, 235, .9)');
+    brilho.addColorStop(1, 'rgba(255, 245, 225, 0)');
+    ctx.strokeStyle = brilho;
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    for (let x = 140; x <= 940; x += 10) ctx.lineTo(x, bordasOlho(x, abertura).baixo - 14);
+    ctx.stroke();
+    ctx.restore();
+
+    desenharPalpebras(ctx, abertura);
+}
+
+function desenharPalpebras(ctx, abertura) {
+    const L = OLHO.largura;
+    const borda = x => bordasOlho(x, abertura);
+
+    // espinhos escuros caindo da palpebra de cima
+    if (abertura > 0.05) {
+        OLHO.ciliosCima.forEach(([x, comp, base, inclina]) => {
+            const y = borda(x).cima;
+            const c = comp * Math.min(1, abertura * 1.3);
+            ctx.beginPath();
+            ctx.moveTo(x - base / 2, y - 4);
+            ctx.quadraticCurveTo(x - base * 0.1, y + c * 0.45, x + inclina, y + c);
+            ctx.quadraticCurveTo(x + base * 0.2, y + c * 0.35, x + base / 2, y - 4);
+            ctx.closePath();
+            ctx.fillStyle = '#1d150b';
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(120, 100, 70, .55)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        });
+    }
+
+    // faixa marrom da palpebra de cima
+    ctx.beginPath();
+    for (let x = -500; x <= L + 500; x += 15) ctx.lineTo(x, borda(x).cima);
+    for (let x = L + 500; x >= -500; x -= 15) {
+        const k = Math.max(0, 1 - ((x - 540) / OLHO.raioX) ** 2);
+        ctx.lineTo(x, borda(x).cima - (55 + 45 * k) * Math.min(1, k * 4));
+    }
+    ctx.closePath();
+    const topo = borda(540).cima;
+    const g = ctx.createLinearGradient(0, topo - 110, 0, topo);
+    g.addColorStop(0, '#1a130a');
+    g.addColorStop(0.5, '#3a2d1a');
+    g.addColorStop(1, '#2a2012');
+    ctx.fillStyle = g;
+    ctx.fill();
+    // risco escuro na beira da palpebra
+    ctx.strokeStyle = '#0d0905';
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    for (let x = -500; x <= L + 500; x += 15) ctx.lineTo(x, borda(x).cima);
+    ctx.stroke();
+
+    // beirada da palpebra de baixo (marrom clarinho)
+    ctx.strokeStyle = 'rgba(150, 120, 75, .75)';
+    ctx.lineWidth = 7;
+    ctx.beginPath();
+    for (let x = -500; x <= L + 500; x += 15) ctx.lineTo(x, borda(x).baixo + 4);
+    ctx.stroke();
+
+    // espinhos finos cor de areia embaixo
+    OLHO.ciliosBaixo.forEach(([x, comp]) => {
+        const y = borda(x).baixo + 6;
+        const inclina = (x - 540) * 0.05;
+        const c = comp * (0.6 + 0.4 * abertura);
+        const g2 = ctx.createLinearGradient(0, y, 0, y + c);
+        g2.addColorStop(0, '#9c8158');
+        g2.addColorStop(1, 'rgba(110, 85, 50, .2)');
+        ctx.fillStyle = g2;
+        ctx.beginPath();
+        ctx.moveTo(x - 16, y);
+        ctx.lineTo(x + inclina, y + c);
+        ctx.lineTo(x + 16, y);
+        ctx.closePath();
+        ctx.fill();
+    });
+}
+
+// mancha preta irregular se espalhando como virus (p de 0 a 1)
+function novaMancha() {
+    const r = () => Math.random();
+    return {
+        ondas: [3, 5, 8, 13, 21, 34].map(k => ({ k, fase: r() * Math.PI * 2, forca: 0.5 / Math.sqrt(k) })),
+        tentaculos: Array.from({ length: 11 }, () => ({ angulo: r() * Math.PI * 2, largura: 0.08 + r() * 0.18, forca: 0.35 + r() * 0.6, pressa: 0.6 + r() * 0.8 })),
+        pixels: Array.from({ length: 160 }, () => ({ angulo: r() * Math.PI * 2, longe: 1 + r() * 0.3, tamanho: 3 + r() * 11, pisca: r() })),
+    };
+}
+
+function borrarMancha(ctx, mancha, p, ox, oy, tempo) {
+    const T = ctx.canvas.width, U = ctx.canvas.height;
+    const diagonal = Math.max(Math.hypot(ox, oy), Math.hypot(T - ox, oy), Math.hypot(ox, U - oy), Math.hypot(T - ox, U - oy));
+    // comeca devagar e vai acelerando
+    const R = Math.pow(p, 1.7) * diagonal * 1.9;
+    const raio = a => {
+        let n = 0;
+        mancha.ondas.forEach(o => { n += Math.sin(a * o.k + o.fase + tempo * 0.002 * o.k / 8) * o.forca; });
+        let ponta = 0;
+        mancha.tentaculos.forEach(c => {
+            const d = Math.abs(Math.atan2(Math.sin(a - c.angulo), Math.cos(a - c.angulo)));
+            if (d < c.largura) ponta += c.forca * c.pressa * (1 - d / c.largura) ** 2;
+        });
+        return Math.max(0, R * (0.5 + n * 0.35 + ponta * 0.6));
+    };
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    // tudo fora da mancha fica transparente (o site aparece)
+    ctx.globalCompositeOperation = 'destination-in';
+    ctx.beginPath();
+    for (let i = 0; i <= 240; i++) {
+        const a = i / 240 * Math.PI * 2;
+        const rr = raio(a) * (1 + (Math.random() - 0.5) * 0.04);
+        ctx.lineTo(ox + Math.cos(a) * rr, oy + Math.sin(a) * rr);
+    }
+    ctx.closePath();
+    ctx.fillStyle = '#000';
+    ctx.fill();
+    ctx.globalCompositeOperation = 'source-over';
+    // pixels pretos "corrompidos" na frente da mancha
+    if (p > 0.02 && p < 0.98) {
+        const escala = ctx.canvas.width / innerWidth;
+        mancha.pixels.forEach(px => {
+            if ((px.pisca + tempo / 180) % 1 < 0.35) return;
+            const rr = raio(px.angulo) * px.longe;
+            const tam = px.tamanho * escala;
+            ctx.fillStyle = px.pisca > 0.8 ? '#1a0f05' : '#000';
+            ctx.fillRect(Math.round(ox + Math.cos(px.angulo) * rr), Math.round(oy + Math.sin(px.angulo) * rr), tam, tam);
+        });
+    }
+}
+
+// cada vez que a pessoa ve o susto ele muda: encara / procura / bravo / so abre bravo
+function modoDoSusto() {
+    const vezes = guardar.ler('virus-vezes', 0) + 1;
+    guardar.salvar('virus-vezes', vezes);
+    if (vezes === 1) return 'encara';
+    if (vezes === 2) return 'procura';
+    if (vezes === 3) return 'bravo';
+    return 'rapido';
+}
+
+// quanto tempo o olho fica aberto em cada jeito
+const TEMPO_ABERTO = { encara: 3000, procura: 4200, bravo: 3000, rapido: 900 };
+
+// olhar em volta igual olho de verdade: pulinhos rapidos e paradinhas em cada canto
+// [x, y, quanto tempo fica parado olhando ali]
+const OLHADAS = [[0, 0, 350], [-175, -60, 520], [170, -62, 480], [175, 48, 420], [-170, 46, 460], [-40, -8, 260], [60, 6, 300], [0, 0, 500]];
+const PULO_OLHO = 110;
+
+function olharEmVolta(tempo, relogio) {
+    let antes = [0, 0], fim = 0;
+    for (const [x, y, parado] of OLHADAS) {
+        const comeco = fim;
+        fim = comeco + PULO_OLHO + parado;
+        if (tempo < fim) {
+            // o pulo e rapido e freia no final
+            const k = Math.min(1, (tempo - comeco) / PULO_OLHO);
+            const freia = 1 - (1 - k) ** 3;
+            // tremidinha bem leve enquanto esta parado olhando
+            const vivo = k >= 1 ? Math.sin(relogio / 47) * 1.2 : 0;
+            estadoOlho.olharX = antes[0] + (x - antes[0]) * freia + vivo;
+            estadoOlho.olharY = antes[1] + (y - antes[1]) * freia;
+            return;
+        }
+        antes = [x, y];
+    }
+    estadoOlho.olharX = 0;
+    estadoOlho.olharY = 0;
+}
+
+function ataqueDoVirus() {
+    $('#fundo-dialogo').hidden = true;
+    const tela = $('#tela-virus');
+    const ctx = $('#olho-virus').getContext('2d');
+    const modo = modoDoSusto();
+    const bravo = modo === 'bravo' || modo === 'rapido';
+    tela.hidden = false;
+    tela.className = 'tela-virus glitch';
+    status('ERRO FATAL: virus_nao_abrir.exe');
+    if (!olhoPronto) desenharDentroDoOlho();
+    const canvas = $('#olho-virus');
+    const nitidez = Math.min(2, devicePixelRatio || 1);
+    canvas.width = Math.round(innerWidth * nitidez);
+    canvas.height = Math.round(innerHeight * nitidez);
+    const facil = t => t * t * (3 - 2 * t);
+    // o escuro sai de dentro do olho fechado e volta pra dentro dele no final
+    const escala = Math.min(canvas.width / OLHO.largura, canvas.height / OLHO.altura);
+    const ox = canvas.width / 2;
+    const oy = (canvas.height - OLHO.altura * escala) / 2 + (OLHO.centro[1] + 335) * escala;
+    const mancha = novaMancha();
+    // tempos de cada parte
+    const glitch = 1300, espalha = 800, abre = modo === 'rapido' ? 500 : 1000, aberto = TEMPO_ABERTO[modo], fecha = modo === 'rapido' ? 400 : 700, recua = 800;
+    const t1 = glitch + espalha, t2 = t1 + abre, t3 = t2 + aberto, t4 = t3 + fecha, t5 = t4 + recua;
+    estadoOlho.raiva = 0;
+    estadoOlho.olharX = 0;
+    estadoOlho.olharY = 0;
+    const inicio = performance.now();
+    const passo = agora => {
+        const t = agora - inicio;
+        let abertura = 0, espalhou = 1;
+        if (t < glitch) {
+            // so glitch
+        } else if (t < t1) {
+            if (!tela.classList.contains('olho')) tela.className = 'tela-virus olho';
+            espalhou = (t - glitch) / espalha;
+        } else if (t < t2) {
+            abertura = facil((t - t1) / abre);
+        } else if (t < t3) {
+            abertura = 1;
+            if (modo === 'procura') olharEmVolta(t - t2, t);
+        } else if (t < t4) {
+            abertura = 1 - facil((t - t3) / fecha);
+        } else if (t < t5) {
+            espalhou = 1 - (t - t4) / recua;
+        } else {
+            tela.hidden = true;
+            tela.className = 'tela-virus';
+            estadoOlho.raiva = 0;
+            status('Concluído');
+            return;
+        }
+        // bravo: vai fechando a cara enquanto abre
+        if (bravo) estadoOlho.raiva = Math.min(1, abertura * 1.2);
+        desenharOlho(ctx, abertura);
+        if (espalhou < 1) borrarMancha(ctx, mancha, espalhou, ox, oy, t);
+        requestAnimationFrame(passo);
+    };
+    requestAnimationFrame(passo);
+}
+
+
+// --- ajuda de cada app (botao ? da janela) ---
+
+const AJUDA_APPS = {
+    paint: ['Paint', 'palette', `Pra que serve: desenhar e mandar o desenho pro Lucas. Se ele aprovar, aparece no mural da página de recados. (*)
+
+Como usar:
+• Escolha a ferramenta: lápis, pincel, spray, balde (pinta uma área inteira de uma vez) ou borracha.
+• Clique numa cor da paleta embaixo. Em "editar cores..." dá pra criar uma cor nova.
+• Limpar apaga o desenho todo.
+• Salvar baixa o desenho pro seu computador.
+• Enviar manda pro Lucas com o seu nome e o nome da arte.`],
+    msn: ['Zap do Lucas', 'msn_messenger', `Pra que serve: um bate-papo aberto onde todo mundo que visita o site conversa junto. (L)
+
+Como usar:
+• Escreva seu nome em cima e a mensagem embaixo. Enter manda, Shift+Enter pula linha.
+• "Chamar a atenção" faz a janela de todo mundo tremer.
+• Os emoticons viram desenho: :) :D :P ;) (L) (Y) (H) 8-|
+• As mensagens somem sozinhas depois de 7 dias.`],
+    calculadora: ['Calculadora', 'calculator', `Pra que serve: fazer contas, igualzinha à calculadora do Windows antigo.
+
+Como usar:
+• Dá pra clicar nos botões ou usar o teclado (números, + - * /, Enter, Backspace e Esc).
+• C apaga tudo, CE apaga só o número que você está digitando.
+• MS guarda o número na memória, MR mostra ele de volta, M+ soma e MC limpa.
+• sqrt é a raiz quadrada, 1/x é o inverso e % é a porcentagem.
+• Editar > copia o resultado.`],
+    notas: ['Bloco de notas', 'note', `Pra que serve: escrever qualquer coisa, tipo um rascunho ou um desabafo.
+
+Como usar:
+• O texto fica salvo sozinho, só no seu navegador. Ninguém mais vê.
+• Novo apaga o texto pra começar de novo.
+• Salvar como .txt baixa o arquivo pro seu computador.
+• Hora/Data coloca a hora e o dia de agora no texto.`],
+    lixeira: ['Lixeira', 'bin_recycle', `Pra que serve: aqui ficam uns arquivos que o Lucas jogou fora... dá pra clicar em cada um e ler o que tem dentro. :P
+
+Como usar:
+• Clique num arquivo pra abrir.
+• Esvaziar Lixeira some com os arquivos (só pra você).
+• Restaurar todos os itens traz eles de volta.
+• Cuidado com o que você abre. ;)`],
+    fundos: ['Propriedades de Vídeo', 'monitor_wallpaper', `Pra que serve: trocar o papel de parede da área de trabalho.
+
+Como usar:
+• Clique num papel de parede da lista pra ver como fica no monitorzinho.
+• Ele já fica aplicado e salvo no seu navegador pra próxima vez que você entrar.`],
+    cores: ['Editar cores', 'palette', `Pra que serve: criar uma cor nova pra usar no Paint.
+
+Como usar:
+• Clique no quadro colorido pra escolher a cor e na barrinha do lado pra deixar mais clara ou mais escura.
+• Ou digite os números: Matiz/Sat/Lum ou Vermelho/Verde/Azul.
+• "Adicionar às cores personalizadas" guarda a cor e OK usa ela no Paint.`],
+};
+
+function ajudaDoApp(app) {
+    const [titulo, nomeIcone, texto] = AJUDA_APPS[app];
+    dialogo({ titulo: `Ajuda - ${titulo}`, icone: nomeIcone, texto });
+}
+
+
+// --- calculadora (igual a do windows antigo) ---
+
+const calc = { visor: '0', guardado: null, operacao: null, novoNumero: true, memoria: 0 };
+const SENHA_SECRETA = '13062006';
+
+function numeroCalc() {
+    return parseFloat(calc.visor.replace(',', '.')) || 0;
+}
+
+function formatarCalc(n) {
+    if (!isFinite(n)) return 'Não é possível dividir por zero';
+    const texto = String(parseFloat(n.toPrecision(14)));
+    return texto.replace('.', ',');
+}
+
+function mostrarCalc() {
+    const visor = $('#visor-calc');
+    visor.textContent = calc.visor;
+    $('#memoria-calc').textContent = calc.memoria ? 'M' : '';
+}
+
+function contaCalc() {
+    const a = calc.guardado, b = numeroCalc();
+    if (calc.operacao === '+') return a + b;
+    if (calc.operacao === '-') return a - b;
+    if (calc.operacao === '*') return a * b;
+    if (calc.operacao === '/') return b === 0 ? Infinity : a / b;
+    return b;
+}
+
+function teclaCalc(tecla) {
+    if (/^\d$/.test(tecla)) {
+        if (calc.novoNumero || calc.visor === '0' || /[a-z]/i.test(calc.visor)) calc.visor = tecla;
+        else if (calc.visor.replace(/\D/g, '').length < 16) calc.visor += tecla;
+        calc.novoNumero = false;
+        mostrarCalc();
+        // a senha da area secreta
+        if (calc.visor === SENHA_SECRETA) abrirAreaSecreta();
+        return;
+    }
+    if (tecla === ',') {
+        if (calc.novoNumero) { calc.visor = '0,'; calc.novoNumero = false; }
+        else if (!calc.visor.includes(',')) calc.visor += ',';
+    } else if (tecla === 'apagar') {
+        if (!calc.novoNumero) calc.visor = calc.visor.length > 1 ? calc.visor.slice(0, -1) : '0';
+    } else if (tecla === 'ce') {
+        calc.visor = '0';
+        calc.novoNumero = true;
+    } else if (tecla === 'c') {
+        Object.assign(calc, { visor: '0', guardado: null, operacao: null, novoNumero: true });
+    } else if (['+', '-', '*', '/'].includes(tecla)) {
+        if (calc.operacao && !calc.novoNumero) calc.visor = formatarCalc(contaCalc());
+        calc.guardado = numeroCalc();
+        calc.operacao = tecla;
+        calc.novoNumero = true;
+    } else if (tecla === '=') {
+        if (calc.operacao) {
+            calc.visor = formatarCalc(contaCalc());
+            calc.operacao = null;
+        }
+        calc.novoNumero = true;
+    } else if (tecla === 'raiz') {
+        calc.visor = numeroCalc() < 0 ? 'Entrada inválida para a função' : formatarCalc(Math.sqrt(numeroCalc()));
+        calc.novoNumero = true;
+    } else if (tecla === 'inverso') {
+        calc.visor = formatarCalc(1 / numeroCalc());
+        calc.novoNumero = true;
+    } else if (tecla === '%') {
+        calc.visor = formatarCalc((calc.guardado || 0) * numeroCalc() / 100);
+        calc.novoNumero = true;
+    } else if (tecla === 'sinal') {
+        calc.visor = formatarCalc(-numeroCalc());
+    } else if (tecla === 'mc') {
+        calc.memoria = 0;
+    } else if (tecla === 'mr') {
+        calc.visor = formatarCalc(calc.memoria);
+        calc.novoNumero = true;
+    } else if (tecla === 'ms') {
+        calc.memoria = numeroCalc();
+        calc.novoNumero = true;
+    } else if (tecla === 'm+') {
+        calc.memoria += numeroCalc();
+        calc.novoNumero = true;
+    }
+    mostrarCalc();
+}
+
+function abrirAreaSecreta() {
+    const visor = $('#visor-calc');
+    visor.classList.add('liberado');
+    visor.textContent = 'ACESSO LIBERADO';
+    status('Acesso liberado...');
+    setTimeout(() => {
+        visor.classList.remove('liberado');
+        Object.assign(calc, { visor: '0', guardado: null, operacao: null, novoNumero: true });
+        mostrarCalc();
+        abrirJanela('navegador');
+        ir('secreto');
+    }, 1600);
+}
+
+// teclado funciona quando a calculadora esta na frente
+document.addEventListener('keydown', e => {
+    const janela = $('#calculadora');
+    if (janela.hidden || !janela.classList.contains('ativa') || e.target.closest?.('input, textarea')) return;
+    const mapa = { Enter: '=', '=': '=', Backspace: 'apagar', Escape: 'c', Delete: 'ce', '.': ',', ',': ',', '+': '+', '-': '-', '*': '*', '/': '/', '%': '%' };
+    const tecla = /^\d$/.test(e.key) ? e.key : mapa[e.key];
+    if (!tecla) return;
+    e.preventDefault();
+    teclaCalc(tecla);
+});
+
+
+// --- icones da area de trabalho: rodinha do mouse e arrastar pro lado (igual dedo) ---
+
+(() => {
+    const fileira = $('.icones-desktop');
+    fileira.addEventListener('wheel', e => {
+        if (fileira.scrollWidth <= fileira.clientWidth) return;
+        e.preventDefault();
+        fileira.scrollLeft += e.deltaY + e.deltaX;
+    }, { passive: false });
+    let arrasto = null;
+    fileira.addEventListener('pointerdown', e => {
+        if (e.pointerType !== 'mouse' || fileira.scrollWidth <= fileira.clientWidth) return;
+        arrasto = { x: e.clientX, inicio: fileira.scrollLeft, mexeu: false };
+    });
+    window.addEventListener('pointermove', e => {
+        if (!arrasto) return;
+        const dx = e.clientX - arrasto.x;
+        if (Math.abs(dx) > 5) arrasto.mexeu = true;
+        if (arrasto.mexeu) fileira.scrollLeft = arrasto.inicio - dx;
+    });
+    window.addEventListener('pointerup', () => {
+        if (arrasto?.mexeu) {
+            // nao abre o icone se foi so pra arrastar
+            ignorarCliqueLogo(fileira);
+        }
+        arrasto = null;
+    });
+})();
 
 
 // --- sem internet (jogo do dinossauro de oculos) ---
@@ -3376,7 +4322,7 @@ const dino = {
 
 // teclado: espaco ou seta pra cima pula, seta pra baixo abaixa, enter recomeca
 document.addEventListener('keydown', e => {
-    if (!semInternet() || e.target.closest('input, textarea')) return;
+    if (!semInternet() || e.target.closest?.('input, textarea')) return;
     if (e.code === 'Space' || e.key === 'ArrowUp') {
         e.preventDefault();
         if (!e.repeat) dino.apertouPular();
@@ -3414,6 +4360,11 @@ const AVISO_TRADUCAO = {
     en: 'This site is in Portuguese. Your browser can translate it: right-click the page and choose "Translate to English".',
     es: 'Este sitio está en portugués. Tu navegador puede traducirlo: haz clic derecho en la página y elige "Traducir al español".',
 };
+// no celular nao tem botao direito, entao o aviso muda
+const AVISO_TRADUCAO_CELULAR = {
+    en: 'This site is in Portuguese. To translate it, open your browser menu (⋮ or the aA button) and tap "Translate".',
+    es: 'Este sitio está en portugués. Para traducirlo, abre el menú del navegador (⋮ o el botón aA) y toca "Traducir".',
+};
 
 const traducao = {
     idioma: 'pt', tradutor: null, nos: new Map(), atributos: new Map(), feitos: new WeakMap(),
@@ -3435,7 +4386,8 @@ function idiomaDoVisitante() {
 }
 
 // partes que nao traduz (nomes, codigo, campos de digitar)
-const NAO_TRADUZ = 'script, style, textarea, input, select, canvas, svg, code, .nao-traduzir, .logo-3d, [data-nome], #relogio, #lista-player, .wa-tempo, #contador';
+// partes que nao traduz: nomes, musicas, numeros e a barra de status (ela muda toda hora)
+const NAO_TRADUZ = 'script, style, textarea, input, select, canvas, svg, code, .nao-traduzir, .logo-3d, [data-nome], #relogio, #lista-player, .wa-tempo, #contador, #status-texto, #player, #ouvindo, #ouvindo-pagina, .tabela-musicas, .mais-ouvida, .quem, #balao-zap-texto b';
 
 function textoTraduzivel(texto) {
     return /\p{L}{2,}/u.test(texto);
@@ -3533,7 +4485,8 @@ function avisoTraducao(idioma) {
     const aviso = $('#aviso-traducao');
     aviso.hidden = !AVISO_TRADUCAO[idioma];
     if (aviso.hidden) return;
-    $('#aviso-traducao-texto').textContent = AVISO_TRADUCAO[idioma];
+    const celular = matchMedia('(pointer: coarse)').matches;
+    $('#aviso-traducao-texto').textContent = (celular ? AVISO_TRADUCAO_CELULAR : AVISO_TRADUCAO)[idioma];
 }
 
 async function trocarIdioma(idioma, escolhido = false) {
@@ -3722,7 +4675,7 @@ const COMANDOS = {
         }),
     'ajuda': () => dialogo({
         titulo: 'Ajuda e suporte', icone: 'help',
-        texto: '• Use os botões do topo e do lado para navegar.\n• Deixe recados, depoimentos e entre pros meus amigos.\n• Converse com todo mundo no Zap do Lucas.\n• Desenhe no Paint e mande pra mim.\n• Arraste as janelas pela barra azul.\n• Troque o papel de parede em Ferramentas.\n• Emoticons viram imagem: :) :D :P ;) (L) (Y) (H)',
+        texto: '• Use os botões do topo e do lado para navegar.\n• Deixe recados, depoimentos e entre pros meus amigos.\n• Converse com todo mundo no Zap do Lucas.\n• Desenhe no Paint e mande pra mim.\n• Arraste as janelas pela barra azul.\n• Troque o papel de parede em Ferramentas.\n• Cada programa (Paint, Zap, Calculadora...) tem um ? na janela que explica como usar.\n• Emoticons viram imagem: :) :D :P ;) (L) (Y) (H)',
     }),
     'sobre': () => dialogo({
         titulo: 'Sobre o Quarto do Lucas', icone: 'internet_explorer',
@@ -3739,8 +4692,8 @@ const COMANDOS = {
     },
     'sorte-luucas': () => {
         const paginas = Object.entries(PAGINAS).filter(([, pagina]) => !pagina.escondida).map(([id]) => id);
-        fecharAba(abaAtiva);
-        ir(paginas[Math.floor(Math.random() * paginas.length)]);
+        const rota = paginas[Math.floor(Math.random() * paginas.length)];
+        if (!abaNovaViraSite(rota)) ir(rota);
     },
     'mudar-voto': () => {
         guardar.salvar('voto', null);
@@ -3780,10 +4733,12 @@ async function enviarFormulario(form) {
     try {
         if (tipo === 'recado') {
             await recados.adicionar({ autor: dados.autor.trim(), texto: dados.texto.trim() });
+            lembrarNome(dados.autor);
             mostrarPagina();
         }
         if (tipo === 'depoimento') {
             await depoimentos.adicionar({ autor: dados.autor.trim(), texto: dados.texto.trim() });
+            lembrarNome(dados.autor);
             mostrarPagina();
             if (!souDono) dialogo({ titulo: 'Depoimento', icone: 'heart', texto: `Depoimento enviado! Só o ${DADOS.nome} vai ler. (L)` });
         }
@@ -3794,6 +4749,7 @@ async function enviarFormulario(form) {
         if (tipo === 'enquete') await votar(Number(dados.opcao));
         if (tipo === 'sorte') {
             guardar.salvar('nome-sorte', dados.nome.trim());
+            lembrarNome(dados.nome);
             $('#resultado-sorte').innerHTML = resultadoSorte(dados.nome.trim());
         }
         if (tipo === 'desenho') {
@@ -3802,6 +4758,7 @@ async function enviarFormulario(form) {
                 return dialogo({ titulo: 'Paint', icone: 'error', texto: 'Esse desenho ficou pesado demais para enviar. Tente com menos spray. :P' });
             }
             await desenhos.adicionar({ autor: dados.autor.trim(), titulo: dados.titulo.trim(), imagem });
+            lembrarNome(dados.autor);
             form.reset();
             form.hidden = true;
             dialogo({ titulo: 'Paint', icone: 'email_go', texto: `Desenho enviado! O ${DADOS.nome} vai ver sua arte. (Y)\nSe ele aprovar, ela aparece no mural da página de recados.` });
@@ -3870,8 +4827,14 @@ async function enviarFormulario(form) {
             if (valor.github && linkSeguro(valor.github) === '#') {
                 return dialogo({ titulo: 'Perfil', icone: 'error', texto: 'O link do GitHub tem que começar com https://' });
             }
+            const fotoAntiga = DADOS.foto;
             if (dados.foto?.size) valor.foto = urlFotoPostada(await subirImagem(dados.foto, 'perfil', 600));
             await salvarConfig('perfil', valor);
+            // apaga a foto de perfil velha pra nao ficar arquivo sobrando
+            const caminhoAntigo = String(fotoAntiga).split('/public/fotos/')[1];
+            if (valor.foto !== fotoAntiga && caminhoAntigo?.startsWith('perfil/')) {
+                nuvem.storage.from('fotos').remove([caminhoAntigo]).catch(console.error);
+            }
             preencherPerfil();
             mostrarPagina();
             dialogo({ titulo: 'Perfil', icone: 'accept', texto: 'Perfil salvo! (Y)' });
@@ -3925,8 +4888,14 @@ async function enviarFormulario(form) {
             if (!dados.foto?.size) {
                 return dialogo({ titulo: 'Amigos', icone: 'error', texto: 'Escolhe uma foto sua primeiro :)' });
             }
+            // nao deixa dois amigos com o mesmo nome (senao a foto dos recados fica trocada)
+            if (amigoPeloNome(dados.nome)) {
+                return dialogo({ titulo: 'Amigos', icone: 'information', texto: `Já tem um amigo chamado "${dados.nome.trim()}". Se for você, já está tudo certo (L)
+Se não for, usa outro nome ou apelido.` });
+            }
             const foto = await fotoQuadrada(dados.foto, 128);
             await amigos.adicionar({ nome: dados.nome.trim(), foto });
+            lembrarNome(dados.nome);
             mostrarPagina();
             dialogo({ titulo: 'Amigos', icone: 'user_add', texto: 'Pronto! Agora você aparece nos meus amigos (L)' });
         }
@@ -3975,7 +4944,7 @@ document.addEventListener('click', e => {
     // fecha o menu iniciar
     if (!alvo.closest('#menu-iniciar, #botao-iniciar')) $('#menu-iniciar').hidden = true;
 
-    const el = alvo.closest('[data-abrir], [data-comando], [data-janela], [data-tarefa], [data-aba], [data-fechar-aba], [data-apagar], [data-apagar-foto], [data-apagar-comunidade], [data-editar], [data-publicar], [data-tocar], [data-player], [data-foto], [data-lightbox], [data-ferramenta], [data-cor], [data-cor-editor], [data-cores], [data-fundo], [data-notas], [data-lixeira], [data-arquivo-lixeira], [data-tirar-mp3], [data-apagar-lixeira], [data-editar-lixeira], [data-cancelar-lixeira], [data-msn], [data-ver-ouvidas], .emoticons button, [data-sair-guia], [data-dialogo-fechar]');
+    const el = alvo.closest('[data-abrir], [data-comando], [data-janela], [data-tarefa], [data-aba], [data-fechar-aba], [data-apagar], [data-apagar-foto], [data-apagar-comunidade], [data-editar], [data-publicar], [data-tocar], [data-player], [data-foto], [data-lightbox], [data-ferramenta], [data-cor], [data-cor-editor], [data-cores], [data-fundo], [data-notas], [data-lixeira], [data-arquivo-lixeira], [data-tirar-mp3], [data-apagar-lixeira], [data-editar-lixeira], [data-cancelar-lixeira], [data-msn], [data-desenho-mural], [data-fechar-balao], [data-calc], [data-ajuda], [data-menu-calc], [data-ver-ouvidas], .emoticons button, [data-sair-guia], [data-dialogo-fechar]');
     if (!el) return;
     const d = el.dataset;
 
@@ -3985,7 +4954,11 @@ document.addEventListener('click', e => {
     if (d.janela) return acaoJanela(el.closest('.janela'), d.janela);
     if (d.tarefa) return clicarTarefa(d.tarefa);
     if (d.aba) return trocarAba(d.aba);
-    if ('sairGuia' in d) { fecharAba(abaAtiva); return; }
+    if ('sairGuia' in d) {
+        e.preventDefault();
+        abaNovaViraSite(el.getAttribute('href').slice(1));
+        return;
+    }
     if ('dialogoFechar' in d) { $('#fundo-dialogo').hidden = true; return; }
 
     if (d.apagar) {
@@ -4101,6 +5074,15 @@ document.addEventListener('click', e => {
         return mostrarPagina();
     }
     if (d.msn === 'atencao') return zapAtencao();
+    if ('fecharBalao' in d) { $('#balao-zap').hidden = true; return; }
+    if (d.desenhoMural) return abrirDesenhoMural(Number(d.desenhoMural));
+    if (d.calc) return teclaCalc(d.calc);
+    if (d.ajuda) return ajudaDoApp(d.ajuda);
+    if (d.menuCalc === 'editar') {
+        navigator.clipboard?.writeText($('#visor-calc').textContent).catch(() => {});
+        return status('Resultado copiado');
+    }
+    if (d.menuCalc === 'exibir') return dialogo({ titulo: 'Calculadora', icone: 'calculator', texto: 'Por enquanto só tem o modo Padrão. :)' });
 
     if (el.matches('[data-ver-ouvidas]')) {
         ouvindo.aberto = !ouvindo.aberto;
@@ -4140,9 +5122,11 @@ document.addEventListener('submit', e => {
     if (form.id === 'msn-form') return zapMandar();
     if (form.matches('[data-busca]')) {
         const termo = form.querySelector('input').value.trim();
-        if (abaAtiva !== 'site') fecharAba(abaAtiva);
         form.querySelector('input').blur();
-        return ir('busca/' + encodeURIComponent(termo));
+        const rota = 'busca/' + encodeURIComponent(termo);
+        // pesquisou na nova guia: ela vira uma segunda aba com o resultado
+        if (abaNovaViraSite(rota)) return;
+        return ir(rota);
     }
     if (form.dataset.form) enviarFormulario(form);
 });
@@ -4185,7 +5169,7 @@ document.addEventListener('mouseout', e => {
 $('#btn-voltar').addEventListener('click', () => history.back());
 $('#btn-avancar').addEventListener('click', () => history.forward());
 $('#btn-atualizar').addEventListener('click', () => {
-    if (abaAtiva === 'site') mostrarPagina();
+    if (abas.find(a => a.id === abaAtiva)?.tipo === 'site') mostrarPagina();
 });
 $('#endereco').addEventListener('focus', e => e.target.select());
 $('#endereco').addEventListener('blur', atualizarEndereco);
@@ -4247,8 +5231,11 @@ $('#notas-texto').addEventListener('input', e => {
 });
 
 window.addEventListener('hashchange', () => {
-    if (abaAtiva !== 'site') fecharAba(abaAtiva);
+    const aba = abas.find(a => a.id === abaAtiva);
+    // link clicado na nova guia: ela vira aba do site
+    if (aba?.tipo === 'nova') aba.tipo = 'site';
     mostrarPagina();
+    descerProConteudo();
 });
 
 
@@ -4412,6 +5399,10 @@ async function carregarDaNuvem() {
     preencherEnquete();
     preencherRegistros();
     mostrarPagina();
+    // fica olhando se chegou mensagem nova no zap
+    checarZap();
+    setInterval(checarZap, 20000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) checarZap(); });
 }
 
 iniciar();

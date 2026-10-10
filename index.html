@@ -8,7 +8,7 @@
     <title>QUARTO DO LUCAS</title>
     <meta name="description" content="O quarto do Lucas na internet: recados, álbuns, diário e playlists no estilo orkut.">
     <link rel="icon" href="imagens/icones/16/internet_explorer.png">
-    <link rel="stylesheet" href="style.css?v=30">
+    <link rel="stylesheet" href="style.css?v=66">
 </head>
 <body>
 
@@ -17,11 +17,12 @@
     
     <div class="icones-desktop">
         <button class="icone-desktop" data-abrir="navegador"><img class="ico ico32" data-ico="internet_explorer" data-tam="32" alt="">Quarto do Lucas</button>
-        <button class="icone-desktop" data-abrir="msn"><img class="ico ico32" data-ico="msn_messenger" data-tam="32" alt="">Zap do Lucas</button>
+        <button class="icone-desktop" data-abrir="msn"><span class="com-contador"><img class="ico ico32" data-ico="msn_messenger" data-tam="32" alt=""><span class="contador-zap" hidden></span></span>Zap do Lucas</button>
         <button class="icone-desktop" data-abrir="paint"><img class="ico ico32" data-ico="palette" data-tam="32" alt="">Paint</button>
         <button class="icone-desktop" data-abrir="notas"><img class="ico ico32" data-ico="note" data-tam="32" alt="">Bloco de notas</button>
         <button class="icone-desktop" data-abrir="lixeira"><img class="ico ico32" data-ico="bin_recycle" data-tam="32" alt="">Lixeira</button>
         <button class="icone-desktop" data-abrir="fundos"><img class="ico ico32" data-ico="monitor_wallpaper" data-tam="32" alt="">Papel de parede</button>
+        <button class="icone-desktop" data-abrir="calculadora" hidden><img class="ico ico32" data-ico="calculator" data-tam="32" alt="">Calculadora</button>
     </div>
 
     
@@ -47,7 +48,7 @@
                 <button class="icone-btn ir" type="submit" title="Ir"><img class="ico" data-ico="bullet_go" alt=""> Ir</button>
             </form>
             <form data-busca>
-                <input class="busca" type="search" placeholder="Pesquisar" aria-label="Pesquisar">
+                <input class="busca" type="search" placeholder="Pesquisar" aria-label="Pesquisar" autocomplete="off">
                 <button class="icone-btn so-pc" type="submit" title="Pesquisar"><img class="ico" data-ico="zoom" alt=""></button>
             </form>
         </div>
@@ -113,7 +114,7 @@
             <button class="icone-btn" data-comando="favoritar" title="Adicionar aos favoritos"><img class="ico" data-ico="award_star_gold_1" alt=""></button>
             <button class="icone-btn" data-comando="imprimir" title="Imprimir"><img class="ico" data-ico="printer" alt=""></button>
             <a class="icone-btn" href="#recados" title="Recados"><img class="ico" data-ico="email" alt=""></a>
-            <button class="icone-btn" data-abrir="msn" title="Zap do Lucas"><img class="ico" data-ico="msn_messenger" alt=""></button>
+            <button class="icone-btn" data-abrir="msn" title="Zap do Lucas"><span class="com-contador"><img class="ico" data-ico="msn_messenger" alt=""><span class="contador-zap" hidden></span></span></button>
         </div>
 
         <div class="area-pagina">
@@ -152,7 +153,7 @@
                         <a href="#avaliacoes" data-rota="avaliacoes">Avaliações</a>
                         <a href="#diario" data-rota="diario">Diário</a>
                         <form data-busca>
-                            <input type="search" placeholder="Pesquisar" aria-label="Pesquisar no site">
+                            <input type="search" placeholder="Pesquisar" aria-label="Pesquisar no site" autocomplete="off">
                         </form>
                     </nav>
                 </div>
@@ -185,13 +186,15 @@
 
                         <div class="caixa caixa-apps">
                             <h3>Apps <small>do PC</small></h3>
-                            <button data-abrir="msn"><img class="ico" data-ico="msn_messenger" alt=""> Zap do Lucas <img class="novo-gif" src="imagens/gifs/novo.gif" alt="NOVO!" width="40" height="20"></button>
+                            <button data-abrir="msn"><span class="com-contador"><img class="ico" data-ico="msn_messenger" alt=""><span class="contador-zap" hidden></span></span> Zap do Lucas <img class="novo-gif" src="imagens/gifs/novo.gif" alt="NOVO!" width="40" height="20"></button>
                             <button data-abrir="paint"><img class="ico" data-ico="palette" alt=""> Paint <img class="novo-gif" src="imagens/gifs/novo.gif" alt="NOVO!" width="40" height="20"></button>
                             <button data-abrir="notas"><img class="ico" data-ico="note" alt=""> Bloco de notas</button>
                             <button data-abrir="lixeira"><img class="ico" data-ico="bin_recycle" alt=""> Lixeira</button>
                         </div>
 
                         <div class="caixa caixa-diario" id="caixa-diario"></div>
+                        <!-- desenhos aprovados do paint -->
+                        <div class="caixa caixa-mural" id="caixa-mural"></div>
                     </aside>
 
                     
@@ -292,7 +295,7 @@
             <div class="pagina-nova-guia" id="pagina-nova-guia" hidden>
                 <div class="luucas" aria-label="Luucas"><span>L</span><span>u</span><span>u</span><span>c</span><span>a</span><span>s</span><sup>BETA</sup></div>
                 <form data-busca class="busca-luucas">
-                    <input type="search" maxlength="100" aria-label="Pesquisar no Luucas">
+                    <input type="search" maxlength="100" aria-label="Pesquisar no Luucas" autocomplete="off">
                     <div>
                         <button class="btn" type="submit">Pesquisa Luucas</button>
                         <button class="btn" type="button" data-comando="sorte-luucas">Estou com sorte</button>
@@ -324,6 +327,7 @@
     <div class="barra-titulo">
         <span><img class="ico" data-ico="palette" alt=""> DESENHE ALGO! - Paint</span>
         <div class="botoes">
+            <button data-ajuda="paint" title="Ajuda">?</button>
             <button data-janela="minimizar" title="Minimizar">_</button>
             <button data-janela="fechar" class="fechar" title="Fechar">✕</button>
         </div>
@@ -365,7 +369,7 @@
             <button class="btn pequeno" data-ferramenta="cores" title="Editar cores"><img class="ico" data-ico="palette" alt=""> editar cores...</button>
         </div>
     </div>
-    <div class="rodape-app"><span>Para obter ajuda, clique em INICIAR e no menu Ajuda.</span><span id="paint-coords"></span></div>
+    <div class="rodape-app"><span>Para obter ajuda, clique no ? da janela.</span><span id="paint-coords"></span></div>
 </div>
 
 
@@ -373,6 +377,7 @@
     <div class="barra-titulo">
         <span><img class="ico" data-ico="msn_messenger" alt=""> Conversa - ZAP DO LUCAS</span>
         <div class="botoes">
+            <button data-ajuda="msn" title="Ajuda">?</button>
             <button data-janela="minimizar" title="Minimizar">_</button>
             <button data-janela="fechar" class="fechar" title="Fechar">✕</button>
         </div>
@@ -398,10 +403,46 @@
 </div>
 
 
+<div class="janela janela-app" id="calculadora" data-titulo="Calculadora" data-icone="calculator" hidden style="left:300px; top:110px;">
+    <div class="barra-titulo">
+        <span><img class="ico" data-ico="calculator" alt=""> Calculadora</span>
+        <div class="botoes">
+            <button data-ajuda="calculadora" title="Ajuda">?</button>
+            <button data-janela="minimizar" title="Minimizar">_</button>
+            <button data-janela="fechar" class="fechar" title="Fechar">✕</button>
+        </div>
+    </div>
+    <div class="menu-calc"><button data-menu-calc="editar"><u>E</u>ditar</button><button data-menu-calc="exibir"><u>E</u>xibir</button><button data-ajuda="calculadora"><u>A</u>juda</button></div>
+    <div class="corpo-calc">
+        <div class="visor-calc" id="visor-calc" aria-live="polite">0</div>
+        <div class="linha-calc topo-calc">
+            <span class="memoria-calc" id="memoria-calc"></span>
+            <button data-calc="apagar" class="vermelho largo">Backspace</button>
+            <button data-calc="ce" class="vermelho largo">CE</button>
+            <button data-calc="c" class="vermelho largo">C</button>
+        </div>
+        <div class="teclas-calc">
+            <button data-calc="mc" class="vermelho">MC</button>
+            <button data-calc="7" class="azul">7</button><button data-calc="8" class="azul">8</button><button data-calc="9" class="azul">9</button>
+            <button data-calc="/" class="vermelho">/</button><button data-calc="raiz" class="azul">sqrt</button>
+            <button data-calc="mr" class="vermelho">MR</button>
+            <button data-calc="4" class="azul">4</button><button data-calc="5" class="azul">5</button><button data-calc="6" class="azul">6</button>
+            <button data-calc="*" class="vermelho">*</button><button data-calc="%" class="azul">%</button>
+            <button data-calc="ms" class="vermelho">MS</button>
+            <button data-calc="1" class="azul">1</button><button data-calc="2" class="azul">2</button><button data-calc="3" class="azul">3</button>
+            <button data-calc="-" class="vermelho">-</button><button data-calc="inverso" class="azul">1/x</button>
+            <button data-calc="m+" class="vermelho">M+</button>
+            <button data-calc="0" class="azul">0</button><button data-calc="sinal" class="azul">+/-</button><button data-calc="," class="azul">,</button>
+            <button data-calc="+" class="vermelho">+</button><button data-calc="=" class="vermelho">=</button>
+        </div>
+    </div>
+</div>
+
 <div class="janela janela-app" id="notas" data-titulo="Escreva algo - Bloco de notas" data-icone="note" hidden style="left:220px; top:120px;">
     <div class="barra-titulo">
         <span><img class="ico" data-ico="note" alt=""> ESCREVA ALGO - Bloco de notas</span>
         <div class="botoes">
+            <button data-ajuda="notas" title="Ajuda">?</button>
             <button data-janela="minimizar" title="Minimizar">_</button>
             <button data-janela="fechar" class="fechar" title="Fechar">✕</button>
         </div>
@@ -420,6 +461,7 @@
     <div class="barra-titulo">
         <span><img class="ico" data-ico="bin_recycle" alt=""> Lixeira</span>
         <div class="botoes">
+            <button data-ajuda="lixeira" title="Ajuda">?</button>
             <button data-janela="minimizar" title="Minimizar">_</button>
             <button data-janela="fechar" class="fechar" title="Fechar">✕</button>
         </div>
@@ -439,6 +481,7 @@
     <div class="barra-titulo">
         <span><img class="ico" data-ico="monitor_wallpaper" alt=""> Propriedades de Vídeo</span>
         <div class="botoes">
+            <button data-ajuda="fundos" title="Ajuda">?</button>
             <button data-janela="minimizar" title="Minimizar">_</button>
             <button data-janela="fechar" class="fechar" title="Fechar">✕</button>
         </div>
@@ -456,6 +499,7 @@
     <div class="barra-titulo">
         <span>Editar cores</span>
         <div class="botoes">
+            <button data-ajuda="cores" title="Ajuda">?</button>
             <button data-janela="fechar" class="fechar" title="Fechar">✕</button>
         </div>
     </div>
@@ -497,9 +541,10 @@
     <div class="cabeca"><div class="mini-foto" data-foto-perfil></div><span data-nome></span></div>
     <div class="itens">
         <button data-abrir="navegador"><img class="ico ico32" data-ico="internet_explorer" data-tam="32" alt="">Quarto do Lucas</button>
-        <button data-abrir="msn"><img class="ico ico32" data-ico="msn_messenger" data-tam="32" alt="">Zap do Lucas</button>
+        <button data-abrir="msn"><span class="com-contador"><img class="ico ico32" data-ico="msn_messenger" data-tam="32" alt=""><span class="contador-zap" hidden></span></span>Zap do Lucas</button>
         <button data-abrir="paint"><img class="ico ico32" data-ico="palette" data-tam="32" alt="">Paint</button>
         <button data-abrir="notas"><img class="ico ico32" data-ico="note" data-tam="32" alt="">Bloco de notas</button>
+        <button data-abrir="calculadora" hidden><img class="ico ico32" data-ico="calculator" data-tam="32" alt="">Calculadora</button>
         <button data-abrir="lixeira"><img class="ico ico32" data-ico="bin_recycle" data-tam="32" alt="">Lixeira</button>
         <hr>
         <button data-comando="papel-parede"><img class="ico ico32" data-ico="monitor_wallpaper" data-tam="32" alt="">Papel de parede</button>
@@ -559,10 +604,22 @@
 </div>
 
 <div class="tela-desligar" id="tela-desligar" hidden></div>
+<!-- balaozinho de mensagem nova no zap -->
+<div class="balao-zap" id="balao-zap" hidden>
+    <button class="fechar-balao" data-fechar-balao title="Fechar">✕</button>
+    <button class="corpo-balao" data-abrir="msn">
+        <b><img class="ico" data-ico="msn_messenger" alt=""> <span id="balao-zap-titulo">Zap do Lucas</span></b>
+        <span id="balao-zap-texto"></span>
+    </button>
+</div>
+<!-- o virus da lixeira -->
+<div class="tela-virus" id="tela-virus" hidden aria-hidden="true">
+    <canvas id="olho-virus" width="1080" height="1256"></canvas>
+</div>
 
 
 <script src="js/supabase.js"></script>
 
-<script src="script.js?v=30"></script>
+<script src="script.js?v=66"></script>
 </body>
 </html>

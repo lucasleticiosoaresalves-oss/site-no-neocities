@@ -697,7 +697,7 @@ a.rede:hover { background: #ffffcc; }
 .barra-sorte span { display: block; height: 100%; background: linear-gradient(90deg, #ff0066, #ff9900, #ffee00, #33cc33); }
 
 /* admin */
-.so-leitor { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+.so-leitor { position: absolute; left: 0; top: 0; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
 .soltar-foto {
     position: relative;
     display: block;
@@ -1230,7 +1230,17 @@ img.foto-amigo { object-fit: cover; background: #fff; padding: 0; }
 
 /* celular */
 
-@media (max-width: 1000px) {
+/* tablets e telas medias: icones em cima e 2 colunas */
+@media (max-width: 1100px) {
+    .area-trabalho { flex-direction: column; padding: 8px 8px 44px; gap: 8px; }
+    .icones-desktop { flex-direction: row; width: 100%; overflow-x: auto; scrollbar-width: none; }
+    /* sem barrinha de rolagem embaixo dos icones (ainda da pra arrastar pro lado) */
+    .icones-desktop::-webkit-scrollbar { display: none; }
+    .icone-desktop { width: 76px; flex: none; }
+    #navegador { width: 100%; }
+}
+
+@media (max-width: 1100px) {
     .conteudo { grid-template-columns: 180px minmax(0, 1fr); }
     .coluna-direita { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
     .coluna-direita .caixa + .caixa { margin-top: 0; }
@@ -1247,10 +1257,15 @@ img.foto-amigo { object-fit: cover; background: #fff; padding: 0; }
     .topo { justify-content: center; }
     .nav { justify-content: center; }
     .conteudo { grid-template-columns: 1fr; padding: 10px; }
+    /* folguinha em cima quando a pagina desce ate o conteudo */
+    #central { scroll-margin-top: 8px; }
+    /* logo menor pra caber na tela do celular */
+    .logo-3d { font-size: clamp(18px, 7vw, 34px); padding: 6px 6px 10px; }
+    .marca .globo { width: 44px; height: 44px; }
     .perfil-lateral { display: grid; grid-template-columns: 120px 1fr; }
     .perfil-lateral > .caixa { grid-column: 1 / -1; }
     .grade-perfil, .duas-colunas { grid-template-columns: 1fr; }
-    .janela-app { left: 5px !important; top: 10px !important; }
+    .janela-app { left: 5px; }
     .paleta { grid-template-columns: repeat(10, 15px); }
     .tarefas button { width: auto; }
 }
@@ -1305,3 +1320,155 @@ img.foto-amigo { object-fit: cover; background: #fff; padding: 0; }
 .aviso-traducao[hidden] { display: none; }
 .aviso-traducao span { flex: 1; }
 .fechar-aviso { background: none; border: none; cursor: pointer; font-size: 11px; }
+
+/* virus da lixeira */
+.tela-virus { position: fixed; inset: 0; z-index: 9999; display: grid; place-items: center; pointer-events: all; }
+.tela-virus[hidden] { display: none; }
+.tela-virus canvas { width: 100vw; height: 100vh; opacity: 0; }
+.tela-virus.glitch {
+    background:
+        repeating-linear-gradient(0deg, rgba(0, 0, 0, .25) 0 2px, transparent 2px 4px),
+        linear-gradient(90deg, rgba(255, 0, 60, .25), rgba(0, 255, 200, .2));
+    -webkit-backdrop-filter: invert(1) hue-rotate(90deg);
+    backdrop-filter: invert(1) hue-rotate(90deg);
+    animation: glitch-virus .18s steps(3) infinite;
+}
+.tela-virus.glitch::before, .tela-virus.glitch::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 12%;
+    background: rgba(255, 255, 255, .35);
+    mix-blend-mode: difference;
+    animation: faixa-virus .3s steps(4) infinite;
+}
+.tela-virus.glitch::after { height: 6%; background: rgba(0, 255, 120, .4); animation-duration: .23s; animation-direction: reverse; }
+.tela-virus.olho { background: transparent; }
+.tela-virus.olho canvas { opacity: 1; }
+@keyframes glitch-virus {
+    0% { -webkit-backdrop-filter: invert(1) hue-rotate(90deg); backdrop-filter: invert(1) hue-rotate(90deg); transform: translate(0, 0); }
+    33% { -webkit-backdrop-filter: contrast(3) hue-rotate(200deg) saturate(4); backdrop-filter: contrast(3) hue-rotate(200deg) saturate(4); transform: translate(-6px, 2px); }
+    66% { -webkit-backdrop-filter: grayscale(1) brightness(1.6); backdrop-filter: grayscale(1) brightness(1.6); transform: translate(5px, -3px); }
+    100% { transform: translate(0, 0); }
+}
+@keyframes faixa-virus { 0% { top: 8%; } 25% { top: 61%; } 50% { top: 27%; } 75% { top: 83%; } 100% { top: 44%; } }
+@media (prefers-reduced-motion: reduce) {
+    .tela-virus.glitch, .tela-virus.glitch::before, .tela-virus.glitch::after, .tela-virus.olho { animation: none; }
+}
+
+.rodape-dialogo { display: block; margin-top: 14px; font-size: 8px; color: #9a9a9a; text-align: right; }
+
+/* telas de toque grandes (tablet): coisas maiores pra acertar com o dedo */
+@media (pointer: coarse) and (min-width: 721px) {
+    .area-pagina { font-size: 12.5px; }
+    .nav a, .nav a:visited { font-size: 14px; padding: 6px 10px; }
+    .menuperfil a, .menuperfil a:visited { padding: 7px 8px; font-size: 12.5px; }
+    .submenu button, .submenu a { padding: 9px 20px; font-size: 13px; }
+    .barra-menu > .menu > button { padding: 6px 10px; }
+    .btn, .area-pagina .btn:visited { min-height: 32px; padding: 4px 12px; }
+    .btn.pequeno { min-height: 28px; font-size: 11.5px; }
+    .btn-x { font-size: 12px; padding: 4px 6px; }
+    .emoticons button { padding: 4px; }
+    .lista-lixeira li { padding: 7px 4px; }
+    .lista-player a, .lista-player button { padding: 5px 4px; font-size: 11px; }
+    .controles-player button { min-width: 34px; height: 30px; }
+    .janela-app .barra-titulo .botoes button, #navegador .barra-titulo .botoes button { min-width: 30px; min-height: 26px; }
+    /* 16px pro ipad nao dar zoom sozinho quando toca no campo */
+    input, textarea, select { font-size: 16px; }
+}
+
+/* --- so pra tablet (tela de toque media) --- */
+/* em pe: as caixas da direita viram um mural em 2 colunas sem buraco */
+@media (pointer: coarse) and (min-width: 721px) and (max-width: 1100px) and (orientation: portrait) {
+    .coluna-direita { display: block; column-count: 2; column-gap: 14px; }
+    .coluna-direita .caixa, .coluna-direita .caixa + .caixa { break-inside: avoid; margin: 0 0 14px; }
+    .coluna-direita .contador { column-span: none; }
+}
+/* deitado: volta a coluna da direita do lado, igual no computador */
+@media (pointer: coarse) and (min-width: 900px) and (max-width: 1100px) and (orientation: landscape) {
+    .conteudo { grid-template-columns: 170px minmax(0, 1fr) 250px; }
+    .coluna-direita { grid-column: auto; display: block; }
+    .coluna-direita .caixa + .caixa { margin-top: 14px; }
+    .lugar-winamp, .winamp { max-width: 100%; }
+}
+
+/* celular bem estreito: a barra de menus quebra linha em vez de sair da tela */
+@media (max-width: 360px) {
+    .barra-menu { flex-wrap: wrap; }
+}
+/* tela baixinha (celular deitado): as janelas nao passam da altura da tela */
+.janela-app { max-height: calc(100vh - 40px); overflow: auto; }
+
+/* calculadora do windows antigo */
+#calculadora { width: 262px; }
+.menu-calc { display: flex; gap: 10px; padding: 2px 8px; background: #ece9d8; font: 11px Tahoma, sans-serif; border-bottom: 1px solid #fff; }
+.corpo-calc { background: #ece9d8; padding: 8px 8px 10px; font: 11px Tahoma, sans-serif; }
+.visor-calc {
+    background: #fff; border: 2px inset #d4d0c8; padding: 3px 6px; margin-bottom: 8px;
+    text-align: right; font: 15px "Lucida Console", "Courier New", monospace; height: 24px; overflow: hidden; white-space: nowrap;
+}
+.visor-calc.liberado { color: #c00; font-weight: bold; animation: piscar-calc .25s steps(2) 6; }
+@keyframes piscar-calc { 50% { color: #ece9d8; } }
+.linha-calc { display: flex; gap: 5px; margin-bottom: 7px; }
+.memoria-calc { width: 32px; height: 26px; border: 2px inset #d4d0c8; display: grid; place-items: center; font-weight: bold; flex: none; }
+.corpo-calc button {
+    height: 26px; border: 1px solid #003c74; border-radius: 3px;
+    background: linear-gradient(180deg, #fff, #f0efe8 40%, #dcd8ca);
+    font: 12px Tahoma, Verdana, sans-serif; cursor: pointer; padding: 0;
+}
+.corpo-calc button:hover { box-shadow: inset 0 0 0 1px #f8b330; }
+.corpo-calc button:active { background: linear-gradient(180deg, #dcd8ca, #f0efe8); }
+.corpo-calc .azul { color: #0000c0; }
+.corpo-calc .vermelho { color: #c00000; }
+.corpo-calc .largo { flex: 1; }
+.teclas-calc { display: grid; grid-template-columns: 34px repeat(5, 1fr); gap: 5px; }
+.teclas-calc button:nth-child(6n + 1) { margin-right: 6px; }
+
+/* area secreta */
+.area-secreta { text-align: center; padding: 30px 10px; background: #000; color: #0f0; font-family: "Lucida Console", "Courier New", monospace; border: 3px double #0f0; }
+.area-secreta h2 { color: #0f0; letter-spacing: 3px; }
+.area-secreta .piscar-cursor::after { content: '_'; animation: piscar-net 1s steps(2) infinite; }
+
+/* abas: da pra arrastar pro lado */
+.aba.arrastando { opacity: .85; z-index: 3; position: relative; box-shadow: 0 2px 6px rgba(0, 0, 0, .35); cursor: grabbing; }
+.abas { touch-action: pan-y; }
+
+/* menus da calculadora */
+.menu-calc button { background: none; border: none; padding: 1px 4px; font: 11px Tahoma, sans-serif; cursor: pointer; color: #000; }
+.menu-calc button:hover { background: #316ac5; color: #fff; }
+
+/* numero de mensagens nao lidas no icone do zap (igual whatsapp) */
+.com-contador { position: relative; display: inline-block; line-height: 0; }
+.contador-zap {
+    position: absolute; top: -6px; right: -9px; min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box;
+    border-radius: 9px; background: #25d366; color: #fff; font: bold 11px/18px Arial, sans-serif; text-align: center;
+    box-shadow: 0 0 0 2px #fff, 0 1px 3px rgba(0, 0, 0, .4); pointer-events: none;
+}
+.contador-zap[hidden] { display: none; }
+.icone-btn .contador-zap, .caixa-apps .contador-zap { top: -7px; right: -10px; min-width: 15px; height: 15px; font-size: 9px; line-height: 15px; padding: 0 4px; }
+.balao-zap {
+    position: fixed; right: 8px; bottom: 40px; z-index: 9000; width: 250px; max-width: calc(100vw - 16px);
+    background: #ffffe1; border: 1px solid #000; border-radius: 8px; box-shadow: 2px 2px 6px rgba(0, 0, 0, .4);
+    font: 11px Tahoma, Verdana, sans-serif; color: #000; animation: subir-balao .3s ease-out;
+}
+.balao-zap[hidden] { display: none; }
+.balao-zap::after { content: ''; position: absolute; right: 70px; bottom: -11px; border: 11px solid transparent; border-top-color: #000; border-bottom: 0; }
+.balao-zap::before { content: ''; position: absolute; right: 71px; bottom: -9px; border: 10px solid transparent; border-top-color: #ffffe1; border-bottom: 0; z-index: 1; }
+.corpo-balao { display: block; width: 100%; text-align: left; background: none; border: none; padding: 8px 22px 9px 10px; cursor: pointer; font: inherit; color: inherit; }
+.corpo-balao > b { display: flex; align-items: center; gap: 4px; margin-bottom: 4px; }
+.corpo-balao span#balao-zap-texto { display: block; overflow-wrap: anywhere; }
+.fechar-balao { position: absolute; top: 4px; right: 5px; background: none; border: none; cursor: pointer; font-size: 10px; color: #555; }
+@keyframes subir-balao { from { transform: translateY(10px); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .balao-zap { animation: none; } }
+
+/* foto pequenininha do amigo no zap */
+.avatar.mini-zap { width: 16px; height: 16px; vertical-align: -3px; border-radius: 2px; object-fit: cover; }
+.recado .avatar.foto-amigo { object-fit: cover; }
+
+/* mini mural de desenhos (embaixo do diario) */
+.caixa-mural { text-align: center; }
+.mini-mural { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 4px; }
+.mini-mural button { padding: 2px; background: #fff; border: 1px solid #b7c6e0; cursor: pointer; line-height: 0; }
+.mini-mural button:hover { border-color: #cc9900; background: #ffffcc; }
+.mini-mural img { width: 100%; aspect-ratio: 46 / 29; object-fit: cover; }
