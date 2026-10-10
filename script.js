@@ -647,9 +647,11 @@ function paginaInicio() {
                     ${amigos.todos().length ? `<div class="grade-amigos">
                         ${amigos.todos().slice(0, 6).map(a => `<div class="amigo">${fotoAmigo(a)}${esc(a.nome)}</div>`).join('')}
                     </div>` : mensagemVazia(amigos, 'nenhum amigo ainda')}
-                    <div class="caixa-titulo" style="margin-top:10px"><h3>Comunidades</h3><a class="mini-link" href="#comunidades">ver</a></div>
-                    <div class="grade-amigos">
-                        ${DADOS.comunidades.slice(0, 3).map(c => `<div class="comunidade"><span class="icone">${icone(c.icone, 32)}</span>${esc(c.nome)}</div>`).join('')}
+                    <div class="caixa-titulo" style="margin-top:10px"><h3>Comunidades <small>(${DADOS.comunidades.length})</small></h3><a class="mini-link" href="#comunidades">ver</a></div>
+                    <div class="lugar-comunidades">
+                        <div class="grade-amigos lista-comunidades">
+                            ${DADOS.comunidades.map(c => `<a class="comunidade" href="#comunidades" title="${esc(c.nome)}"><span class="icone">${icone(c.icone, 32)}</span>${esc(c.nome)}</a>`).join('')}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -3703,6 +3705,32 @@ document.addEventListener('keydown', e => {
     teclaCalc(tecla);
 });
 
+
+// comunidades do inicio: clicar e arrastar com o mouse rola a lista (igual dedo)
+(() => {
+    let arrasto = null;
+    document.addEventListener('pointerdown', e => {
+        const lista = e.target.closest?.('.lista-comunidades');
+        if (!lista || e.pointerType !== 'mouse' || lista.scrollHeight <= lista.clientHeight) return;
+        arrasto = { lista, y: e.clientY, inicio: lista.scrollTop, mexeu: false };
+    });
+    window.addEventListener('pointermove', e => {
+        if (!arrasto) return;
+        const dy = e.clientY - arrasto.y;
+        if (Math.abs(dy) > 5) {
+            arrasto.mexeu = true;
+            arrasto.lista.classList.add('arrastando');
+        }
+        if (arrasto.mexeu) arrasto.lista.scrollTop = arrasto.inicio - dy;
+    });
+    window.addEventListener('pointerup', () => {
+        if (!arrasto) return;
+        arrasto.lista.classList.remove('arrastando');
+        // se arrastou, nao abre a comunidade
+        if (arrasto.mexeu) ignorarCliqueLogo(arrasto.lista);
+        arrasto = null;
+    });
+})();
 
 // --- icones da area de trabalho: rodinha do mouse e arrastar pro lado (igual dedo) ---
 

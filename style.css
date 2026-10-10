@@ -619,7 +619,9 @@ img.avatar.com-icone { background: #fff; image-rendering: pixelated; padding: 2p
 .amigo .avatar.grande { width: 64px; height: 64px; font-size: 26px; }
 .coracoes { font-size: 9px; letter-spacing: -1px; }
 
-.comunidade { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 2px; font-size: 10px; }
+.comunidade { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 2px; font-size: 10px; overflow-wrap: anywhere; }
+a.comunidade, a.comunidade:visited { color: inherit; text-decoration: none; }
+a.comunidade:hover { text-decoration: underline; }
 .comunidade .icone { width: 44px; height: 44px; display: grid; place-items: center; font-size: 22px; background: #fff; border: 1px solid #999; }
 .comunidade.grande { flex-direction: row; text-align: left; gap: 8px; background: #f0f4fa; border: 1px dotted #6f8fc0; padding: 6px; font-size: 11px; }
 .comunidade.grande .icone { width: 50px; height: 50px; font-size: 26px; flex: none; }
@@ -1472,3 +1474,11 @@ img.foto-amigo { object-fit: cover; background: #fff; padding: 0; }
 .mini-mural button { padding: 2px; background: #fff; border: 1px solid #b7c6e0; cursor: pointer; line-height: 0; }
 .mini-mural button:hover { border-color: #cc9900; background: #ffffcc; }
 .mini-mural img { width: 100%; aspect-ratio: 46 / 29; object-fit: cover; }
+
+/* comunidades no inicio: preenchem o espaco que sobra na caixa sem aumentar ela */
+.grade-perfil > .sub-caixa:last-child { display: flex; flex-direction: column; }
+.lugar-comunidades { flex: 1; position: relative; min-height: 150px; }
+.lista-comunidades { position: absolute; inset: 0; overflow-y: auto; align-content: start; scrollbar-width: none; cursor: grab; }
+/* sem barra: desliza com o dedo, a rodinha do mouse ou clicando e arrastando */
+.lista-comunidades::-webkit-scrollbar { display: none; }
+.lista-comunidades.arrastando { cursor: grabbing; user-select: none; }
