@@ -226,10 +226,43 @@ function imagemEmoticon(codigo) {
     return `<img class="ico emoticon" src="${urlIcone(nome)}" alt="${esc(codigo)}" title="${esc(codigo)}" width="16" height="16">`;
 }
 
+// emoji de celular vira emoticon antigo do msn (o que nao tem parecido some)
+const EMOJIS_ANTIGOS = [
+    ['😀😃😄😁😆😊🙂☺😌🤗', 'emotion_smile'], ['😂🤣😹', 'emotion_haha'], ['😉😜', 'emotion_wink'], ['😛😝😋', 'emotion_tongue'],
+    ['😎🤠', 'emotion_cool'], ['😍🥰😻🤩', 'emotion_love'], ['😘😗😙😚💋', 'emotion_kiss'], ['😢😥😞😔😟🙁☹😿🥺', 'emotion_sad'],
+    ['😭', 'emotion_cry'], ['😡😠🤬😤👿', 'emotion_angry'], ['😮😯😲😱😳🙀', 'emotion_suprised'], ['🤔🧐', 'emotion_question'],
+    ['😴🥱🛌💤', 'emotion_sleep'], ['🤢🤮🤒😷🤧', 'emotion_sick'], ['🤓', 'emotion_nerd'], ['😈', 'emotion_devil'],
+    ['😇', 'emotion_angel'], ['👻', 'emotion_ghost'], ['💀☠', 'emotion_skull'], ['🥳🎉🎊', 'emotion_party'], ['🤡', 'emotion_clown'],
+    ['👽', 'emotion_alien'], ['😐😑😶🫤', 'emotion_doubt'], ['🙄😏😒', 'emotion_snooty'], ['😅😓😮‍💨', 'emotion_whew'],
+    ['🤪🤯😵', 'emotion_crazy'], ['😕😖😣', 'emotion_confuse'], ['🤤', 'emotion_hungry'], ['🤐🤫', 'emotion_silent'],
+    ['😊', 'emotion_smile'], ['👋', 'emotion_bye_bye'], ['😬', 'emotion_shame'],
+    ['❤♥💗💖💕💞💓💘💝💟🧡💛💚💙💜🖤🤍🤎🩷🩵🩶❣😽', 'heart'], ['💔', 'heart_break'],
+    ['👍👌🤟🤘✌🙌👏💪', 'thumb_up'], ['👎', 'thumb_down'], ['⭐🌟✨💫', 'award_star_gold_1'], ['🎵🎶🎧🎤🎸', 'music'],
+    ['🌸🌹🌺🌻🌷💐🌼', 'flower'], ['🥀', 'emotion_flower_dead'], ['🎂🍰🧁', 'cake'], ['🎁', 'gift_add'], ['☀🌞', 'weather_sun'],
+    ['🌙🌛🌜🌚', 'half_moon'], ['🌈', 'rainbow'], ['🐱🐈😺😸😼', 'cat'], ['🐶🐕', 'dog'], ['🍕', 'pizza'], ['💰💸💵🤑', 'money'],
+    ['⚡', 'lightning'], ['☂☔', 'umbrella'], ['☕🍵', 'tea_cup'], ['🍺🍻', 'beer'], ['🍹🍸🥤🧃', 'drink'], ['📷📸', 'camera'],
+    ['📞☎', 'telephone'], ['📱', 'iphone'], ['🚗', 'car'], ['✈', 'plane'], ['🐌', 'snail'], ['🐞', 'ladybird'], ['🦋', 'butterfly'],
+    ['🍦🍨', 'icecream'], ['💡', 'lightbulb'], ['⏰🕐⌚', 'clock'], ['💻🖥', 'computer'], ['🏠🏡', 'house'],
+];
+const ICONE_DO_EMOJI = new Map(EMOJIS_ANTIGOS.flatMap(([lista, nome]) => [...lista].map(ch => [ch, nome])));
+// pega o emoji inteiro (com cor de pele, juncoes etc)
+const REGEX_EMOJI = /(\p{Extended_Pictographic}(?:️|‍\p{Extended_Pictographic}|[\u{1F3FB}-\u{1F3FF}])*)/u;
+
+function semEmoji(parte) {
+    return parte.split(REGEX_EMOJI).map((pedaco, i) => {
+        if (i % 2 === 0) return esc(pedaco.replace(/[️‍]/g, ''));
+        const primeiro = [...pedaco][0];
+        const nome = ICONE_DO_EMOJI.get(primeiro);
+        if (nome) return `<img class="ico emoticon" src="${urlIcone(nome)}" alt="" width="16" height="16">`;
+        // simbolo comum (© ‼ ▶...) fica como letra; emoji moderno sem parecido some
+        return primeiro.codePointAt(0) < 0x10000 ? esc(primeiro) + '︎' : '';
+    }).join('');
+}
+
 // escapa o texto e troca os emoticons por imagem
 function textoRico(texto) {
     return String(texto).split(REGEX_EMOTICONS)
-        .map((parte, i) => (i % 2 ? imagemEmoticon(parte) : esc(parte)))
+        .map((parte, i) => (i % 2 ? imagemEmoticon(parte) : semEmoji(parte)))
         .join('');
 }
 
@@ -287,8 +320,14 @@ function avatar(nome, classe = '') {
     if (foto) return `<img class="avatar foto-amigo ${classe}" src="${esc(foto)}" alt="" title="${esc(cadastrado.nome)} é amigo do ${esc(DADOS.nome)}">`;
     const amigo = DADOS.amigos.find(a => a.nome === nome);
     if (amigo?.icone) return `<img class="avatar com-icone ${classe}" src="${urlIcone(amigo.icone, 32)}" alt="">`;
-    const letra = (String(nome).trim()[0] || '?').toUpperCase();
-    return `<span class="avatar ${classe}" style="background:${corDoNome(nome)}">${esc(letra)}</span>`;
+    return `<img class="avatar boneco-msn ${classe}" src="${bonecoMsn(nome)}" alt="">`;
+}
+
+// quem nao tem foto ganha um bonequinho do msn (a mesma pessoa sempre fica com a mesma cor)
+function bonecoMsn(nome) {
+    let soma = 0;
+    for (const letra of semAcento(String(nome || '').trim())) soma = (soma * 31 + letra.charCodeAt(0)) % 9973;
+    return `imagens/msn/msn${soma % 20 + 1}.png`;
 }
 
 // so deixa link http ou https
@@ -511,6 +550,7 @@ function aplicarConfig(chave, valor) {
     }
     if (chave === 'comunidades') DADOS.comunidades = valor;
     if (chave === 'lixeira') DADOS.lixeira = valor;
+    if (chave === 'secreto') DADOS.secreto = valor;
     if (chave === 'mp3') DADOS.mp3 = valor;
 }
 
@@ -805,6 +845,213 @@ function paginaAlbum(id) {
         </div>`;
 }
 
+// --- sessao da tv: uma tv antiga passando desenho e filme do youtube, arrasta pro lado pra mudar de canal ---
+
+// cada canal: nome, videos do youtube e a duracao do primeiro (pra parecer que ta passando ao vivo)
+const CANAIS_TV = [
+    { nome: 'Nilba e os Desastronautas', tipo: 'desenho', segundos: 1491, videos: ['nKRqOBfMZOw', 'iVhto8dfLW4', 'EN6vqgtDk_M', 'LLIaNa1_zTw', 'GyIn9nhOlgc', 'gFXqyh3PkyM', 'DXSgLzIEz6Y', 'NXCOBnvKHiU'] },
+    { nome: 'Castelo Rá-Tim-Bum', tipo: 'série', segundos: 3287, videos: ['lJEAhhRsRIM'] },
+    { nome: 'Mundo da Lua', tipo: 'série', segundos: 3609, videos: ['ZZOFYw-fvmE'] },
+    { nome: 'Pica-Pau', tipo: 'desenho', segundos: 9212, videos: ['LVE17tSApHI', 'mgA7d1gtFQ4'] },
+    { nome: 'A Pantera Cor-de-Rosa', tipo: 'desenho', segundos: 19613, videos: ['OMbY_OHYrf0', 'kEycsvvyv6I'] },
+    { nome: 'Turma da Mônica', tipo: 'desenho', segundos: 2660, videos: ['7rDZg6_7sWY', 'oGFeypkYpu0'] },
+    { nome: 'Popeye', tipo: 'desenho', segundos: 13346, videos: ['YvM9myyWGRw'] },
+    { nome: 'Betty Boop', tipo: 'desenho', segundos: 9160, videos: ['gaWN1tVZdqw', 'JOQhlCaT40s'] },
+    { nome: 'Superman (1941)', tipo: 'desenho', segundos: 7258, videos: ['u92t2pNOoqM'] },
+    { nome: 'Gasparzinho (1945)', tipo: 'desenho', segundos: 536, videos: ['rpKNy9a2IHA', '1gwchhoPW1s'] },
+    { nome: 'Charlie Chaplin', tipo: 'filme', segundos: 1539, videos: ['tXNTVJ_YZn0', '4-rOPwnHjLQ'] },
+    { nome: 'Cavalo de Fogo', tipo: 'desenho', segundos: 18134, videos: ['rfz1YpPsQa0', 'DHfypI5gO0w', 'tVSo4KTXM0I', 'Qq-xwVO1Lh8', 'Gix8Xt6U6Dg', 'jl5JjDxxO2o', 'ewTYQqFI9is'] },
+    { nome: 'Filmes da Barbie', tipo: 'filme', segundos: 4803, videos: ['-eCEAeDGDTg', 'lBpitQv-kTI', 'dbJDXswQYBM', 'x27iPHXvJk0', 'P2eo828nhlw', 'Xwr5_gKDxMU'] },
+    { nome: 'Moranguinho (anos 80)', tipo: 'desenho', segundos: 2758, videos: ['2GaNHPudtAA', '3-cf3jkfq9E', 'iy5aMov-1rw', 'SRD9OUx2d0c'] },
+    { nome: 'Moranguinho (atual)', tipo: 'desenho', segundos: 10449, videos: ['3TsUBvkEqSc', '-bAUU8hAlnY', 'Z1Odn-e8zEk', 'sqLy-cUessE'] },
+    { nome: 'Zica e os Camaleões', tipo: 'desenho', segundos: 676, videos: ['0DV053nX0a8', 'pcmnjDdydsk', 't5nQ0O4_qjE', 'GMPX2wPNzzM'] },
+    { nome: 'Scooby-Doo', tipo: 'desenho', segundos: 3627, videos: ['iAXCN57j7NY', 'pvwh5YwmxEE', 'J1Fsfq57wdM', 'ZydHnUTqArQ', 'he0Y7tvFNTM', '3zyNEt6uH6I', 'C-upU-cb8CY'] },
+    { nome: 'Irmão do Jorel', tipo: 'desenho', segundos: 3608, videos: ['1kDGtRuPGx4', 'Iywamsi11tQ', 'RPf8cYrA9wQ', '2i2xfBEmYZc'] },
+    { nome: 'Historietas Assombradas', tipo: 'desenho', segundos: 715, videos: ['9HGK9Q7Aq6M', 'ljvKUIpNhAU', 'cSqhb1ER3J8', 'hRiYYNZq-u0', '8uMwKygw4RA'] },
+    { nome: 'Oswaldo', tipo: 'desenho', segundos: 9129, videos: ['l5mZ6itKZoQ', 'HHS0ADKeS48', 'EJBLgaJwDcE'] },
+    { nome: 'Sítio do Picapau Amarelo', tipo: 'desenho', segundos: 629, videos: ['lx9vXwDSoeE', 'svrLBdxEacU', 'PucpR2VtCCc', 'mQj_PiJe-ns'] },
+    { nome: 'Os Backyardigans', tipo: 'desenho', segundos: 4276, videos: ['ykFDE0MHG38', 'ojO2QcVPUfU', 'oH_ZYUHvB2c', 'M_Jewy187NQ', 'vXUj3hCnpu0', '5QCLDrlt-ig', 'fhwpqyneBo0'] },
+    { nome: 'Pingu', tipo: 'desenho', segundos: 2838, videos: ['vmsA4Usj8H4', 'Y0bOPRSi-9A', '8ZVaE1v1PEE', 'XnObkBRKoMs', '4bNgsSwXWVs'] },
+    { nome: 'Bakugan', tipo: 'desenho', segundos: 1417, videos: ['95uVEgpnYfY', '0GhsAZMQtUk', 'UgFI2yBWyi8', '56S_Ei_AQEA', '8uYcrQ_CeUU', 'ASg5GPIuLqI', 'U8ZzXyvOWvQ', '2wLcdKyAkew', 'lX8TdVBOI8g', 'AdjzXHoijg0', '4_GTtNnqKXc', '-5YCRNREA78', 'E9Q2DNx2qDs', 'H2T0ohPtEhk'] },
+    { nome: 'Mecanimais', tipo: 'desenho', segundos: 4092, videos: ['tigjnO2KnKg', 'kN_Eh7UL-_E', '6OfOfl3n9D0', '_lfp-7gSNf8', 'eujPax9g7lI', 'EYkX7XtoWdE'] },
+    { nome: 'Os Flintstones', tipo: 'desenho', segundos: 1903, videos: ['GM0Yumrt2Go', 'Qs4KDer6oME', 'qy4QW5AjLgM', 'pgkLdRxM7W0'] },
+    { nome: 'Chume Labs', tipo: 'série', segundos: 1605, videos: ['q9TuttD6oPk', 'iMVAmeote1Y', 'iBpIDMrm1M4', 'POYLzaekBaQ', '0gEf-sNCJSU', '2FWgYKRg58o', 'ok0vG0IZrOA', 'GUEIPmoSbuA', 'sPdVf9UEI2A', 'ceEkAZN2TT8', '9V2Bk8A9iu4', '95x8NP7K32I', 'eRn3HVQxVT0', 'BPyHPK17ehI', 'LURJ_n-KsXI', 'mV5GhTzBzBc', 'DZH22Cb7QTc', 'AD3EjHYGmcU', '869Za72AhTM'] },
+];
+
+const tv = { canal: guardar.ler('tv-canal', 0), som: false, timerChiado: null, timerNumero: null, chiado: null, arrasto: null };
+
+function paginaTV() {
+    return `
+        <div class="caixa caixa-tv">
+            <div class="caixa-titulo"><h2>Sessão da TV <small>(desenhos, séries e filmes passando direto)</small></h2><a class="mini-link" href="#inicio">« voltar pro quarto</a></div>
+            <div class="sala-tv">
+                <div class="palco-tv" id="palco-tv">
+                    <div class="aparelho-tv">
+                    <div class="tela-tv" id="tela-tv">
+                        <canvas class="chiado-tv" id="chiado-tv" width="160" height="120"></canvas>
+                        <span class="numero-canal" id="numero-canal"></span>
+                        <button class="sair-tela-cheia" data-sair-tela-cheia type="button">✕ sair da tela cheia</button>
+                    </div>
+                    <img class="moldura-tv" src="imagens/tv/tv.png" alt="">
+                    <button class="botao-ch cima" data-canal-tv="1" title="Próximo canal" aria-label="Próximo canal"></button>
+                    <button class="botao-ch baixo" data-canal-tv="-1" title="Canal anterior" aria-label="Canal anterior"></button>
+                    </div>
+                    <img class="escrivaninha-tv" src="imagens/tv/escrivaninha.png" alt="">
+                </div>
+            </div>
+            <div class="controle-tv">
+                <button class="btn" data-canal-tv="-1">« canal</button>
+                <span id="nome-canal-tv"></span>
+                <button class="btn" data-canal-tv="1">canal »</button>
+                <button class="btn" data-som-tv>ligar o som</button>
+                <button class="btn" data-tela-cheia-tv>tela cheia</button>
+            </div>
+            <p class="dica centro">arraste pro lado em cima da TV (ou use as setinhas do teclado) pra mudar de canal</p>
+            <div class="grade-programacao">
+                <b>Programação</b>
+                ${CANAIS_TV.map((c, i) => `<button data-ir-canal="${i}"><span>CH ${String(i + 2).padStart(2, '0')}</span> ${esc(c.nome)} <small>${c.tipo}</small></button>`).join('')}
+            </div>
+        </div>`;
+}
+
+// endereco do video, comecando "no meio" como se o canal estivesse no ar desde sempre
+function enderecoCanal(canal) {
+    const c = CANAIS_TV[canal];
+    const inicio = Math.floor(Date.now() / 1000) % c.segundos;
+    const fila = [...c.videos.slice(1), c.videos[0]].join(',');
+    const parametros = new URLSearchParams({
+        autoplay: 1, mute: tv.som ? 0 : 1, start: inicio, playlist: fila, loop: 1, rel: 0, modestbranding: 1, playsinline: 1, enablejsapi: 1, iv_load_policy: 3, cc_load_policy: 0,
+    });
+    return `https://www.youtube-nocookie.com/embed/${c.videos[0]}?${parametros}`;
+}
+
+function comandoTV(func, args = []) {
+    $('#tela-tv iframe')?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func, args }), '*');
+}
+
+function sintonizar(canal) {
+    const total = CANAIS_TV.length;
+    tv.canal = ((canal % total) + total) % total;
+    guardar.salvar('tv-canal', tv.canal);
+    const tela = $('#tela-tv');
+    if (!tela) return;
+    tela.querySelector('iframe')?.remove();
+    const frame = document.createElement('iframe');
+    frame.title = CANAIS_TV[tv.canal].nome;
+    frame.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
+    frame.allowFullscreen = true;
+    frame.src = enderecoCanal(tv.canal);
+    // se o som ja tava ligado, liga de novo quando o video carregar
+    frame.addEventListener('load', () => { if (tv.som) setTimeout(() => { comandoTV('unMute'); comandoTV('setVolume', [80]); }, 800); });
+    tela.prepend(frame);
+    // chiado de tv mudando de canal
+    mostrarChiado(650);
+    const numero = $('#numero-canal');
+    numero.textContent = `CH ${String(tv.canal + 2).padStart(2, '0')}`;
+    numero.classList.add('aparece');
+    clearTimeout(tv.timerNumero);
+    tv.timerNumero = setTimeout(() => numero.classList.remove('aparece'), 2500);
+    $('#nome-canal-tv').textContent = CANAIS_TV[tv.canal].nome;
+    $$('[data-ir-canal]').forEach(b => b.classList.toggle('ativo', Number(b.dataset.irCanal) === tv.canal));
+}
+
+// chiadinho preto e branco (desenhado bem pequeno e esticado)
+function mostrarChiado(ms) {
+    const canvas = $('#chiado-tv');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const img = ctx.createImageData(canvas.width, canvas.height);
+    canvas.classList.add('ligado');
+    cancelAnimationFrame(tv.chiado);
+    const fim = performance.now() + ms;
+    const quadro = agora => {
+        for (let i = 0; i < img.data.length; i += 4) {
+            const v = Math.random() * 255;
+            img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
+            img.data[i + 3] = 255;
+        }
+        ctx.putImageData(img, 0, 0);
+        if (agora < fim) tv.chiado = requestAnimationFrame(quadro);
+        else canvas.classList.remove('ligado');
+    };
+    tv.chiado = requestAnimationFrame(quadro);
+}
+
+function ligarTV() {
+    sintonizar(tv.canal);
+    $('[data-som-tv]').textContent = tv.som ? 'desligar o som' : 'ligar o som';
+    const palco = $('#palco-tv');
+    // arrastar pro lado em cima da tv muda de canal (o video em si fica clicavel)
+    palco.addEventListener('pointerdown', e => { tv.arrasto = { x: e.clientX, y: e.clientY }; });
+    palco.addEventListener('pointerup', e => {
+        if (!tv.arrasto) return;
+        const dx = e.clientX - tv.arrasto.x;
+        const dy = e.clientY - tv.arrasto.y;
+        tv.arrasto = null;
+        if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) sintonizar(tv.canal + (dx < 0 ? 1 : -1));
+    });
+    palco.addEventListener('pointercancel', () => { tv.arrasto = null; });
+}
+
+function desligarTV() {
+    cancelAnimationFrame(tv.chiado);
+}
+
+// tela cheia: so a telinha da tv ocupa a tela toda (no iphone, que nao deixa, vira uma tela cheia "de mentira")
+function telaCheiaTV(ligar) {
+    const tela = $('#tela-tv');
+    if (!tela) return;
+    if (!ligar) {
+        if (document.fullscreenElement) document.exitFullscreen?.();
+        tela.classList.remove('tela-cheia-falsa');
+        document.body.classList.remove('tv-tela-cheia');
+        return;
+    }
+    if (!tela.requestFullscreen) return telaCheiaFalsa(tela);
+    tela.requestFullscreen().catch(() => telaCheiaFalsa(tela));
+    // tem navegador (de dentro de app, por exemplo) que nunca responde: ai usa a tela cheia de mentira
+    setTimeout(() => { if (!document.fullscreenElement) telaCheiaFalsa(tela); }, 1000);
+}
+
+// no celular a tela cheia deita o video, igual no app do youtube
+document.addEventListener('fullscreenchange', () => {
+    const el = document.fullscreenElement;
+    const daTV = el && (el.id === 'tela-tv' || el.closest?.('#tela-tv'));
+    if (!matchMedia('(pointer: coarse)').matches || !screen.orientation) return;
+    if (daTV) screen.orientation.lock?.('landscape').catch(() => {});
+    else screen.orientation.unlock?.();
+});
+
+// a barra de tarefas e as outras janelas somem enquanto a tv ta em tela cheia
+function telaCheiaFalsa(tela) {
+    tela.classList.add('tela-cheia-falsa');
+    document.body.classList.add('tv-tela-cheia');
+}
+
+function ligarSomTV() {
+    tv.som = !tv.som;
+    comandoTV(tv.som ? 'unMute' : 'mute');
+    if (tv.som) comandoTV('setVolume', [80]);
+    $('[data-som-tv]').textContent = tv.som ? 'desligar o som' : 'ligar o som';
+}
+
+// setinhas do teclado mudam de canal quando ta na pagina da tv
+document.addEventListener('keydown', e => {
+    if (rotaAtual().nome !== 'tv' || e.target.closest?.('input, textarea, select')) return;
+    if (e.key === 'ArrowRight') sintonizar(tv.canal + 1);
+    if (e.key === 'ArrowLeft') sintonizar(tv.canal - 1);
+});
+document.addEventListener('click', e => {
+    const b = e.target.closest?.('[data-canal-tv], [data-ir-canal], [data-som-tv], [data-tela-cheia-tv], [data-sair-tela-cheia]');
+    if (!b) return;
+    if ('telaCheiaTv' in b.dataset) return telaCheiaTV(true);
+    if ('sairTelaCheia' in b.dataset) return telaCheiaTV(false);
+    if (b.dataset.canalTv) sintonizar(tv.canal + Number(b.dataset.canalTv));
+    else if (b.dataset.irCanal) sintonizar(Number(b.dataset.irCanal));
+    else ligarSomTV();
+});
+
+
 function paginaPhotodump() {
     const fotos = todasAsFotos();
     return `
@@ -819,6 +1066,134 @@ function paginaPhotodump() {
             </div>` : mensagemVazia(fotosPostadas, 'nenhuma foto ainda')}
         </div>`;
 }
+
+// --- foto aberta: aparece na telinha de uma camera digital antiga ---
+
+// tamanho de cada imagem de camera e onde fica a telinha [x, y, largura, altura]
+const CAMERAS_FOTO = {
+    deitada: {
+        'nikon-vermelha': { w: 568, h: 348, tela: [41, 65, 345, 252] },
+        'canon-prata': { w: 620, h: 410, tela: [38, 127, 302, 230] },
+        'sony-prata': { w: 622, h: 389, tela: [52, 56, 385, 299] },
+        'nikon-dourada': { w: 395, h: 244, tela: [29, 50, 225, 171] },
+        'sony-rosa': { w: 404, h: 265, tela: [32, 58, 239, 178] },
+    },
+    empe: {
+        'sony-azul': { w: 623, h: 1046, tela: [53, 77, 505, 672] },
+        'azul-em-pe': { w: 236, h: 371, tela: [38, 31, 165, 219] },
+        'verde-em-pe': { w: 245, h: 362, tela: [36, 16, 143, 188] },
+        'vermelha-em-pe': { w: 225, h: 373, tela: [17, 24, 168, 230] },
+    },
+};
+
+// foto em pe vai pra uma camera em pe, o resto pra uma deitada (cada foto sempre na mesma camera)
+function vestirCamera(caixa, n) {
+    const img = caixa.querySelector('.foto-real');
+    const proporcao = img?.naturalWidth ? img.naturalWidth / img.naturalHeight : 1;
+    const grupo = CAMERAS_FOTO[proporcao < 0.87 ? 'empe' : 'deitada'];
+    const nomes = Object.keys(grupo);
+    const nome = nomes[n % nomes.length];
+    const { w, h, tela } = grupo[nome];
+    // o maior tamanho que cabe (deixa espaco pras setinhas no computador e nao estica demais pra nao borrar)
+    const sobra = window.innerWidth > 560 ? window.innerWidth - 130 : window.innerWidth * 0.94;
+    const largura = Math.min(sobra, (window.innerHeight * 0.72) * w / h, w * 1.7);
+    caixa.style.width = Math.round(largura) + 'px';
+    caixa.style.aspectRatio = `${w} / ${h}`;
+    // a foto passa 2px por baixo da moldura pra nao sobrar fresta
+    const [x, y, tw, th] = [tela[0] - 2, tela[1] - 2, tela[2] + 4, tela[3] + 4];
+    Object.assign(caixa.querySelector('.tela-camera').style, {
+        left: `${x / w * 100}%`, top: `${y / h * 100}%`, width: `${tw / w * 100}%`, height: `${th / h * 100}%`,
+    });
+    caixa.querySelector('.moldura-camera').src = `imagens/cameras/${nome}.webp`;
+    caixa.classList.add('pronta');
+}
+
+
+// --- zoom da foto aberta (rodinha, arrastar, pinça no celular) ---
+
+const zoomFoto = { escala: 1, x: 0, y: 0, dedos: new Map(), distancia: 0 };
+
+function abrirZoom() {
+    const foto = lightbox.fotos[lightbox.indice];
+    if (!foto?.src) return;
+    $('#zoom-foto img').src = foto.src;
+    zoomFoto.escala = 1; zoomFoto.x = 0; zoomFoto.y = 0;
+    desenharZoomFoto();
+    $('#zoom-foto').hidden = false;
+}
+
+function fecharZoom() {
+    $('#zoom-foto').hidden = true;
+    zoomFoto.dedos.clear();
+}
+
+function desenharZoomFoto() {
+    $('#zoom-foto img').style.transform = `translate(${zoomFoto.x}px, ${zoomFoto.y}px) scale(${zoomFoto.escala})`;
+    $('#zoom-nivel').textContent = Math.round(zoomFoto.escala * 100) + '%';
+    $('#zoom-foto').classList.toggle('ampliada', zoomFoto.escala > 1);
+}
+
+// aumenta ou diminui mantendo parado o ponto que ta embaixo do mouse/dedo
+function mudarZoomFoto(fator, cx = window.innerWidth / 2, cy = window.innerHeight / 2) {
+    const nova = Math.min(8, Math.max(1, zoomFoto.escala * fator));
+    const px = cx - window.innerWidth / 2 - zoomFoto.x;
+    const py = cy - window.innerHeight / 2 - zoomFoto.y;
+    zoomFoto.x -= px * (nova / zoomFoto.escala - 1);
+    zoomFoto.y -= py * (nova / zoomFoto.escala - 1);
+    zoomFoto.escala = nova;
+    if (nova === 1) { zoomFoto.x = 0; zoomFoto.y = 0; }
+    desenharZoomFoto();
+}
+
+(() => {
+    const camada = $('#zoom-foto');
+    camada.addEventListener('click', e => {
+        const botao = e.target.closest('[data-zoom]');
+        if (!botao) return;
+        const acao = botao.dataset.zoom;
+        if (acao === 'mais') mudarZoomFoto(1.5);
+        if (acao === 'menos') mudarZoomFoto(1 / 1.5);
+        if (acao === 'normal') mudarZoomFoto(1 / zoomFoto.escala);
+        if (acao === 'sair') fecharZoom();
+    });
+    camada.addEventListener('wheel', e => {
+        e.preventDefault();
+        mudarZoomFoto(e.deltaY < 0 ? 1.2 : 1 / 1.2, e.clientX, e.clientY);
+    }, { passive: false });
+    camada.addEventListener('dblclick', e => {
+        if (e.target.closest('.barra-zoom')) return;
+        mudarZoomFoto(zoomFoto.escala > 1 ? 1 / zoomFoto.escala : 2.5, e.clientX, e.clientY);
+    });
+    camada.addEventListener('pointerdown', e => {
+        if (e.target.closest('.barra-zoom')) return;
+        zoomFoto.dedos.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        camada.setPointerCapture(e.pointerId);
+    });
+    camada.addEventListener('pointermove', e => {
+        const antes = zoomFoto.dedos.get(e.pointerId);
+        if (!antes) return;
+        const agora = { x: e.clientX, y: e.clientY };
+        if (zoomFoto.dedos.size === 1) {
+            // arrastar pra andar pela foto
+            if (zoomFoto.escala > 1) {
+                zoomFoto.x += agora.x - antes.x;
+                zoomFoto.y += agora.y - antes.y;
+                desenharZoomFoto();
+            }
+        } else if (zoomFoto.dedos.size === 2) {
+            // pinça com dois dedos
+            const [a, b] = [...zoomFoto.dedos.values()];
+            const outro = a === antes ? b : a;
+            const dAntes = Math.hypot(antes.x - outro.x, antes.y - outro.y);
+            const dAgora = Math.hypot(agora.x - outro.x, agora.y - outro.y);
+            if (dAntes > 0) mudarZoomFoto(dAgora / dAntes, (agora.x + outro.x) / 2, (agora.y + outro.y) / 2);
+        }
+        zoomFoto.dedos.set(e.pointerId, agora);
+    });
+    const soltar = e => zoomFoto.dedos.delete(e.pointerId);
+    camada.addEventListener('pointerup', soltar);
+    camada.addEventListener('pointercancel', soltar);
+})();
 
 // icone e cor de cada rede pelo nome
 const ICONES_REDES = { instagram: 'camera', tiktok: 'music', spotify: 'headphone', discord: 'controller', neocities: 'world', github: 'link', youtube: 'film', twitter: 'comments', x: 'comments', pinterest: 'photo_album', tumblr: 'page_white', bluesky: 'comments', letterboxd: 'film', steam: 'controller', twitch: 'controller', email: 'email' };
@@ -932,7 +1307,7 @@ function paginaPlaylist() {
                     ${musicas().map((m, i) => `
                         <tr class="${i === player.indice && player.comecou ? 'tocando' : ''}">
                             <td>${i + 1}</td><td><a href="${esc(linkMinhaPlaylist(m))}" target="_blank" rel="noopener" title="abrir minha playlist no Spotify">${esc(m.titulo)}</a>${m.arquivo ? ` ${icone('sound')}` : ''}</td><td>${esc(m.artista)}</td><td>${duracao(m.duracao)}</td>
-                            <td><button class="btn pequeno" data-tocar="${i}">▶ tocar</button></td>
+                            <td><button class="btn pequeno" data-tocar="${i}">▶︎ tocar</button></td>
                         </tr>`).join('')}
                 </tbody>
             </table>
@@ -1024,6 +1399,11 @@ function paginaBusca(termo) {
         </div>`;
 }
 
+// moldura dourada de museu em volta da pintura (acompanha o formato da imagem)
+function molduraMuseu(conteudo, classe = '') {
+    return `<span class="moldura-museu ${classe}">${conteudo}<i class="orn o1"></i><i class="orn o2"></i><i class="orn o3"></i><i class="orn o4"></i><i class="crista"></i><i class="crista baixo"></i></span>`;
+}
+
 // desenhos que aprovei
 function desenhosPublicos() {
     return desenhos.todos().filter(d => d.publico);
@@ -1032,11 +1412,13 @@ function desenhosPublicos() {
 function desenhosHTML(modo = 'dono') {
     const lista = modo === 'mural' ? desenhosPublicos() : desenhos.todos();
     if (!lista.length) return mensagemVazia(desenhos, 'nenhum desenho recebido ainda');
-    return `<div class="grade-desenhos">${lista.map(d => `
+    return `<div class="grade-desenhos">${lista.map((d, i) => `
         <figure class="desenho ${modo === 'dono' && d.publico ? 'aprovado' : ''}">
-            <img src="${esc(imagemSegura(d.imagem))}" alt="${esc(d.titulo)}">
+            <button class="ver-pintura" data-desenho-mural="${i}" data-de="${modo}" title="ver ${esc(d.titulo)} grande">
+                ${molduraMuseu(`<img src="${esc(imagemSegura(d.imagem))}" alt="${esc(d.titulo)}" loading="lazy">`)}
+            </button>
             <figcaption>
-                <b>${esc(d.titulo)}</b><br>por ${esc(d.autor)} · ${esc(d.data)}
+                <span class="plaquinha"><b>${esc(d.titulo)}</b><br>por ${esc(d.autor)} · ${esc(d.data)}</span>
                 ${modo === 'dono' ? `<br>
                 <span class="selo-status">${d.publico ? `${icone('world')} público no mural` : `${icone('lock')} só você vê`}</span><br>
                 ${d.publico
@@ -1103,6 +1485,7 @@ const SECOES_ADMIN = [
     ['enquete', 'chart_bar', 'Enquete'],
     ['comunidades', 'comments', 'Comunidades'],
     ['lixeira', 'bin_recycle', 'Lixeira'],
+    ['secreto', 'key', 'Área secreta'],
     ['recebidos', 'email', 'Recebidos'],
     ['spotify', 'music', 'Spotify'],
     ['winamp', 'cd', 'Winamp (mp3)'],
@@ -1135,7 +1518,7 @@ function paginaAdmin(secao) {
     const atual = SECOES_ADMIN.some(([id]) => id === secao) ? secao : 'perfil';
     const telas = {
         perfil: adminPerfil, fotos: adminFotos, textos: adminTextos, avaliacoes: adminAvaliacoes, projetos: adminProjetos,
-        enquete: adminEnquete, comunidades: adminComunidades, lixeira: adminLixeira, recebidos: adminRecebidos, spotify: adminSpotify, winamp: adminWinamp,
+        enquete: adminEnquete, comunidades: adminComunidades, lixeira: adminLixeira, secreto: adminSecreto, recebidos: adminRecebidos, spotify: adminSpotify, winamp: adminWinamp,
     };
     return `
         <div class="caixa">
@@ -1399,12 +1782,61 @@ function adminLixeira() {
         </div>`;
 }
 
+// o que aparece na area secreta (a que abre com a senha na calculadora)
+let edicaoSecreto = null;
+const itensSecretos = () => DADOS.secreto || [];
+function adminSecreto() {
+    const lista = itensSecretos(), editando = lista[edicaoSecreto];
+    return `
+        <div class="caixa">
+            <h2>Área secreta <small>(${lista.length} coisas)</small></h2>
+            <p class="dica" style="margin-top:0">Aparece pra quem digitar a senha na Calculadora. Pode ser texto, foto, link ou tudo junto.</p>
+            ${lista.map((a, i) => `
+                <div class="recado"><div class="corpo">
+                    ${icone(a.imagem ? 'photo_album' : a.link ? 'link' : 'note')} <b>${esc(a.titulo || '(sem título)')}</b>
+                    ${a.texto ? `<p style="margin:4px 0;white-space:pre-wrap">${esc(a.texto.slice(0, 140))}${a.texto.length > 140 ? '...' : ''}</p>` : ''}
+                    ${a.link ? `<span class="dica">${esc(a.link)}</span>` : ''}
+                    <div class="meta">${i ? `<button class="btn-x" data-subir-secreto="${i}">subir</button> · ` : ''}<button class="btn-x" data-editar-secreto="${i}">editar</button> · <button class="btn-x" data-apagar-secreto="${i}">apagar</button></div>
+                </div></div>`).join('') || '<p class="vazio">a área secreta ainda está vazia</p>'}
+        </div>
+        <div class="caixa">
+            <h2>${editando ? 'Editar' : 'Colocar coisa na área secreta'}</h2>
+            <form class="form" data-form="secreto">
+                <input name="titulo" placeholder="título" maxlength="80" value="${esc(editando?.titulo || '')}">
+                <textarea name="texto" rows="6" maxlength="5000" placeholder="texto (opcional)">${esc(editando?.texto || '')}</textarea>
+                <input name="link" type="url" placeholder="link (opcional, https://...)" value="${esc(editando?.link || '')}">
+                <label class="btn pequeno">${icone('picture_add')} ${editando?.imagem ? 'trocar a imagem' : 'imagem (opcional)'}
+                    <input type="file" name="imagem" accept="image/*" class="so-leitor">
+                    <span class="arquivo-escolhido"></span>
+                </label>
+                ${editando?.imagem ? '<label><input type="checkbox" name="semImagem"> tirar a imagem</label>' : ''}
+                <div class="linha">
+                    <button class="btn rosa" type="submit">${icone('disk')} ${editando ? 'salvar' : 'colocar na área secreta'}</button>
+                    ${editando ? '<button class="btn" type="button" data-cancelar-secreto="1">cancelar</button>' : ''}
+                </div>
+            </form>
+        </div>`;
+}
+
 function adminRecebidos() {
     return `
         <div class="caixa">
             <h2>Desenhos recebidos no Paint <small>(${desenhos.todos().length} · ${desenhosPublicos().length} no mural)</small></h2>
             <p class="dica" style="margin-top:0">Chegam privados. Clique em "aprovar e publicar" para aparecerem no mural da página de recados.</p>
             ${desenhosHTML()}
+        </div>
+        <div class="caixa">
+            <h2>Postar pintura no mural</h2>
+            <p class="dica" style="margin-top:0">Manda a foto de uma pintura e ela entra no mural já com a moldura de museu, igual às outras.</p>
+            <form class="form" data-form="pintura">
+                <input name="titulo" placeholder="nome da pintura" maxlength="60" required>
+                <input name="autor" placeholder="artista" maxlength="30" value="${esc(DADOS.nome)}" required>
+                <label class="btn pequeno">${icone('picture_add')} escolher a imagem
+                    <input type="file" name="imagem" accept="image/*" class="so-leitor" required>
+                    <span class="arquivo-escolhido"></span>
+                </label>
+                <div class="linha"><button class="btn rosa" type="submit">${icone('palette')} pendurar no mural</button></div>
+            </form>
         </div>
         <div class="caixa">
             <h2>Depoimentos <small>(${depoimentos.todos().length}) · só você lê</small></h2>
@@ -1470,6 +1902,7 @@ const PAGINAS = {
     playlist: { titulo: 'Playlist', render: paginaPlaylist },
     amigos: { titulo: 'Amigos', render: paginaAmigos },
     comunidades: { titulo: 'Comunidades', render: paginaComunidades },
+    tv: { titulo: 'Sessão da TV', render: paginaTV },
     busca: { titulo: 'Pesquisa', render: paginaBusca, escondida: true },
     admin: { titulo: 'Admin', render: paginaAdmin, escondida: true },
     secreto: { titulo: 'Área secreta', render: paginaSecreta, escondida: true },
@@ -1483,9 +1916,16 @@ function paginaSecreta() {
                 ${gif('cadeado')}
                 <h2>ÁREA SECRETA</h2>
                 <p>você descobriu a senha. parabéns. (H)</p>
-                <p class="piscar-cursor">em breve tem coisa aqui</p>
+                ${itensSecretos().length ? '' : '<p class="piscar-cursor">em breve tem coisa aqui</p>'}
             </div>
-        </div>`;
+        </div>
+        ${itensSecretos().map(a => `
+            <div class="caixa item-secreto">
+                ${a.titulo ? `<h2>${esc(a.titulo)}</h2>` : ''}
+                ${a.imagem ? `<a href="${esc(urlFotoPostada(a.imagem))}" target="_blank" rel="noopener"><img src="${esc(urlFotoPostada(a.imagem))}" alt="${esc(a.titulo || '')}"></a>` : ''}
+                ${a.texto ? `<p>${esc(a.texto)}</p>` : ''}
+                ${a.link ? `<p><a href="${esc(linkSeguro(a.link))}" target="_blank" rel="noopener">${icone('link')} ${esc(a.link)}</a></p>` : ''}
+            </div>`).join('')}`;
 }
 
 
@@ -1516,6 +1956,10 @@ function mostrarPagina() {
 
     // efeito de carregando
     caixaMural();
+    // na sessao da tv a pagina inteira vira a sala (sem as colunas do lado)
+    document.body.classList.toggle('na-sala-tv', nome === 'tv');
+    if (nome === 'tv') ligarTV();
+    else desligarTV();
     const barra = $('#progresso-status');
     clearTimeout(carregando);
     status('Abrindo página ' + DADOS.endereco + '#' + nome + '...');
@@ -1750,15 +2194,16 @@ function caixaMural() {
         + (lista.length
             ? `<div class="mini-mural">${lista.map((d, i) => `
                 <button data-desenho-mural="${i}" title="${esc(d.titulo)} por ${esc(d.autor)}">
-                    <img src="${esc(imagemSegura(d.imagem))}" alt="${esc(d.titulo)}" loading="lazy">
+                    ${molduraMuseu(`<img src="${esc(imagemSegura(d.imagem))}" alt="${esc(d.titulo)}" loading="lazy">`, 'mini')}
                 </button>`).join('')}</div>
                <a class="mini-link" href="#recados">ver o mural todo</a>`
             : `<p class="vazio">nenhum desenho aqui ainda...</p>`)
         + `<p style="margin:4px 0 0"><button class="btn pequeno" data-abrir="paint">${icone('palette')} desenhar</button></p>`;
 }
 
-function abrirDesenhoMural(i) {
-    lightbox.fotos = desenhosPublicos().map(d => ({ src: imagemSegura(d.imagem), legenda: `${d.titulo} - por ${d.autor}` }));
+function abrirDesenhoMural(i, de = 'mural') {
+    const lista = de === 'dono' ? desenhos.todos() : desenhosPublicos();
+    lightbox.fotos = lista.map(d => ({ src: imagemSegura(d.imagem), legenda: `${d.titulo} - por ${d.autor}`, pintura: true }));
     lightbox.indice = i;
     mostrarFoto();
     $('#lightbox').hidden = false;
@@ -1951,8 +2396,10 @@ const CORES_WINAMP = [
 function corWinamp() {
     const [dia, cor, giro] = CORES_WINAMP[new Date().getDay()];
     const winamp = $('#player');
-    winamp.style.filter = giro ? `hue-rotate(${giro}deg)` : '';
-    winamp.title = `winamp de ${dia}: ${cor}`;
+    // no dia de tema a skin pega as cores da data (pelo css), sem girar a cor
+    const tema = typeof datasAgora !== 'undefined' && datasAgora.tema;
+    winamp.style.filter = giro && !tema ? `hue-rotate(${giro}deg)` : '';
+    winamp.title = tema ? `winamp de ${TEMAS[tema].frase(new Date()).split(/[!.:]/)[0].toLowerCase()}` : `winamp de ${dia}: ${cor}`;
 }
 
 // o som vem de um player do spotify escondido, o winamp so controla ele
@@ -2238,6 +2685,22 @@ async function prepararFoto(arquivo, maximo = 1600) {
     return { blob, tipo: 'image/jpeg', extensao: 'jpg' };
 }
 
+// pintura vai pro banco como texto (jpeg); diminui ate caber no limite da tabela
+async function pinturaEmTexto(arquivo) {
+    if (!arquivo.type.startsWith('image/')) throw new Error('isso não é uma imagem');
+    for (const maximo of [1400, 1100, 900, 700, 520]) {
+        const { blob } = await prepararFoto(arquivo.type === 'image/gif' ? new File([arquivo], 'x.png', { type: 'image/png' }) : arquivo, maximo);
+        const texto = await new Promise((pronto, falhou) => {
+            const leitor = new FileReader();
+            leitor.onload = () => pronto(leitor.result);
+            leitor.onerror = falhou;
+            leitor.readAsDataURL(blob);
+        });
+        if (texto.length <= 590000) return texto;
+    }
+    throw new Error('a imagem ficou pesada demais');
+}
+
 async function postarFoto(dados) {
     const { blob, tipo, extensao } = await prepararFoto(arquivoEscolhido);
     const caminho = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${extensao}`;
@@ -2325,8 +2788,19 @@ function mostrarFoto() {
     const total = lightbox.fotos.length;
     lightbox.indice = (lightbox.indice + total) % total;
     const foto = lightbox.fotos[lightbox.indice];
-    $('#lightbox-foto').innerHTML = fotoHTML(foto);
-    $('#lightbox-legenda').textContent = `${foto.legenda}  (${lightbox.indice + 1} de ${total})`;
+    if (foto.pintura) {
+        // pintura abre grande na moldura de museu (sem camera)
+        $('#lightbox-foto').innerHTML = `<div class="quadro-grande" title="clique pra dar zoom">${molduraMuseu(`<img class="pintura-grande" src="${esc(foto.src)}" alt="${esc(foto.legenda)}">`, 'grande')}</div>`;
+        $('#lightbox-legenda').textContent = `${foto.legenda}  (${lightbox.indice + 1} de ${total}) · clique na pintura pra dar zoom`;
+        return;
+    }
+    $('#lightbox-foto').innerHTML = `<div class="camera-foto"><div class="tela-camera" title="clique pra dar zoom">${fotoHTML(foto).replace(' loading="lazy"', '')}<i class="reflexo-tela"></i></div><img class="moldura-camera" alt=""></div>`;
+    const caixa = $('#lightbox-foto .camera-foto');
+    const img = caixa.querySelector('.foto-real');
+    const n = lightbox.indice;
+    if (!img || (img.complete && img.naturalWidth)) vestirCamera(caixa, n);
+    else img.addEventListener('load', () => vestirCamera(caixa, n), { once: true });
+    $('#lightbox-legenda').textContent = `${foto.legenda}  (${lightbox.indice + 1} de ${total})${foto.src ? ' · clique na foto pra dar zoom' : ''}`;
 }
 
 
@@ -2385,8 +2859,15 @@ function abrirJanela(id) {
     if (id === 'notas') $('#notas-texto').focus();
     if (id === 'lixeira') mostrarLixeira();
     if (id === 'calculadora') mostrarCalc();
+    if (id === 'fazenda') {
+        // so carrega o jogo quando abre, pra musica nao tocar escondida
+        const frame = $('#fazenda-frame');
+        if (!frame.dataset.carregado) { frame.src = frame.dataset.src; frame.dataset.carregado = '1'; }
+        if (celularEmPe()) janela.classList.add('maximizada');
+    }
     if (id === 'navegador') janela.scrollIntoView({ block: 'nearest' });
     $('#menu-iniciar').hidden = true;
+    ajustarDeitados();
     // no celular abre em cascata pra uma nao esconder a outra inteira
     if (janela.classList.contains('janela-app') && innerWidth <= 720) {
         const abertas = $$('.janela-app').filter(j => !j.hidden && j !== janela && !j.classList.contains('minimizada')).length;
@@ -2401,8 +2882,34 @@ function abrirJanela(id) {
     }
 }
 
+// celular ou tablet em pe: fazenda e paint ficam deitados (girados) quando a pessoa aperta o quadradinho de maximizar
+// (a fazenda ja abre assim sozinha, porque o jogo e feito pra tela deitada)
+const APPS_DEITADOS = ['fazenda', 'paint'];
+
+function celularEmPe() {
+    return window.matchMedia('(pointer: coarse)').matches && window.innerWidth <= 1100 && window.innerHeight > window.innerWidth;
+}
+
+function ajustarDeitados() {
+    APPS_DEITADOS.forEach(id => {
+        const janela = document.getElementById(id);
+        if (!janela) return;
+        const deitar = !janela.hidden && !janela.classList.contains('minimizada') && janela.classList.contains('maximizada') && celularEmPe();
+        if (deitar === janela.classList.contains('deitado')) return;
+        janela.classList.toggle('deitado', deitar);
+        // o tamanho do desenho muda, entao o zoom do paint volta pro normal
+        if (id === 'paint' && paint.iniciado) zoomPaint(1);
+    });
+}
+window.addEventListener('resize', ajustarDeitados);
+
 function acaoJanela(janela, acao) {
     if (acao === 'fechar') janela.hidden = true;
+    if (acao === 'fechar' && janela.id === 'fazenda') {
+        const frame = $('#fazenda-frame');
+        frame.src = 'about:blank';
+        delete frame.dataset.carregado;
+    }
     if (acao === 'minimizar') janela.classList.add('minimizada');
     if (acao === 'maximizar') {
         janela.classList.toggle('maximizada');
@@ -2416,6 +2923,7 @@ function acaoJanela(janela, acao) {
 }
 
 function atualizarTarefas() {
+    ajustarDeitados();
     $('#tarefas').innerHTML = $$('#navegador, .janela-app')
         .filter(j => !j.hidden)
         .map(j => `<button data-tarefa="${j.id}" class="${j.classList.contains('ativa') && !j.classList.contains('minimizada') ? 'ativa' : ''}">${icone(j.dataset.icone)} ${esc(j.dataset.titulo)}</button>`)
@@ -2480,64 +2988,364 @@ const CORES_PAINT = [
     '#000000', '#808080', '#800000', '#808000', '#008000', '#008080', '#000080', '#800080', '#808040', '#004040', '#0080ff', '#004080', '#8000ff', '#804000',
     '#ffffff', '#c0c0c0', '#ff0000', '#ffff00', '#00ff00', '#00ffff', '#0000ff', '#ff00ff', '#ffff80', '#00ff80', '#80ffff', '#8080ff', '#ff0080', '#ff8040',
 ];
-const paint = { iniciado: false, cor: '#000000', ferramenta: 'lapis', desenhando: false, ultimo: null };
+const paint = {
+    iniciado: false, cor: '#000000', ferramenta: 'lapis', desenhando: false,
+    pontos: [], inicio: null, foto: null, historico: [], refeitos: [], zoom: 1, larguraBase: 0, dedos: new Map(), arrastoMao: null,
+};
+const LIMITE_HISTORICO = 40;
+const ZOOMS_PAINT = [1, 1.5, 2, 3, 4, 6, 8];
+const FERRAMENTAS_DESENHO = ['lapis', 'pincel', 'borracha', 'spray', 'linha', 'retangulo', 'elipse'];
+
+// iconezinhos das ferramentas novas (a lista de icones do site nao tem esses)
+const DESENHOS_FERRAMENTA = {
+    'conta-gotas': '<path d="M11 2l3 3-2 2-3-3z" fill="#555"/><path d="M9 4l3 3-6 6H3v-3z" fill="#9fd3ff" stroke="#333"/><path d="M3 13l-1 1" stroke="#333"/>',
+    linha: '<path d="M3 13L13 3" stroke="#000" stroke-width="2"/>',
+    retangulo: '<rect x="2.5" y="4.5" width="11" height="8" fill="none" stroke="#000"/>',
+    elipse: '<ellipse cx="8" cy="8.5" rx="5.5" ry="4" fill="none" stroke="#000"/>',
+    mao: '<path d="M5 14V8L3 6.5 4 5.5 6 7V3h1.5v4V2h1.5v5V3h1.5v4.5V5h1.5v6c0 2-1 3-3 3z" fill="#ffe0b8" stroke="#7a4a1e" stroke-width=".8"/>',
+    desfazer: '<path d="M6 3L2 7l4 4V8h4c2 0 3 1 3 3v2c1-2 1-3 1-4 0-2.5-2-4-4-4H6z" fill="#2a6ad8" stroke="#123c8a" stroke-width=".6"/>',
+    refazer: '<path d="M10 3l4 4-4 4V8H6c-2 0-3 1-3 3v2c-1-2-1-3-1-4 0-2.5 2-4 4-4h4z" fill="#2a6ad8" stroke="#123c8a" stroke-width=".6"/>',
+    'zoom-mais': '<circle cx="6.5" cy="6.5" r="4.5" fill="#e8f4ff" stroke="#333"/><path d="M10 10l4 4" stroke="#333" stroke-width="2"/><path d="M4.5 6.5h4M6.5 4.5v4" stroke="#0a7a0a" stroke-width="1.4"/>',
+    'zoom-menos': '<circle cx="6.5" cy="6.5" r="4.5" fill="#e8f4ff" stroke="#333"/><path d="M10 10l4 4" stroke="#333" stroke-width="2"/><path d="M4.5 6.5h4" stroke="#c01010" stroke-width="1.4"/>',
+};
+
+function ctxPaint() {
+    return $('#paint-canvas').getContext('2d');
+}
+
+// --- desfazer / refazer ---
+function guardarPassoPaint() {
+    const canvas = $('#paint-canvas');
+    paint.historico.push(ctxPaint().getImageData(0, 0, canvas.width, canvas.height));
+    if (paint.historico.length > LIMITE_HISTORICO) paint.historico.shift();
+    paint.refeitos = [];
+    atualizarBotoesHistorico();
+}
+
+function desfazerPaint() {
+    if (!paint.historico.length) return status('Nada pra desfazer');
+    const canvas = $('#paint-canvas');
+    paint.refeitos.push(ctxPaint().getImageData(0, 0, canvas.width, canvas.height));
+    ctxPaint().putImageData(paint.historico.pop(), 0, 0);
+    atualizarBotoesHistorico();
+    salvarRascunhoPaint();
+}
+
+function refazerPaint() {
+    if (!paint.refeitos.length) return status('Nada pra refazer');
+    const canvas = $('#paint-canvas');
+    paint.historico.push(ctxPaint().getImageData(0, 0, canvas.width, canvas.height));
+    ctxPaint().putImageData(paint.refeitos.pop(), 0, 0);
+    atualizarBotoesHistorico();
+    salvarRascunhoPaint();
+}
+
+function atualizarBotoesHistorico() {
+    $('[data-ferramenta="desfazer"]').disabled = !paint.historico.length;
+    $('[data-ferramenta="refazer"]').disabled = !paint.refeitos.length;
+}
+
+// o desenho fica guardado no navegador (fechar a janela nao perde nada)
+let timerRascunho = null;
+function salvarRascunhoPaint() {
+    clearTimeout(timerRascunho);
+    timerRascunho = setTimeout(() => {
+        try { guardar.salvar('paint-rascunho', $('#paint-canvas').toDataURL('image/png')); } catch { /* sem espaco, tudo bem */ }
+    }, 600);
+}
+
+// --- zoom ---
+// onde o dedo/mouse ta dentro de um elemento, de 0 a 1 (funciona com a janela deitada tambem)
+function fracaoNoElemento(el, x, y) {
+    const r = el.getBoundingClientRect();
+    if (el.closest('.deitado')) return { fx: (y - r.top) / r.height, fy: (r.right - x) / r.width };
+    return { fx: (x - r.left) / r.width, fy: (y - r.top) / r.height };
+}
+
+// zoom mantendo parado o ponto (fx, fy do desenho) que ta embaixo do mouse/dedo; sem ponto usa o meio da tela
+function zoomPaint(novo, fx = null, fy = null) {
+    const canvas = $('#paint-canvas');
+    const tela = $('.paint-tela');
+    if (paint.zoom === 1) {
+        paint.larguraBase = canvas.offsetWidth;
+        tela.style.height = tela.offsetHeight + 'px';
+    }
+    const z = Math.min(8, Math.max(1, novo));
+    const w0 = canvas.offsetWidth;
+    const h0 = canvas.offsetHeight;
+    if (fx === null) {
+        fx = (tela.scrollLeft + tela.clientWidth / 2 - canvas.offsetLeft) / w0;
+        fy = (tela.scrollTop + tela.clientHeight / 2 - canvas.offsetTop) / h0;
+    }
+    // onde esse ponto aparece agora dentro da area visivel
+    const vx = fx * w0 + canvas.offsetLeft - tela.scrollLeft;
+    const vy = fy * h0 + canvas.offsetTop - tela.scrollTop;
+    paint.zoom = z;
+    if (z === 1) {
+        canvas.style.width = '';
+        canvas.style.height = '';
+        tela.style.height = '';
+    } else {
+        canvas.style.width = Math.round(paint.larguraBase * z) + 'px';
+        canvas.style.height = 'auto';
+    }
+    tela.scrollLeft = fx * canvas.offsetWidth + canvas.offsetLeft - vx;
+    tela.scrollTop = fy * canvas.offsetHeight + canvas.offsetTop - vy;
+    canvas.classList.toggle('pixelado', z >= 3);
+    $('#paint-zoom').textContent = `zoom ${Math.round(z * 100)}%`;
+    $('[data-ferramenta="zoom-menos"]').disabled = z === 1;
+    $('[data-ferramenta="zoom-mais"]').disabled = z === 8;
+}
+
+function passoZoomPaint(direcao, fx = null, fy = null) {
+    const i = ZOOMS_PAINT.findIndex(z => z >= paint.zoom - 0.01);
+    const proximo = ZOOMS_PAINT[Math.min(ZOOMS_PAINT.length - 1, Math.max(0, i + direcao))];
+    zoomPaint(proximo, fx, fy);
+}
+
+// --- desenho ---
+function opacidadePaint() {
+    return Number($('#paint-opacidade').value) / 100;
+}
+
+function espelhar(p) {
+    return { x: $('#paint-canvas').width - p.x, y: p.y };
+}
+
+// traco livre (lapis, pincel, borracha) redesenhado inteiro a cada movimento: fica liso e a transparencia nao mancha
+function tracarLivre(ctx, pontos) {
+    const tamanho = Number($('#paint-tamanho').value);
+    const f = paint.ferramenta;
+    ctx.save();
+    ctx.globalAlpha = f === 'pincel' ? opacidadePaint() : 1;
+    ctx.strokeStyle = f === 'borracha' ? '#ffffff' : paint.cor;
+    ctx.fillStyle = ctx.strokeStyle;
+    ctx.lineWidth = f === 'lapis' ? Math.max(1, tamanho / 2) : tamanho * (f === 'borracha' ? 2 : 1);
+    ctx.lineCap = f === 'lapis' ? 'square' : 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(pontos[0].x, pontos[0].y);
+    if (pontos.length === 1) {
+        ctx.lineTo(pontos[0].x + 0.01, pontos[0].y);
+    } else if (f === 'lapis') {
+        pontos.forEach(p => ctx.lineTo(p.x, p.y));
+    } else {
+        // curvas pelos pontos do meio deixam o pincel suave
+        for (let i = 1; i < pontos.length - 1; i++) {
+            const meio = { x: (pontos[i].x + pontos[i + 1].x) / 2, y: (pontos[i].y + pontos[i + 1].y) / 2 };
+            ctx.quadraticCurveTo(pontos[i].x, pontos[i].y, meio.x, meio.y);
+        }
+        const ultimo = pontos[pontos.length - 1];
+        ctx.lineTo(ultimo.x, ultimo.y);
+    }
+    ctx.stroke();
+    ctx.restore();
+}
+
+function tracarForma(ctx, a, b, shift) {
+    const tamanho = Number($('#paint-tamanho').value);
+    let dx = b.x - a.x;
+    let dy = b.y - a.y;
+    if (shift && paint.ferramenta === 'linha') {
+        // reta: prende em 0, 45 ou 90 graus
+        const ang = Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * (Math.PI / 4);
+        const d = Math.hypot(dx, dy);
+        dx = Math.cos(ang) * d;
+        dy = Math.sin(ang) * d;
+    } else if (shift) {
+        const lado = Math.max(Math.abs(dx), Math.abs(dy));
+        dx = Math.sign(dx || 1) * lado;
+        dy = Math.sign(dy || 1) * lado;
+    }
+    ctx.save();
+    ctx.globalAlpha = opacidadePaint();
+    ctx.strokeStyle = paint.cor;
+    ctx.fillStyle = paint.cor;
+    ctx.lineWidth = Math.max(1, tamanho / 2);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    if (paint.ferramenta === 'linha') {
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(a.x + dx, a.y + dy);
+        ctx.stroke();
+    } else {
+        if (paint.ferramenta === 'retangulo') ctx.rect(a.x, a.y, dx, dy);
+        else ctx.ellipse(a.x + dx / 2, a.y + dy / 2, Math.abs(dx / 2), Math.abs(dy / 2), 0, 0, Math.PI * 2);
+        if ($('#paint-preencher').checked) ctx.fill();
+        else ctx.stroke();
+    }
+    ctx.restore();
+}
+
+function sprayPaint(ctx, p) {
+    const tamanho = Number($('#paint-tamanho').value);
+    ctx.save();
+    ctx.globalAlpha = opacidadePaint();
+    ctx.fillStyle = paint.cor;
+    for (let i = 0; i < tamanho * 3; i++) {
+        const ang = Math.random() * Math.PI * 2;
+        const raio = Math.random() * tamanho * 2;
+        ctx.fillRect(p.x + Math.cos(ang) * raio, p.y + Math.sin(ang) * raio, 1, 1);
+    }
+    ctx.restore();
+}
+
+// redesenha o que ta sendo feito agora em cima da foto de antes
+function redesenharPaint(fimForma, shift) {
+    const ctx = ctxPaint();
+    ctx.putImageData(paint.foto, 0, 0);
+    const espelho = $('#paint-espelho').checked;
+    if (['linha', 'retangulo', 'elipse'].includes(paint.ferramenta)) {
+        tracarForma(ctx, paint.inicio, fimForma, shift);
+        if (espelho) tracarForma(ctx, espelhar(paint.inicio), espelhar(fimForma), shift);
+    } else {
+        tracarLivre(ctx, paint.pontos);
+        if (espelho) tracarLivre(ctx, paint.pontos.map(espelhar));
+    }
+}
+
+function terminarTracoPaint() {
+    if (!paint.desenhando) return;
+    paint.desenhando = false;
+    paint.foto = null;
+    salvarRascunhoPaint();
+}
 
 function iniciarPaint() {
     if (paint.iniciado) return;
     paint.iniciado = true;
     const canvas = $('#paint-canvas');
     const ctx = canvas.getContext('2d');
+    const tela = $('.paint-tela');
     limparPaint();
+    // volta o desenho que tava sendo feito
+    const rascunho = guardar.ler('paint-rascunho', '');
+    if (rascunho) {
+        const img = new Image();
+        img.onload = () => ctx.drawImage(img, 0, 0);
+        img.src = rascunho;
+    }
 
+    $$('[data-desenho]').forEach(b => {
+        b.innerHTML = `<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">${DESENHOS_FERRAMENTA[b.dataset.desenho]}</svg>`;
+    });
     $('#paleta').innerHTML = CORES_PAINT.map(c => `<button style="background:${c}" data-cor="${c}" title="${c}"></button>`).join('');
     $('#cor-atual').style.background = paint.cor;
     desenharPaletaPersonalizada();
+    atualizarBotoesHistorico();
+    zoomPaint(1);
 
     const ponto = e => {
-        const r = canvas.getBoundingClientRect();
-        return { x: (e.clientX - r.left) * canvas.width / r.width, y: (e.clientY - r.top) * canvas.height / r.height };
-    };
-
-    const desenhar = (de, ate) => {
-        const tamanho = Number($('#paint-tamanho').value);
-        if (paint.ferramenta === 'spray') {
-            ctx.fillStyle = paint.cor;
-            for (let i = 0; i < tamanho * 3; i++) {
-                const ang = Math.random() * Math.PI * 2;
-                const raio = Math.random() * tamanho * 2;
-                ctx.fillRect(ate.x + Math.cos(ang) * raio, ate.y + Math.sin(ang) * raio, 1, 1);
-            }
-            return;
-        }
-        ctx.strokeStyle = paint.ferramenta === 'borracha' ? '#ffffff' : paint.cor;
-        ctx.lineWidth = paint.ferramenta === 'lapis' ? Math.max(1, tamanho / 2) : tamanho * (paint.ferramenta === 'borracha' ? 2 : 1);
-        ctx.lineCap = paint.ferramenta === 'lapis' ? 'square' : 'round';
-        ctx.lineJoin = 'round';
-        ctx.beginPath();
-        ctx.moveTo(de.x, de.y);
-        ctx.lineTo(ate.x, ate.y);
-        ctx.stroke();
+        const { fx, fy } = fracaoNoElemento(canvas, e.clientX, e.clientY);
+        return { x: fx * canvas.width, y: fy * canvas.height };
     };
 
     canvas.addEventListener('pointerdown', e => {
-        if (paint.ferramenta === 'balde') {
-            const p = ponto(e);
-            return balde(p.x, p.y);
+        paint.dedos.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        // dois dedos: e zoom, nao desenho (desfaz o risco que comecou)
+        if (paint.dedos.size === 2) {
+            if (paint.desenhando && paint.foto) ctx.putImageData(paint.foto, 0, 0);
+            if (paint.desenhando) { paint.historico.pop(); atualizarBotoesHistorico(); }
+            paint.desenhando = false;
+            return;
+        }
+        if (paint.dedos.size > 2) return;
+        try { canvas.setPointerCapture(e.pointerId); } catch { /* toque que ja acabou */ }
+        const p = ponto(e);
+        const f = paint.ferramenta;
+        if (f === 'mao') {
+            paint.arrastoMao = { x: e.clientX, y: e.clientY, sl: tela.scrollLeft, st: tela.scrollTop };
+            return;
+        }
+        if (f === 'conta-gotas') {
+            const [r, g, b] = ctx.getImageData(Math.floor(p.x), Math.floor(p.y), 1, 1).data;
+            trocarCorPaint(rgbParaHex(r, g, b));
+            return ferramentaPaint(paint.antesDoContaGotas || 'pincel');
+        }
+        guardarPassoPaint();
+        if (f === 'balde') {
+            balde(p.x, p.y);
+            if ($('#paint-espelho').checked) { const q = espelhar(p); balde(q.x, q.y); }
+            return salvarRascunhoPaint();
         }
         paint.desenhando = true;
-        paint.ultimo = ponto(e);
-        canvas.setPointerCapture(e.pointerId);
-        desenhar(paint.ultimo, paint.ultimo);
+        if (f === 'spray') {
+            sprayPaint(ctx, p);
+            if ($('#paint-espelho').checked) sprayPaint(ctx, espelhar(p));
+            return;
+        }
+        paint.foto = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        paint.inicio = p;
+        paint.pontos = [p];
+        redesenharPaint(p, e.shiftKey);
     });
+
     canvas.addEventListener('pointermove', e => {
         const p = ponto(e);
         $('#paint-coords').textContent = `${Math.round(p.x)},${Math.round(p.y)}`;
+        const antes = paint.dedos.get(e.pointerId);
+        if (antes) paint.dedos.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        // pinca com dois dedos
+        if (paint.dedos.size === 2 && antes) {
+            const outro = [...paint.dedos.entries()].find(([id]) => id !== e.pointerId)[1];
+            const dAntes = Math.hypot(antes.x - outro.x, antes.y - outro.y);
+            const dAgora = Math.hypot(e.clientX - outro.x, e.clientY - outro.y);
+            if (dAntes > 0) {
+                const { fx, fy } = fracaoNoElemento(canvas, (e.clientX + outro.x) / 2, (e.clientY + outro.y) / 2);
+                zoomPaint(paint.zoom * dAgora / dAntes, fx, fy);
+            }
+            return;
+        }
+        if (paint.arrastoMao) {
+            // com a janela deitada o "pra baixo" da tela e o "pra direita" do desenho
+            const deitado = !!canvas.closest('.deitado');
+            const dx = e.clientX - paint.arrastoMao.x;
+            const dy = e.clientY - paint.arrastoMao.y;
+            tela.scrollLeft = paint.arrastoMao.sl - (deitado ? dy : dx);
+            tela.scrollTop = paint.arrastoMao.st - (deitado ? -dx : dy);
+            return;
+        }
         if (!paint.desenhando) return;
-        desenhar(paint.ultimo, p);
-        paint.ultimo = p;
+        if (paint.ferramenta === 'spray') {
+            sprayPaint(ctx, p);
+            if ($('#paint-espelho').checked) sprayPaint(ctx, espelhar(p));
+            return;
+        }
+        paint.pontos.push(p);
+        redesenharPaint(p, e.shiftKey);
     });
-    canvas.addEventListener('pointerup', () => { paint.desenhando = false; });
+
+    const soltar = e => {
+        paint.dedos.delete(e.pointerId);
+        paint.arrastoMao = null;
+        terminarTracoPaint();
+    };
+    canvas.addEventListener('pointerup', soltar);
+    canvas.addEventListener('pointercancel', soltar);
     canvas.addEventListener('pointerleave', () => { $('#paint-coords').textContent = ''; });
+
+    // ctrl + rodinha: zoom onde ta o mouse
+    tela.addEventListener('wheel', e => {
+        if (!e.ctrlKey && !e.metaKey) return;
+        e.preventDefault();
+        const { fx, fy } = fracaoNoElemento(canvas, e.clientX, e.clientY);
+        passoZoomPaint(e.deltaY < 0 ? 1 : -1, fx, fy);
+    }, { passive: false });
+
+    // atalhos do teclado (so quando o paint ta na frente e nao ta digitando)
+    document.addEventListener('keydown', e => {
+        const janela = $('#paint');
+        if (janela.hidden || janela.classList.contains('minimizada') || !janela.classList.contains('ativa')) return;
+        if (e.target.closest?.('input, textarea, select')) return;
+        const tecla = e.key.toLowerCase();
+        if ((e.ctrlKey || e.metaKey) && tecla === 'z' && !e.shiftKey) { e.preventDefault(); return desfazerPaint(); }
+        if ((e.ctrlKey || e.metaKey) && (tecla === 'y' || (tecla === 'z' && e.shiftKey))) { e.preventDefault(); return refazerPaint(); }
+        if (e.ctrlKey || e.metaKey || e.altKey) return;
+        if (tecla === '+' || tecla === '=') return passoZoomPaint(1);
+        if (tecla === '-') return passoZoomPaint(-1);
+        const atalhos = { p: 'lapis', b: 'pincel', s: 'spray', g: 'balde', e: 'borracha', i: 'conta-gotas', l: 'linha', r: 'retangulo', o: 'elipse', h: 'mao' };
+        if (atalhos[tecla]) ferramentaPaint(atalhos[tecla]);
+    });
 }
 
 function trocarCorPaint(cor) {
@@ -2780,7 +3588,16 @@ function limparPaint() {
 }
 
 function ferramentaPaint(nome) {
-    if (nome === 'limpar') return confirmar('Paint', 'Apagar todo o desenho?', limparPaint);
+    if (nome === 'limpar') return confirmar('Paint', 'Apagar todo o desenho? (dá pra desfazer depois)', () => {
+        guardarPassoPaint();
+        limparPaint();
+        salvarRascunhoPaint();
+    });
+    if (nome === 'desfazer') return desfazerPaint();
+    if (nome === 'refazer') return refazerPaint();
+    if (nome === 'zoom-mais') return passoZoomPaint(1);
+    if (nome === 'zoom-menos') return passoZoomPaint(-1);
+    if (nome === 'conta-gotas' && paint.ferramenta !== 'conta-gotas') paint.antesDoContaGotas = paint.ferramenta;
     if (nome === 'cores') return abrirEditorCores();
     if (nome === 'enviar') {
         if (!nuvem) {
@@ -2802,6 +3619,7 @@ function ferramentaPaint(nome) {
     }
     paint.ferramenta = nome;
     $$('[data-ferramenta]').forEach(b => b.classList.toggle('ativo', b.dataset.ferramenta === nome));
+    $('#paint-canvas').dataset.ferramenta = nome;
 }
 
 
@@ -3044,9 +3862,14 @@ function mostrarLixeira() {
 // quem abrir o virus 3 vezes leva susto
 let aberturasVirus = 0;
 
-function abrirArquivoLixeira(n) {
+function abrirArquivoLixeira(n, depoisDosAnuncios = false) {
     const arquivo = itensLixeira()[n];
     if (!arquivo) return;
+    // o clona cartao enche a tela de propaganda e so abre depois que fechar tudo
+    if (/clona/i.test(arquivo.nome) && !depoisDosAnuncios) {
+        if (!$('#anuncios')) chuvaDeAnuncios(() => abrirArquivoLixeira(n, true));
+        return;
+    }
     if (/virus/i.test(arquivo.nome)) {
         aberturasVirus++;
         if (aberturasVirus >= 3) {
@@ -3061,6 +3884,214 @@ function abrirArquivoLixeira(n) {
         imagem: arquivo.imagem ? urlFotoPostada(arquivo.imagem) : '',
         rodape: /virus/i.test(arquivo.nome) && aberturasVirus === 2 ? '(não é como você pensa)' : '',
     });
+}
+
+
+// --- clona_cartao.exe: a tela inteira enche de propaganda e janela de aviso do windows xp ---
+
+// banners: [site, tema, chamada (com *destaque*, _sublinhado_, ~vermelho~), texto, botao, gif]
+const ANUNCIOS = [
+    ['www.premiosgratis.com.br', 'amarelo', 'PARABÉNS!!! você é o *visitante nº 1.000.000*', 'Clique abaixo ~AGORA~ pra resgatar seu prêmio. Não feche essa janela!!!', 'RESGATAR PRÊMIO', 'anuncios/parabens-globo'],
+    ['www.pc-turbo.net', 'alerta', '*3 SINAIS* de que o seu PC está ~97% LENTO~', 'Foram encontrados <b>2.381 vírus</b> e 14 bonzi buddy. O número 2 vai te chocar! <span class="barrinha-falsa"><i></i></span>', 'LIMPAR AGORA', 'anuncios/baixando-virus'],
+    ['www.ganheja.com.br', 'gratis', 'GRÁTIS!! *MP4 DE 2GB*', 'Responda: qual a cor do cavalo branco de Napoleão? e ganhe na hora!!!', '>> QUERO <<', 'cd'],
+    ['www.toques-polifonicos.net', 'azul', 'TOQUES _POLIFÔNICOS_ pro seu tijolão', 'Envie <b>TOQUE</b> para <b>4040</b> e receba o toque do sapo louco!!! R$ 4,99 + impostos', 'BAIXAR TOQUE', 'notas'],
+    ['www.kitmsn.cjb.net', 'rosa', 'EMOTICONS *GRÁTIS* PRO MSN', 'Mais de <b>5.000</b> carinhas piscantes pro seu MSN ficar o mais estiloso da net!!!', 'INSTALAR KIT', 'coracao'],
+    ['www.orkut-espiao.tk', 'jornal', 'QUEM VISITOU SEU *PERFIL*???', 'Descubra ~AGORA~ quem anda stalkeando seu orkut (funciona de verdade, confia)', 'DESCOBRIR', 'computador'],
+    ['www.acerteomacaco.com', 'verde', 'ACERTE O MACACO e ganhe *R$ 500,00*!!!', 'Clique no macaco pra ganhar!!! <span class="macaco-anuncio">@(o_o)@</span>', 'ACERTEI!!!', ''],
+    ['clona_cartao.exe', 'escuro', 'CARTÃO CLONADO COM ~SUCESSO~', 'Saldo encontrado: <b>R$ 3,50</b>. Parabéns, agora dá pra comprar um chiclete', 'SACAR $$$', 'anuncios/chuva-dinheiro'],
+    ['www.musicasgratis.net', 'ceu', 'BAIXE MÚSICAS em *0,1 SEGUNDO*', 'Com a sua conexão discada de <b>56kbps</b>!!! Tecnologia exclusiva da NASA', 'DOWNLOAD', 'globo'],
+    ['www.rendaextra.com.br', 'amarelo', 'GANHE DINHEIRO *SEM SAIR DO SOFÁ*', 'Fature até R$ 10.000 por dia clicando em anúncios ~igual a esse~', 'QUERO SER RICO', 'anuncios/dinheiro-voando'],
+    ['www.barradeferramentas.net', 'ceu', 'BARRA DE FERRAMENTAS *Nº 47*', 'Você só tem 46 barras de pesquisa. Ainda sobra espaço na tela!!!', 'INSTALAR', 'computador-crianca'],
+    ['www.recadosnovos.com.br', 'rosa', 'VOCÊ TEM *(1) NOVO SCRAP*', 'Alguém <b>especial</b> deixou um recado pra você... clique pra ver quem foi', 'LER SCRAP', 'email'],
+    ['www.testedoamor.cjb.net', 'rosa', 'TESTE DO *AMOR* &lt;3', 'Descubra a porcentagem de amor entre você e o seu crush só com a data de nascimento!!!', 'CALCULAR', 'coracao'],
+    ['www.ultimasnoticias.tk', 'jornal', '*URGENTE:* a internet ~QUEBROU~', 'Especialistas confirmam: alguém apertou F5 forte demais. Saiba como se proteger.', 'LER MAIS', ''],
+    ['www.anuncie-aqui.com.br', 'gratis', 'ANUNCIE *AQUI*!!!', 'Seu banner visto por até <b>12 pessoas</b> por mês!!! Preços a partir de R$ 0,50', 'ANUNCIAR', 'anuncios/anuncie-aqui'],
+    ['www.contadordevisitas.net', 'escuro', 'CONTADOR DE VISITAS *GRÁTIS*', 'Mostre que seu site tem <b>999.999 visitas</b> (a maioria é você dando F5)', 'QUERO UM', 'anuncios/contador'],
+    ['www.ganhe-dolares.com', 'verde', 'GANHE EM *DÓLAR* $$$', 'Receba <b>US$ 1.000</b> por semana lendo e-mails. 100% garantido!!!', 'CADASTRAR', 'anuncios/cifrao-verde'],
+    ['www.fimdomundo.hpg.com.br', 'escuro', 'O FIM ESTÁ *PRÓXIMO*', 'Seu computador vai explodir no ano 2000. Faça backup em disquete ~JÁ~!!!', 'ME SALVA', ''],
+    ['www.pagina-em-construcao.hpg.com.br', 'jornal', 'SITE EM *CONSTRUÇÃO*', 'Assine meu livro de visitas!!! Melhor visualizado em 800x600 no Internet Explorer 5', 'ASSINAR', 'construcao'],
+];
+
+// janelas de aviso do windows: [titulo, icone, texto, botoes]
+const DIALOGOS_ANUNCIO = [
+    ['OK, COMPUTADOR!', 'info', 'Bem-vindo ao clona_cartao.exe. Aproveite com responsabilidade.\nEstamos ansiosos pra conhecer você.', ['OK']],
+    ['Aviso de segurança', 'aviso', 'Você é só um humano, e nós estamos aqui pra ajudar.\nSeu cartão será clonado com todo o carinho.', ['Sim']],
+    ['???', 'pergunta', 'Nós funcionamos com métodos misteriosos e exclusivos.', ['OK', 'Cancelar']],
+    ['ERRO CRÍTICO DE AUTORIZAÇÃO', 'erro', 'Antes de continuar, você precisa clicar pra concordar com os nossos <u>termos de serviço</u> (847 páginas).', ['Concordo', 'Cancelar']],
+    ['Windows', 'erro', 'O programa clona_cartao.exe executou uma operação ilegal e será fechado.\nSe o problema continuar, chore.', ['Fechar', 'Detalhes >>']],
+    ['Instalação concluída', 'info', 'Foram instaladas 12 barras de ferramentas novas no seu navegador. De nada!', ['Legal!']],
+    ['Atenção', 'aviso', 'Sua memória RAM está cheia de recados do orkut.\nDeseja liberar espaço apagando o Paciência?', ['Sim', 'Não', 'Talvez']],
+];
+
+// selinhos estourando em cima dos banners
+const SELOS_ANUNCIO = ['GRÁTIS!', 'NOVO!', 'SÓ HOJE!', '-90%', 'OFERTA!'];
+
+// enfeites pequenos que aparecem do lado da chamada
+const ENFEITES_ANUNCIO = ['new-azul', 'new-vermelho', 'hot', 'hot-estrela', 'free-stuff', 'cifrao-azul', 'virus-verde'];
+// as vezes o botao vira um gif de "clique aqui"
+const BOTOES_ANUNCIO = ['clique-vermelho', 'clique-verde', 'clique-pisca'];
+
+function sortear(lista) {
+    return lista[Math.floor(Math.random() * lista.length)];
+}
+
+// gif do anuncio (os que nao estao na lista GIFS tambem servem)
+function gifAnuncio(nome) {
+    if (!nome) return '';
+    if (GIFS[nome]) return gif(nome, Math.min(GIFS[nome][0], 200));
+    return `<img class="gif" src="imagens/gifs/${nome}.gif" alt="">`;
+}
+
+// *destaque amarelo*, _sublinhado_ e ~vermelho~ na chamada (igual propaganda antiga)
+function chamadaAnuncio(texto) {
+    return texto
+        .replace(/\*([^*]+)\*/g, '<mark>$1</mark>')
+        .replace(/_([^_]+)_/g, '<u>$1</u>')
+        .replace(/~([^~]+)~/g, '<em>$1</em>');
+}
+
+// de quanto em quanto tempo (ms) aparece o proximo anuncio
+const CHUVA = { intervalo: 70 };
+
+function chuvaDeAnuncios(depois) {
+    const camada = document.createElement('div');
+    camada.id = 'anuncios';
+    camada.className = 'camada-anuncios';
+    document.body.append(camada);
+    const estado = { topo: 1, timers: [], colunas: null };
+
+    function botoesJanela() {
+        return '<span class="anuncio-botoes"><button data-x-anuncio title="Minimizar">_</button><button data-maximizar-anuncio title="Maximizar">□</button><button class="x-vermelho" data-x-anuncio title="Fechar">✕</button></span>';
+    }
+
+    function criarBanner(qual) {
+        const [site, tema, chamada, texto, botao, figura] = ANUNCIOS[qual];
+        const anuncio = document.createElement('div');
+        anuncio.dataset.qual = 'b' + qual;
+        anuncio.className = `anuncio banner tema-${tema}`;
+        // alguns X fogem na primeira vez, outros tem X sobrando
+        if (Math.random() < 0.25) anuncio.dataset.foge = '1';
+        const maisX = Math.random() < 0.3;
+        const endereco = site.endsWith('.exe') ? site : `http://${site}/promo.htm`;
+        anuncio.innerHTML = `
+            <div class="anuncio-barra"><span>${endereco} - Microsoft Internet Explorer</span>${botoesJanela()}</div>
+            <div class="anuncio-corpo">
+                ${maisX ? '<button class="x-solto" data-x-anuncio title="Fechar">✕</button>' : ''}
+                ${Math.random() < 0.45 ? `<span class="selo-anuncio">${sortear(SELOS_ANUNCIO)}</span>` : ''}
+                ${Math.random() < 0.3 ? `<span class="curtiu-anuncio"><img src="${urlIcone('thumb_up', 32)}" alt="">VOCÊ CURTIU ISSO!</span>` : ''}
+                ${gifAnuncio(figura)}
+                <div class="anuncio-chamada">${Math.random() < 0.4 ? `<img class="enfeite-anuncio" src="imagens/gifs/anuncios/${sortear(ENFEITES_ANUNCIO)}.gif" alt="">` : ''}${chamadaAnuncio(chamada)}</div>
+                <p>${texto}</p>
+                ${Math.random() < 0.3
+                    ? `<button class="anuncio-botao-gif" data-botao-anuncio title="${botao}"><img src="imagens/gifs/anuncios/${sortear(BOTOES_ANUNCIO)}.gif" alt="${botao}"></button>`
+                    : `<button class="anuncio-botao" data-botao-anuncio>${botao}</button>`}
+                <small><a data-x-anuncio>[x] não, obrigado. eu não gosto de prêmios</a></small>
+            </div>`;
+        anuncio.style.width = Math.min(window.innerWidth - 12, 220 + Math.floor(Math.random() * 120)) + 'px';
+        return anuncio;
+    }
+
+    function criarDialogo(qual) {
+        const [titulo, tipo, texto, botoes] = DIALOGOS_ANUNCIO[qual];
+        const anuncio = document.createElement('div');
+        anuncio.dataset.qual = 'd' + qual;
+        anuncio.className = 'anuncio dialogo-xp';
+        anuncio.innerHTML = `
+            <div class="anuncio-barra"><span>${titulo}</span><span class="anuncio-botoes"><button class="x-vermelho" data-x-anuncio title="Fechar">✕</button></span></div>
+            <div class="dialogo-xp-corpo"><i class="icone-dialogo ${tipo}"></i><p>${texto.replace(/\n/g, '<br>')}</p></div>
+            <div class="dialogo-xp-botoes">${botoes.map((b, i) => `<button ${i === 0 ? 'data-botao-anuncio' : 'data-x-anuncio'}>${b}</button>`).join('')}</div>`;
+        anuncio.style.width = Math.min(window.innerWidth - 12, 300 + Math.floor(Math.random() * 60)) + 'px';
+        return anuncio;
+    }
+
+    // so um de cada na tela
+    function criarAnuncio(tipo) {
+        if (!camada.isConnected) return;
+        const naTela = new Set([...camada.querySelectorAll('.anuncio')].map(a => a.dataset.qual));
+        const lista = tipo === 'dialogo' ? DIALOGOS_ANUNCIO : ANUNCIOS;
+        const prefixo = tipo === 'dialogo' ? 'd' : 'b';
+        const livres = lista.map((_, i) => i).filter(i => !naTela.has(prefixo + i));
+        if (!livres.length) return;
+        const qual = sortear(livres);
+        const anuncio = tipo === 'dialogo' ? criarDialogo(qual) : criarBanner(qual);
+        anuncio.style.zIndex = estado.topo++;
+        camada.append(anuncio);
+        posicionarAnuncio(anuncio, tipo !== 'dialogo');
+    }
+
+    // banners vao enchendo a tela por colunas (tipo mosaico, um meio por cima do outro); avisos caem em qualquer lugar
+    function posicionarAnuncio(anuncio, mosaico) {
+        const L = window.innerWidth;
+        const A = window.innerHeight - 36;
+        if (mosaico) {
+            if (!estado.colunas) {
+                const n = Math.max(1, Math.round(L / 250));
+                estado.colunas = Array.from({ length: n }, () => -10 - Math.random() * 30);
+            }
+            const col = estado.colunas.indexOf(Math.min(...estado.colunas));
+            const largura = L / estado.colunas.length;
+            const x = col * largura + (largura - anuncio.offsetWidth) / 2 + (Math.random() - 0.5) * 40;
+            let y = estado.colunas[col];
+            if (y > A - 60) y = Math.random() * (A - anuncio.offsetHeight);
+            estado.colunas[col] = y + anuncio.offsetHeight - 18 - Math.random() * 20;
+            anuncio.style.left = Math.min(Math.max(2, x), L - anuncio.offsetWidth - 2) + 'px';
+            anuncio.style.top = Math.max(2, y) + 'px';
+            anuncio.style.rotate = ((Math.random() - 0.5) * 3).toFixed(1) + 'deg';
+            return;
+        }
+        anuncio.style.left = Math.max(4, Math.random() * (L - anuncio.offsetWidth - 8)) + 'px';
+        anuncio.style.top = Math.max(4, Math.random() * (A - anuncio.offsetHeight - 8)) + 'px';
+    }
+
+    function fechar(anuncio) {
+        anuncio.classList.add('sumindo');
+        setTimeout(() => {
+            anuncio.remove();
+            if (!camada.querySelector('.anuncio')) acabou();
+        }, 140);
+    }
+
+    function acabou() {
+        estado.timers.forEach(clearTimeout);
+        document.removeEventListener('keydown', teclaEsc);
+        camada.remove();
+        status('Pronto, o computador ficou limpo de novo');
+        depois?.();
+    }
+
+    // esc fecha o de cima (pra ninguem ficar preso)
+    function teclaEsc(e) {
+        if (e.key !== 'Escape') return;
+        const ultimo = [...camada.querySelectorAll('.anuncio:not(.sumindo)')].sort((a, b) => b.style.zIndex - a.style.zIndex)[0];
+        if (ultimo) fechar(ultimo);
+    }
+    document.addEventListener('keydown', teclaEsc);
+
+    camada.addEventListener('click', e => {
+        const anuncio = e.target.closest('.anuncio');
+        if (!anuncio || anuncio.classList.contains('sumindo')) return;
+        anuncio.style.zIndex = estado.topo++;
+        if (e.target.closest('[data-x-anuncio]')) {
+            // o X fugiu! na proxima ele fecha
+            if (anuncio.dataset.foge) {
+                delete anuncio.dataset.foge;
+                return posicionarAnuncio(anuncio, false);
+            }
+            return fechar(anuncio);
+        }
+        if (e.target.closest('[data-maximizar-anuncio]')) return anuncio.classList.toggle('maximizado');
+        // clicou no botao do premio/OK: fecha esse e abre mais dois (classico)
+        if (e.target.closest('[data-botao-anuncio]')) {
+            if (anuncio.classList.contains('dialogo-xp')) fechar(anuncio);
+            criarAnuncio('banner');
+            criarAnuncio('dialogo');
+        }
+    });
+
+    // primeiro os banners enchem a tela, depois os avisos do windows aparecem por cima
+    ANUNCIOS.forEach((_, i) => estado.timers.push(setTimeout(() => criarAnuncio('banner'), i * CHUVA.intervalo)));
+    DIALOGOS_ANUNCIO.forEach((_, i) => estado.timers.push(setTimeout(() => criarAnuncio('dialogo'), (ANUNCIOS.length + i * 3) * CHUVA.intervalo)));
+    status('Instalando clona_cartao.exe... (isso não vai acabar bem)');
 }
 
 
@@ -3546,12 +4577,22 @@ function ataqueDoVirus() {
 const AJUDA_APPS = {
     paint: ['Paint', 'palette', `Pra que serve: desenhar e mandar o desenho pro Lucas. Se ele aprovar, aparece no mural da página de recados. (*)
 
-Como usar:
-• Escolha a ferramenta: lápis, pincel, spray, balde (pinta uma área inteira de uma vez) ou borracha.
-• Clique numa cor da paleta embaixo. Em "editar cores..." dá pra criar uma cor nova.
-• Limpar apaga o desenho todo.
-• Salvar baixa o desenho pro seu computador.
-• Enviar manda pro Lucas com o seu nome e o nome da arte.`],
+Ferramentas:
+• Lápis, pincel (traço suave), spray, balde (pinta uma área inteira) e borracha.
+• Conta-gotas: clica no desenho pra pegar aquela cor.
+• Linha, retângulo e círculo. Segurando Shift fica reto, quadrado ou redondinho. Marque "cheio" pra pintar a forma por dentro.
+• Mão: arrasta o desenho quando ele tá com zoom.
+
+Pra pintar melhor:
+• Desfazer (Ctrl+Z) e refazer (Ctrl+Y) as últimas 40 coisas.
+• Zoom: lupas da barra, teclas + e -, Ctrl + rodinha do mouse ou pinça com dois dedos no celular.
+• Opacidade deixa o pincel, o spray e as formas transparentes, bom pra fazer sombra.
+• Espelho: tudo que você desenha aparece do outro lado, ótimo pra rosto e borboleta.
+• O desenho fica salvo sozinho no seu navegador, mesmo se fechar a janela.
+
+Atalhos: P lápis · B pincel · S spray · G balde · E borracha · I conta-gotas · L linha · R retângulo · O círculo · H mão
+
+• Salvar baixa o desenho pro seu computador. Enviar manda pro Lucas com o seu nome e o nome da arte.`],
     msn: ['Zap do Lucas', 'msn_messenger', `Pra que serve: um bate-papo aberto onde todo mundo que visita o site conversa junto. (L)
 
 Como usar:
@@ -3559,6 +4600,15 @@ Como usar:
 • "Chamar a atenção" faz a janela de todo mundo tremer.
 • Os emoticons viram desenho: :) :D :P ;) (L) (Y) (H) 8-|
 • As mensagens somem sozinhas depois de 7 dias.`],
+    fazenda: ['Fazenda do Lucas', 'celeiro', `Pra que serve: um joguinho de fazenda com fases, metas e medalhas, igual aos jogos de fazenda antigos.
+
+Como usar:
+• Clique no pasto pra plantar grama (gasta água do poço). Os bichos comem e produzem.
+• Clique nos produtos que caem no chão pra guardar no armazém, antes que sumam.
+• Construa fábricas nos lotes e clique nelas pra transformar os produtos.
+• Clique no armazém ou no caminhão pra mandar vender na cidade.
+• Ursos: clique várias vezes até prender na jaula!
+• Cumpra as metas rápido pra ganhar medalha de ouro e moedas pra Loja.`],
     calculadora: ['Calculadora', 'calculator', `Pra que serve: fazer contas, igualzinha à calculadora do Windows antigo.
 
 Como usar:
@@ -4374,6 +5424,33 @@ document.addEventListener('keyup', e => {
     if (e.code === 'Space' || e.key === 'ArrowUp') dino.soltouPular();
     if (e.key === 'ArrowDown') dino.soltouAbaixar();
 });
+// no celular em pe o botao de expandir deixa o jogo deitado em tela cheia (fica bem maior)
+function deitarDino(ligar) {
+    const canvas = $('#dino');
+    let caixa = $('#dino-deitado');
+    if (ligar && !caixa) {
+        caixa = document.createElement('div');
+        caixa.id = 'dino-deitado';
+        caixa.className = 'dino-deitado';
+        caixa.innerHTML = '<button class="sair-dino" type="button">✕ sair do jogo</button><p class="dica-dino">toque na tela pra pular</p>';
+        document.body.append(caixa);
+        caixa.insertBefore(canvas, caixa.querySelector('.dica-dino'));
+        // tocar em qualquer lugar da tela pula
+        caixa.addEventListener('pointerdown', e => {
+            if (e.target.closest('.sair-dino')) return deitarDino(false);
+            if (e.target === canvas) return;
+            e.preventDefault();
+            if (dino.acabou) dino.horaDoFim = 0;
+            dino.apertouPular();
+        });
+        caixa.addEventListener('pointerup', () => dino.soltouPular());
+    } else if (!ligar && caixa) {
+        $('#sem-internet').prepend(canvas);
+        caixa.remove();
+    }
+}
+window.addEventListener('resize', () => { if (!celularEmPe()) deitarDino(false); });
+
 // clicar ou tocar no jogo pula (depois de perder, clicar recomeca na hora)
 $('#dino').addEventListener('pointerdown', e => {
     e.preventDefault();
@@ -4581,15 +5658,15 @@ function iniciarTraducao() {
 
 // papeis de parede (imagens/fundos)
 const NOMES_FUNDOS = [
-    'Chloe', 'Azul e preto', 'Kel', 'Colina com cata-vento', 'Céu Omori',
-    'Campo e espada', 'Hatsune Miku', 'Castelo à noite', 'Casinha pixel', 'Aero',
-    'Hikaru e Yoshiki', 'Dragão', 'Cidade à noite', 'Hora de Aventura', 'Céu e mar',
-    'Fios no céu', 'Gato verde', 'Mangá', 'Deitado na grama', 'S.U',
-    'Dreamcore', 'Gravity Falls', 'Finn e Princesa de Fogo', 'Fogo e gelo', 'Omori',
+    'Chloe', 'Hatsune Miku deitada', 'Kel - Omori', 'Colina com cata-vento', 'Céu Omori',
+    'Hora de Aventura - Finn no campo', 'Hatsune Miku', 'Castelo à noite', 'Roblox - casinha no pôr do sol', 'Frutiger Aero',
+    'O Verão em que Hikaru Morreu - Hikaru e Yoshiki', 'Avatar - Zuko e os dragões', 'Cidade à noite', 'Hora de Aventura - Finn e Jake', 'Céu e mar',
+    'Hatsune Miku nos fios', 'Gato verde e o disco voador', 'Mangá', 'Hora de Aventura - Finn e Jake na grama', 'Steven Universo - Templo de Cristal',
+    'Dreamcore', 'Gravity Falls - cata-vento', 'Hora de Aventura - Marceline e Jujuba', 'Hora de Aventura - Finn e Princesa de Fogo', 'Omori',
 ];
 
 const FUNDOS = [
-    { id: 'homespace', nome: 'Homespace', arquivo: 'homespace.jpg' },
+    { id: 'homespace', nome: 'Plenitude (Windows XP)', arquivo: 'homespace.jpg' },
     ...NOMES_FUNDOS.map((nome, i) => {
         const numero = String(i + 1).padStart(2, '0');
         return { id: `fundo-${numero}`, nome, arquivo: `fundo-${numero}.jpg` };
@@ -4599,18 +5676,145 @@ const FUNDOS = [
     { id: 'rosa', nome: 'Rosa', classe: 'papel-rosa' },
 ];
 
+// papeis de parede que so aparecem em algumas datas (padrao = o que entra sozinho)
+const FUNDOS_DATA = {
+    halloween: {
+        padrao: 'halloween-04',
+        lista: [
+            { id: 'halloween-01', nome: 'Casa assombrada', arquivo: 'halloween-01.jpg' },
+            { id: 'halloween-02', nome: 'Gravity Falls - Summerween', arquivo: 'halloween-02.jpg' },
+            { id: 'halloween-03', nome: 'Fran Bow e Mr. Midnight', arquivo: 'halloween-03.jpg' },
+            { id: 'halloween-04', nome: 'Gorillaz no cemitério', arquivo: 'halloween-04.jpg' },
+        ],
+    },
+    natal: {
+        padrao: 'natal-01',
+        lista: [
+            { id: 'natal-01', nome: 'OMORI - Natal com os amigos', arquivo: 'natal-01.jpg' },
+            { id: 'natal-02', nome: 'Evangelion - Asuka e Rei de Papai Noel', arquivo: 'natal-02.jpg' },
+            { id: 'natal-03', nome: 'Hora de Aventura - Holly Jolly Secrets', arquivo: 'natal-03.jpg' },
+        ],
+    },
+    namorados: {
+        padrao: 'namorados-02',
+        lista: [
+            { id: 'namorados-01', nome: 'Gatinhos apaixonados', arquivo: 'namorados-01.jpg' },
+            { id: 'namorados-02', nome: 'Corações e rosas', arquivo: 'namorados-02.jpg' },
+            { id: 'namorados-03', nome: 'Ratinhos apaixonados', arquivo: 'namorados-03.jpg' },
+        ],
+    },
+    aniversario: {
+        padrao: 'aniversario-01',
+        lista: [
+            { id: 'aniversario-01', nome: 'Velinhas do bolo', arquivo: 'aniversario-01.jpg' },
+            { id: 'aniversario-02', nome: 'Festa de balões', arquivo: 'aniversario-02.jpg' },
+            { id: 'aniversario-03', nome: 'Bolo de morango com estrelinhas', arquivo: 'aniversario-03.jpg' },
+        ],
+    },
+    pascoa: {
+        padrao: 'pascoa-01',
+        lista: [
+            { id: 'pascoa-01', nome: 'Coelhinhos no campo', arquivo: 'pascoa-01.jpg' },
+        ],
+    },
+    carnaval: {
+        padrao: 'carnaval-01',
+        lista: [
+            { id: 'carnaval-01', nome: 'Carnaval de Veneza - máscaras do Sol e da Lua', arquivo: 'carnaval-01.jpg' },
+            { id: 'carnaval-02', nome: 'Desfile de escola de samba', arquivo: 'carnaval-02.jpg' },
+        ],
+    },
+    orgulho: {
+        padrao: 'orgulho-01',
+        lista: [
+            { id: 'orgulho-01', nome: 'Bandeira Progress Pride (inclusiva intersexo)', arquivo: 'orgulho-01.jpg' },
+        ],
+    },
+    copa: {
+        padrao: 'copa-02',
+        lista: [
+            { id: 'copa-01', nome: 'Torcida brasileira na arquibancada', arquivo: 'copa-01.jpg' },
+            { id: 'copa-02', nome: 'Camisas de Ronaldinho, Romário, Ronaldo, Kaká e Pelé', arquivo: 'copa-02.jpg' },
+        ],
+    },
+    rock: {
+        padrao: 'rock-01',
+        lista: [
+            { id: 'rock-01', nome: 'Caveira do metal', arquivo: 'rock-01.jpg' },
+            { id: 'rock-02', nome: 'Gorillaz - Plastic Beach', arquivo: 'rock-02.jpg' },
+            { id: 'rock-03', nome: 'Gorillaz em Tóquio', arquivo: 'rock-03.jpg' },
+            { id: 'rock-04', nome: 'Evanescence - Fallen', arquivo: 'rock-04.jpg' },
+        ],
+    },
+    independencia: {
+        padrao: 'independencia-01',
+        lista: [
+            { id: 'independencia-01', nome: 'Bandeira do Brasil de tecido', arquivo: 'independencia-01.jpg' },
+        ],
+    },
+    muertos: {
+        padrao: 'muertos-01',
+        lista: [
+            { id: 'muertos-01', nome: 'Viva: A Vida é uma Festa - Miguel no cemitério', arquivo: 'muertos-01.jpg' },
+        ],
+    },
+    consciencia: {
+        padrao: 'consciencia-01',
+        lista: [
+            { id: 'consciencia-01', nome: 'Mulher com hibisco no pôr do sol', arquivo: 'consciencia-01.jpg' },
+            { id: 'consciencia-02', nome: 'Multidão em verde', arquivo: 'consciencia-02.jpg' },
+            { id: 'consciencia-03', nome: 'Rostos em vermelho', arquivo: 'consciencia-03.jpg' },
+        ],
+    },
+    anonovo: {
+        padrao: 'anonovo-01',
+        lista: [
+            { id: 'anonovo-01', nome: 'Fogos dourados', arquivo: 'anonovo-01.jpg' },
+            { id: 'anonovo-02', nome: 'GTA San Andreas - CJ no ano novo', arquivo: 'anonovo-02.jpg' },
+            { id: 'anonovo-03', nome: 'Gatinhos na banda de ano novo', arquivo: 'anonovo-03.jpg' },
+        ],
+    },
+    trans: {
+        padrao: 'trans-01',
+        lista: [
+            { id: 'trans-01', nome: 'I Saw the TV Glow - There is still time', arquivo: 'trans-01.jpg' },
+            { id: 'trans-02', nome: 'I Saw the TV Glow', arquivo: 'trans-02.jpg' },
+        ],
+    },
+};
+
+// a data de hoje tem papel de parede especial?
+function fundosDaData() {
+    return FUNDOS_DATA[datasAgora.tema] || null;
+}
+
+// na data especial a lista e outra e a escolha fica guardada separada
+function fundosDisponiveis() {
+    return fundosDaData()?.lista || FUNDOS;
+}
+
+function fundoEscolhido() {
+    const especial = fundosDaData();
+    return especial ? guardar.ler(`fundo-${datasAgora.tema}`, especial.padrao) : guardar.ler('fundo', 'homespace');
+}
+
 function aplicarFundo(id) {
-    const fundo = FUNDOS.find(f => f.id === id) || FUNDOS[0];
+    const lista = fundosDisponiveis();
+    const especial = fundosDaData();
+    const fundo = lista.find(f => f.id === id) || (especial ? lista.find(f => f.id === especial.padrao) : lista[0]);
     const corpo = document.body;
     corpo.classList.remove('papel-noite', 'papel-rosa', 'papel-foto');
     corpo.style.background = '';
+    corpo.style.removeProperty('--t-papel');
     if (fundo.arquivo) {
         corpo.classList.add('papel-foto');
         corpo.style.backgroundImage = `url("imagens/fundos/${fundo.arquivo}")`;
     }
     if (fundo.cor) corpo.style.background = fundo.cor;
     if (fundo.classe) corpo.classList.add(fundo.classe);
-    guardar.salvar('fundo', fundo.id);
+    // na data especial a foto vira o fundo do tema (por cima das cores do tema)
+    if (especial) corpo.style.setProperty('--t-papel', `center / cover no-repeat url("imagens/fundos/${fundo.arquivo}")`);
+    guardar.salvar(especial ? `fundo-${datasAgora.tema}` : 'fundo', fundo.id);
     $$('[data-fundo]').forEach(botao => botao.classList.toggle('ativo', botao.dataset.fundo === fundo.id));
     const previa = $('#previa-fundo');
     if (previa) previa.style.background = fundo.arquivo ? `center / cover url("imagens/fundos/${fundo.arquivo}")` : (fundo.cor || '');
@@ -4619,8 +5823,8 @@ function aplicarFundo(id) {
 }
 
 function montarFundos() {
-    const atual = guardar.ler('fundo', 'homespace');
-    $('#lista-fundos').innerHTML = FUNDOS.map(f => `
+    const atual = fundoEscolhido();
+    $('#lista-fundos').innerHTML = fundosDisponiveis().map(f => `
         <button class="item-fundo ${f.id === atual ? 'ativo' : ''}" data-fundo="${f.id}" title="${esc(f.nome)}">
             ${f.arquivo
                 ? `<img src="imagens/fundos/${f.arquivo}" alt="" loading="lazy">`
@@ -4661,6 +5865,7 @@ const COMANDOS = {
     'idioma-es': () => trocarIdioma('es', true),
     'fechar-aviso-traducao': () => { $('#aviso-traducao').hidden = true; },
     'internet': () => alternarInternet(),
+    'expandir-dino': () => deitarDino(true),
     'nova-guia': novaAba,
     'imprimir': () => window.print(),
     'fechar': () => acaoJanela($('#navegador'), 'fechar'),
@@ -4710,7 +5915,7 @@ const COMANDOS = {
         }),
     'ajuda': () => dialogo({
         titulo: 'Ajuda e suporte', icone: 'help',
-        texto: '• Use os botões do topo e do lado para navegar.\n• Deixe recados, depoimentos e entre pros meus amigos.\n• Converse com todo mundo no Zap do Lucas.\n• Desenhe no Paint e mande pra mim.\n• Arraste as janelas pela barra azul.\n• Troque o papel de parede em Ferramentas.\n• Cada programa (Paint, Zap, Calculadora...) tem um ? na janela que explica como usar.\n• Emoticons viram imagem: :) :D :P ;) (L) (Y) (H)',
+        texto: '• Use os botões do topo e do lado para navegar.\n• Deixe recados, depoimentos e entre pros meus amigos.\n• Converse com todo mundo no Zap do Lucas.\n• Desenhe no Paint e mande pra mim.\n• Arraste as janelas pela barra azul.\n• Troque o papel de parede em Ferramentas.\n• Cada programa (Paint, Zap...) tem um ? na janela que explica como usar.\n• Emoticons viram imagem: :) :D :P ;) (L) (Y) (H)',
     }),
     'sobre': () => dialogo({
         titulo: 'Sobre o Quarto do Lucas', icone: 'internet_explorer',
@@ -4914,6 +6119,35 @@ async function enviarFormulario(form) {
             mostrarPagina();
             mostrarLixeira();
         }
+        if (tipo === 'pintura') {
+            if (!dados.imagem?.size) return dialogo({ titulo: 'Mural', icone: 'error', texto: 'Escolhe a imagem da pintura.' });
+            const imagem = await pinturaEmTexto(dados.imagem);
+            const nova = await desenhos.adicionar({ autor: dados.autor.trim(), titulo: dados.titulo.trim(), imagem });
+            const id = nova?.id ?? desenhos.todos().find(d => d.imagem === imagem)?.id;
+            if (id != null) await desenhos.atualizar(id, { publico: true });
+            form.reset();
+            mostrarPagina();
+            status('Pintura pendurada no mural! ✓');
+        }
+        if (tipo === 'secreto') {
+            const link = dados.link.trim();
+            if (link && linkSeguro(link) === '#') {
+                return dialogo({ titulo: 'Área secreta', icone: 'error', texto: 'O link tem que começar com http:// ou https://' });
+            }
+            const lista = [...itensSecretos()], antigo = lista[edicaoSecreto];
+            const item = { titulo: dados.titulo.trim().slice(0, 80), texto: dados.texto.slice(0, 5000), link: link || '' };
+            if (antigo?.imagem && !dados.semImagem) item.imagem = antigo.imagem;
+            if (dados.imagem?.size) item.imagem = await subirImagem(dados.imagem, 'secreto', 1600);
+            if (!item.titulo && !item.texto && !item.link && !item.imagem) {
+                return dialogo({ titulo: 'Área secreta', icone: 'error', texto: 'Coloca pelo menos um título, texto, link ou imagem.' });
+            }
+            if (antigo) lista[edicaoSecreto] = item;
+            else lista.unshift(item);
+            await salvarConfig('secreto', lista.slice(0, 60));
+            if (antigo?.imagem && antigo.imagem !== item.imagem) nuvem.storage.from('fotos').remove([antigo.imagem]).catch(console.error);
+            edicaoSecreto = null;
+            mostrarPagina();
+        }
         if (tipo === 'comunidade') {
             const nova = { nome: dados.nome.trim(), icone: ICONES_COMUNIDADE.includes(dados.icone) ? dados.icone : 'group', membros: Math.max(0, Number(dados.membros) || 0) };
             await salvarConfig('comunidades', [...DADOS.comunidades, nova]);
@@ -4979,7 +6213,7 @@ document.addEventListener('click', e => {
     // fecha o menu iniciar
     if (!alvo.closest('#menu-iniciar, #botao-iniciar')) $('#menu-iniciar').hidden = true;
 
-    const el = alvo.closest('[data-abrir], [data-comando], [data-janela], [data-tarefa], [data-aba], [data-fechar-aba], [data-apagar], [data-apagar-foto], [data-apagar-comunidade], [data-editar], [data-publicar], [data-tocar], [data-player], [data-foto], [data-lightbox], [data-ferramenta], [data-cor], [data-cor-editor], [data-cores], [data-fundo], [data-notas], [data-lixeira], [data-arquivo-lixeira], [data-tirar-mp3], [data-apagar-lixeira], [data-editar-lixeira], [data-cancelar-lixeira], [data-msn], [data-desenho-mural], [data-fechar-balao], [data-calc], [data-ajuda], [data-menu-calc], [data-ver-ouvidas], .emoticons button, [data-sair-guia], [data-dialogo-fechar]');
+    const el = alvo.closest('[data-abrir], [data-comando], [data-janela], [data-tarefa], [data-aba], [data-fechar-aba], [data-apagar], [data-apagar-foto], [data-apagar-comunidade], [data-editar], [data-publicar], [data-tocar], [data-player], [data-foto], [data-lightbox], [data-ferramenta], [data-cor], [data-cor-editor], [data-cores], [data-fundo], [data-notas], [data-lixeira], [data-arquivo-lixeira], [data-tirar-mp3], [data-apagar-lixeira], [data-editar-lixeira], [data-cancelar-lixeira], [data-apagar-secreto], [data-editar-secreto], [data-subir-secreto], [data-cancelar-secreto], [data-msn], [data-desenho-mural], [data-fechar-balao], [data-calc], [data-ajuda], [data-menu-calc], [data-ver-ouvidas], .emoticons button, [data-sair-guia], [data-dialogo-fechar]');
     if (!el) return;
     const d = el.dataset;
 
@@ -5026,7 +6260,7 @@ document.addEventListener('click', e => {
         el.disabled = true;
         return desenhos.atualizar(d.publicar, { publico }).then(() => {
             mostrarPagina();
-            status(publico ? 'Desenho publicado no mural! ✔' : 'Desenho tirado do mural.');
+            status(publico ? 'Desenho publicado no mural! ✓' : 'Desenho tirado do mural.');
         }, erroNuvem);
     }
     if (d.apagarFoto) {
@@ -5108,9 +6342,36 @@ document.addEventListener('click', e => {
         edicaoLixeira = null;
         return mostrarPagina();
     }
+    if (d.apagarSecreto) {
+        return confirmar('Área secreta', 'Tirar isso da área secreta?', () => {
+            const antigo = itensSecretos()[Number(d.apagarSecreto)];
+            const lista = itensSecretos().filter((_, i) => i !== Number(d.apagarSecreto));
+            salvarConfig('secreto', lista).then(() => {
+                if (antigo?.imagem) nuvem.storage.from('fotos').remove([antigo.imagem]).catch(console.error);
+                edicaoSecreto = null;
+                mostrarPagina();
+            }, erroNuvem);
+        });
+    }
+    if (d.subirSecreto) {
+        const i = Number(d.subirSecreto), lista = [...itensSecretos()];
+        [lista[i - 1], lista[i]] = [lista[i], lista[i - 1]];
+        salvarConfig('secreto', lista).then(mostrarPagina, erroNuvem);
+        return;
+    }
+    if (d.editarSecreto) {
+        edicaoSecreto = Number(d.editarSecreto);
+        mostrarPagina();
+        $('#central form')?.scrollIntoView({ block: 'center' });
+        return;
+    }
+    if (d.cancelarSecreto) {
+        edicaoSecreto = null;
+        return mostrarPagina();
+    }
     if (d.msn === 'atencao') return zapAtencao();
     if ('fecharBalao' in d) { $('#balao-zap').hidden = true; return; }
-    if (d.desenhoMural) return abrirDesenhoMural(Number(d.desenhoMural));
+    if (d.desenhoMural) return abrirDesenhoMural(Number(d.desenhoMural), d.de);
     if (d.calc) return teclaCalc(d.calc);
     if (d.ajuda) return ajudaDoApp(d.ajuda);
     if (d.menuCalc === 'editar') {
@@ -5140,6 +6401,7 @@ document.addEventListener('click', e => {
 
 // clicar fora fecha a foto
 $('#lightbox').addEventListener('click', e => {
+    if (e.target.closest('.tela-camera, .quadro-grande .moldura-museu')) return abrirZoom();
     if (e.target.id === 'lightbox') e.currentTarget.hidden = true;
 });
 
@@ -5179,6 +6441,12 @@ document.addEventListener('mouseover', e => e.target.closest?.('.noticias marque
 document.addEventListener('mouseout', e => e.target.closest?.('.noticias marquee')?.start());
 
 document.addEventListener('keydown', e => {
+    if (!$('#zoom-foto').hidden) {
+        if (e.key === 'Escape') fecharZoom();
+        if (e.key === '+' || e.key === '=') mudarZoomFoto(1.5);
+        if (e.key === '-') mudarZoomFoto(1 / 1.5);
+        return;
+    }
     if (!$('#lightbox').hidden) {
         if (e.key === 'Escape') $('#lightbox').hidden = true;
         if (e.key === 'ArrowLeft') { lightbox.indice--; mostrarFoto(); }
@@ -5297,7 +6565,7 @@ const PASSOS_CONEXAO = [
     'Discando para 0800-QUARTO...',
     'Verificando nome de usuário e senha...',
     'Registrando o computador na rede...',
-    'Conectado a 56.000 bps! ✔',
+    'Conectado a 56.000 bps! ✓',
 ];
 let timersConexao = [];
 
@@ -5374,6 +6642,652 @@ document.addEventListener('drop', e => {
 });
 
 
+// --- datas comemorativas: o site se enfeita sozinho ---
+
+// domingo de pascoa (conta antiga que acha a data de cada ano)
+function domingoDePascoa(ano) {
+    const a = ano % 19, b = Math.floor(ano / 100), c = ano % 100, d = Math.floor(b / 4), e = b % 4;
+    const f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
+    const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+    const mes = Math.floor((h + l - 7 * m + 114) / 31), dia = ((h + l - 7 * m + 114) % 31) + 1;
+    return new Date(ano, mes - 1, dia);
+}
+
+function diasDepois(data, dias) {
+    const nova = new Date(data);
+    nova.setDate(nova.getDate() + dias);
+    return nova;
+}
+
+// so o dia (sem hora) pra comparar
+function soDia(data) {
+    return new Date(data.getFullYear(), data.getMonth(), data.getDate()).getTime();
+}
+
+// final da copa do mundo (a de 2030 ainda e chute, a data certa sai depois)
+const FINAIS_COPA = ['2026-07-19', '2030-07-21'];
+
+// cada tema aparece so no dia principal da data (nenhum cai em cima do outro)
+const DATAS_TEMA = [
+    { tema: 'anonovo', quando: (h) => h.getMonth() === 0 && h.getDate() === 1 },
+    { tema: 'trans', quando: (h) => h.getMonth() === 0 && h.getDate() === 29 },
+    // terca-feira de carnaval (47 dias antes da pascoa)
+    { tema: 'carnaval', quando: (h) => soDia(h) === soDia(diasDepois(domingoDePascoa(h.getFullYear()), -47)) },
+    { tema: 'pascoa', quando: (h) => soDia(h) === soDia(domingoDePascoa(h.getFullYear())) },
+    { tema: 'namorados', quando: (h) => h.getMonth() === 5 && h.getDate() === 12 },
+    { tema: 'aniversario', quando: (h) => h.getMonth() === 5 && h.getDate() === 13 },
+    // 28 de junho: dia internacional do orgulho lgbtqia+
+    { tema: 'orgulho', quando: (h) => h.getMonth() === 5 && h.getDate() === 28 },
+    { tema: 'rock', quando: (h) => h.getMonth() === 6 && h.getDate() === 13 },
+    { tema: 'copa', quando: (h) => FINAIS_COPA.some(d => soDia(h) === soDia(new Date(d + 'T12:00'))) },
+    { tema: 'independencia', quando: (h) => h.getMonth() === 8 && h.getDate() === 7 },
+    { tema: 'halloween', quando: (h) => h.getMonth() === 9 && h.getDate() === 31 },
+    { tema: 'muertos', quando: (h) => h.getMonth() === 10 && h.getDate() === 2 },
+    { tema: 'consciencia', quando: (h) => h.getMonth() === 10 && h.getDate() === 20 },
+    { tema: 'natal', quando: (h) => h.getMonth() === 11 && h.getDate() === 25 },
+];
+
+// bandeiras lgbtqia+ (listras de cima pra baixo) pro varal do orgulho
+const BANDEIRAS_LGBT = {
+    'arco-íris': ['#e40303', '#ff8c00', '#ffed00', '#008026', '#004dff', '#750787'],
+    trans: ['#5bcefa', '#f5a9b8', '#ffffff', '#f5a9b8', '#5bcefa'],
+    bi: ['#d60270', '#d60270', '#9b4f96', '#0038a8', '#0038a8'],
+    lésbica: ['#d52d00', '#ef7627', '#ff9a56', '#ffffff', '#d162a4', '#b55690', '#a30262'],
+    pan: ['#ff218c', '#ffd800', '#21b1ff'],
+    'não-binária': ['#fcf434', '#ffffff', '#9c59d1', '#2c2c2c'],
+    gay: ['#078d70', '#26ceaa', '#98e8c1', '#ffffff', '#7bade2', '#5049cc', '#3d1a78'],
+    assexual: ['#000000', '#a3a3a3', '#ffffff', '#800080'],
+    'gênero fluido': ['#ff76a4', '#ffffff', '#c011d7', '#000000', '#2f3cbe'],
+    agênero: ['#000000', '#bcc4c7', '#ffffff', '#b9f480', '#ffffff', '#bcc4c7', '#000000'],
+    arromântica: ['#3da542', '#a7d379', '#ffffff', '#a9a9a9', '#000000'],
+    intersexo: null,
+};
+
+function listrasBandeira(cores) {
+    if (!cores) return 'radial-gradient(circle, transparent 0 22%, #7902aa 24% 36%, transparent 38%), #ffd800';
+    return `linear-gradient(180deg, ${cores.map((c, i) => `${c} ${i / cores.length * 100}% ${(i + 1) / cores.length * 100}%`).join(', ')})`;
+}
+
+// bandeirinha do brasil (svg pequeno virando fundo)
+function bandeiraBrasil() {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 14"><rect width="20" height="14" fill="#009c3b"/><path d="M10 1.6 L18.4 7 L10 12.4 L1.6 7 Z" fill="#ffdf00"/><circle cx="10" cy="7" r="3.4" fill="#002776"/><path d="M6.7 6.3 Q10 5.4 13.3 7.4" stroke="#fff" stroke-width=".7" fill="none"/></svg>';
+    return `url('data:image/svg+xml,${encodeURIComponent(svg)}') center / cover`;
+}
+
+// estampas tipo tecido kente (vermelho, amarelo, verde e preto)
+const KENTE = [
+    'linear-gradient(180deg, transparent 38%, #111 38% 62%, transparent 62%), repeating-linear-gradient(90deg, #c8102e 0 6px, #f4c400 6px 12px, #138a36 12px 18px)',
+    'repeating-linear-gradient(90deg, #f4c400 0 4px, #111 4px 6px), linear-gradient(#f4c400, #f4c400)',
+    'linear-gradient(180deg, #c8102e 0 33%, #111 33% 66%, #138a36 66%)',
+    'repeating-linear-gradient(45deg, #138a36 0 5px, #f4c400 5px 8px, #c8102e 8px 13px, #111 13px 16px)',
+    'linear-gradient(90deg, transparent 40%, #f4c400 40% 60%, transparent 60%), linear-gradient(180deg, #111 0 30%, #c8102e 30% 70%, #111 70%)',
+];
+
+const TEMAS = {
+    aniversario: {
+        frase: () => 'Hoje é o dia do bolinho do Lucas! Deixa um recado de parabéns',
+        varal: { tipo: 'letra', letras: 'FELIZ DIA DO BOLINHO', cores: ['#ff7b54', '#ffb347', '#ffcf56', '#ff5e78', '#c56cf0', '#f9844a'] },
+        particulas: ['balao', 'confete', 'dino'], cores: ['#ff7b54', '#ffb347', '#ffd56b', '#ff5e78', '#c56cf0', '#f9844a'],
+    },
+    anonovo: {
+        frase: (h) => `Feliz ${h.getFullYear()}! Que esse ano seja incrível`,
+        varal: { tipo: 'letra', letras: 'FELIZ ANO NOVO', cores: ['#d4af37', '#c0c0c0', '#f7e27a', '#e8e8e8'] },
+        particulas: ['confete', 'fogos'], cores: ['#d4af37', '#f7e27a', '#ffffff', '#c0c0c0'],
+    },
+    namorados: {
+        frase: () => 'Feliz Dia dos Namorados <3',
+        varal: { tipo: 'coracao', cores: ['#e0245e', '#ff7aa8', '#c2185b', '#ffb3c9'] },
+        particulas: ['coracao'], cores: ['#e0245e', '#ff7aa8', '#ff4d6d', '#ffb3c9'],
+    },
+    trans: {
+        frase: () => '29 de janeiro: Dia da Visibilidade Trans. Respeito, existência e orgulho!',
+        varal: { tipo: 'pendurada', cores: [listrasBandeira(BANDEIRAS_LGBT.trans)] },
+        faixa: ['#5bcefa', '#f5a9b8', '#ffffff', '#f5a9b8', '#5bcefa'],
+        particulas: ['coracao', 'confete'], cores: ['#5bcefa', '#f5a9b8', '#ffffff'],
+    },
+    consciencia: {
+        frase: () => '20 de novembro: Dia da Consciência Negra. Zumbi dos Palmares vive! Contra o racismo, sempre',
+        varal: { tipo: 'pendurada', cores: KENTE },
+        faixa: ['#c8102e', '#f4c400', '#138a36', '#111111'],
+        particulas: ['estrela'], cores: ['#f4c400', '#ffd84d', '#e0a800'],
+    },
+    rock: {
+        frase: () => '13 de julho: Dia Mundial do Rock! \\m/',
+        varal: { tipo: 'letra', letras: 'DIA DO ROCK', cores: ['#111111', '#b30000', '#111111', '#3a3a3a'] },
+        particulas: ['palheta', 'raio'], cores: ['#111111', '#cc0000', '#ffcc00', '#6b6b6b'],
+    },
+    independencia: {
+        frase: () => '7 de setembro: Independência do Brasil!',
+        varal: { tipo: 'pendurada', cores: [bandeiraBrasil()] },
+        particulas: ['confete', 'fogos'], cores: ['#009c3b', '#ffdf00', '#002776', '#ffffff'],
+    },
+    muertos: {
+        frase: () => '2 de novembro, Día de los Muertos: lembrando com carinho de quem já se foi',
+        varal: { tipo: 'picado', cores: ['#ff3d8b', '#ff8c00', '#8e44ad', '#1abc9c', '#f1c40f', '#3498db'] },
+        particulas: ['petala'], cores: ['#ff8c00', '#ffa500', '#ffb627', '#e65c00'],
+    },
+    halloween: {
+        frase: () => 'Feliz Halloween! Cuidado com os morcegos...',
+        varal: { tipo: 'bandeira', cores: ['#ff7518', '#1a1a1a', '#7b2cbf', '#1a1a1a'] },
+        teias: true,
+        particulas: ['morcego'], cores: ['#1a1a1a', '#2b1a33'],
+    },
+    pascoa: {
+        frase: () => 'Feliz Páscoa! Cadê o meu chocolate?',
+        varal: { tipo: 'bandeira', cores: ['#ffb3c6', '#bde0fe', '#fff1a8', '#c8f7c5', '#e0c3fc'] },
+        particulas: ['ovo', 'petala'], cores: ['#ffb3c6', '#a2d2ff', '#ffe066', '#b9fbc0', '#cdb4db'],
+    },
+    carnaval: {
+        frase: () => 'É carnaval! Bora pro bloco',
+        varal: { tipo: 'bandeira', cores: ['#ff2e93', '#ffd60a', '#00c2ff', '#7cff3e', '#b14dff', '#ff7b00'] },
+        particulas: ['confete', 'serpentina'], cores: ['#ff2e93', '#ffd60a', '#00c2ff', '#7cff3e', '#b14dff', '#ff7b00'],
+    },
+    natal: {
+        frase: () => 'Feliz Natal! Ho ho ho',
+        varal: { tipo: 'luz', cores: ['#ff3b3b', '#2ecc40', '#ffdc00', '#3d9bff'] },
+        particulas: ['neve'], cores: ['#ffffff'],
+    },
+    copa: {
+        frase: () => 'Hoje é a final da Copa do Mundo! Vai Brasil!',
+        varal: { tipo: 'pendurada', cores: [bandeiraBrasil()] },
+        particulas: ['bola', 'confete', 'fogos'], cores: ['#009c3b', '#ffdf00', '#002776'],
+    },
+    orgulho: {
+        frase: () => '28 de junho: Dia do Orgulho LGBTQIA+. Amor é amor!',
+        varal: { tipo: 'pendurada', cores: Object.values(BANDEIRAS_LGBT).map(listrasBandeira) },
+        faixa: ['#e40303', '#ff8c00', '#ffed00', '#008026', '#004dff', '#750787'],
+        particulas: ['confete'], cores: ['#e40303', '#ff8c00', '#ffed00', '#008026', '#004dff', '#750787'],
+    },
+};
+
+// estacao do ano aqui no hemisferio sul
+function estacaoDoAno(h) {
+    const md = (h.getMonth() + 1) * 100 + h.getDate();
+    if (md >= 1221 || md < 320) return ['verao', 'Verão', '21/12 a 19/03'];
+    if (md < 621) return ['outono', 'Outono', '20/03 a 20/06'];
+    if (md < 922) return ['inverno', 'Inverno', '21/06 a 21/09'];
+    return ['primavera', 'Primavera', '22/09 a 20/12'];
+}
+
+// varal pendurado em cima da tela
+function montarVaral({ tipo, cores, letras }) {
+    const largura = window.innerWidth;
+    // varal de bandeirinhas penduradas fica bem caido, igual varal de roupa
+    const caido = tipo === 'pendurada';
+    const vao = caido ? 320 : 260;
+    const fundo = caido ? 64 : 30;
+    const passo = tipo === 'luz' ? 34 : tipo === 'letra' ? 40 : tipo === 'picado' ? 44 : caido ? 46 : 38;
+    const caminho = ['M0,6'];
+    for (let x = 0; x < largura + vao; x += vao) caminho.push(`Q${x + vao / 2},${fundo} ${x + vao},6`);
+    // espaco vira bandeirinha sem letra, pra separar as palavras
+    const texto = letras ? letras + ' ' : '';
+    let html = '';
+    let k = 0;
+    for (let x = 14; x < largura; x += passo, k++) {
+        const f = (x % vao) / vao;
+        const y = 6 + 2 * (fundo - 6) * f * (1 - f);
+        // inclina a peca do jeito que o fio ta descendo/subindo naquele ponto
+        const inclinacao = Math.atan(2 * (fundo - 6) * (1 - 2 * f) / vao) * 180 / Math.PI;
+        const torto = caido ? inclinacao + ((k * 37) % 9 - 4) : 0;
+        const cor = cores[k % cores.length];
+        const letra = texto ? texto[k % texto.length] : '';
+        html += `<i class="peca-varal ${tipo}" style="left:${x}px;top:${y}px;--cor:${cor};--atraso:${(k % 5) * 0.3}s;--torto:${torto.toFixed(1)}deg">${letra}</i>`;
+    }
+    return `<svg class="fio-varal" width="${largura}" height="${fundo + 10}" viewBox="0 0 ${largura} ${fundo + 10}"><path d="${caminho.join(' ')}" /></svg>${html}`;
+}
+
+// teia de aranha no canto (pra halloween)
+function teiaDeAranha(lado) {
+    const raios = 7, voltas = 5, r = 110;
+    let linhas = '';
+    const pontos = [];
+    for (let i = 0; i <= raios; i++) {
+        const a = (Math.PI / 2) * (i / raios);
+        pontos.push([Math.cos(a), Math.sin(a)]);
+        linhas += `<line x1="0" y1="0" x2="${Math.cos(a) * r}" y2="${Math.sin(a) * r}" />`;
+    }
+    for (let v = 1; v <= voltas; v++) {
+        const rr = (r * v) / voltas;
+        let d = `M${pontos[0][0] * rr},${pontos[0][1] * rr}`;
+        for (let i = 1; i < pontos.length; i++) {
+            const meio = [(pontos[i - 1][0] + pontos[i][0]) / 2 * rr * 0.86, (pontos[i - 1][1] + pontos[i][1]) / 2 * rr * 0.86];
+            d += ` Q${meio[0]},${meio[1]} ${pontos[i][0] * rr},${pontos[i][1] * rr}`;
+        }
+        linhas += `<path d="${d}" />`;
+    }
+    return `<svg class="teia ${lado}" width="${r}" height="${r}" viewBox="0 0 ${r} ${r}">${linhas}</svg>`;
+}
+
+// coisinhas caindo/voando desenhadas no canvas
+const enfeiteAnimado = { pecas: [], faiscas: [], quadro: 0, rodando: false };
+
+function novaPeca(tipo, cores, comecoAleatorio) {
+    const L = window.innerWidth, A = window.innerHeight;
+    const p = {
+        tipo, cor: cores[Math.floor(Math.random() * cores.length)] || '#fff',
+        x: Math.random() * L, y: comecoAleatorio ? Math.random() * A : -30,
+        tam: 6 + Math.random() * 8, rot: Math.random() * 6.28, vr: (Math.random() - 0.5) * 0.08,
+        vy: 0.5 + Math.random() * 1.1, vx: 0, fase: Math.random() * 6.28,
+    };
+    if (tipo === 'neve') { p.tam = 1.5 + Math.random() * 3.5; p.vy = 0.4 + Math.random() * 0.9; }
+    if (tipo === 'balao') { p.tam = 14 + Math.random() * 10; p.vy = -(0.5 + Math.random() * 0.7); p.y = comecoAleatorio ? Math.random() * A : A + 40; }
+    if (tipo === 'dino') {
+        const sprite = Math.random() < 0.5 ? 'dino' : 'braquio';
+        p.desenho = sprite; p.tam = 3 + Math.floor(Math.random() * 2); p.vy = 0;
+        p.vx = (Math.random() < 0.5 ? -1 : 1) * (0.5 + Math.random() * 0.7);
+        p.x = comecoAleatorio ? Math.random() * L : (p.vx > 0 ? -60 : L + 60);
+        p.y = A - 34 - DESENHOS_PIXEL[sprite].linhas.length * p.tam - Math.random() * 30;
+    }
+    if (tipo === 'morcego') { p.tam = 10 + Math.random() * 10; p.vx = (Math.random() < 0.5 ? -1 : 1) * (1 + Math.random() * 1.5); p.vy = 0; p.x = comecoAleatorio ? Math.random() * L : (p.vx > 0 ? -30 : L + 30); p.y = 40 + Math.random() * A * 0.6; }
+    if (tipo === 'coracao') { p.tam = 8 + Math.random() * 10; }
+    if (tipo === 'ovo') { p.tam = 9 + Math.random() * 7; p.vy = 0.5 + Math.random() * 0.6; }
+    if (tipo === 'bola') { p.tam = 9 + Math.random() * 6; p.vy = 0.8 + Math.random(); }
+    if (tipo === 'serpentina') { p.tam = 18 + Math.random() * 14; p.vy = 0.8 + Math.random() * 0.8; }
+    if (tipo === 'raio') { p.tam = 10 + Math.random() * 8; }
+    if (tipo === 'estrela') { p.tam = 5 + Math.random() * 6; p.vy = 0.3 + Math.random() * 0.5; p.vr = (Math.random() - 0.5) * 0.02; }
+    return p;
+}
+
+function desenharPeca(ctx, p, t) {
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.fillStyle = p.cor;
+    ctx.strokeStyle = p.cor;
+    const s = p.tam;
+    if (p.tipo === 'neve') {
+        ctx.globalAlpha = 0.85;
+        ctx.beginPath(); ctx.arc(0, 0, s, 0, 6.28); ctx.fill();
+    } else if (p.tipo === 'confete') {
+        ctx.rotate(p.rot);
+        ctx.scale(1, Math.cos(t / 9 + p.fase));
+        ctx.fillRect(-s / 2, -s / 4, s, s / 2);
+    } else if (p.tipo === 'coracao') {
+        ctx.rotate(Math.sin(t / 30 + p.fase) * 0.3);
+        ctx.globalAlpha = 0.85;
+        ctx.beginPath();
+        ctx.moveTo(0, s * 0.35);
+        ctx.bezierCurveTo(-s * 1.1, -s * 0.35, -s * 0.45, -s * 1.05, 0, -s * 0.45);
+        ctx.bezierCurveTo(s * 0.45, -s * 1.05, s * 1.1, -s * 0.35, 0, s * 0.35);
+        ctx.fill();
+    } else if (p.tipo === 'dino') {
+        // desenha o sprite de pixel, virado pro lado que ta andando, com pulinho
+        const { cores, linhas } = DESENHOS_PIXEL[p.desenho];
+        const pulo = Math.abs(Math.sin(t / 8 + p.fase)) * s * 1.5;
+        ctx.translate(0, -pulo);
+        if (p.vx < 0) ctx.scale(-1, 1);
+        linhas.forEach((linha, y) => [...linha].forEach((ch, x) => {
+            if (!cores[ch]) return;
+            ctx.fillStyle = cores[ch];
+            ctx.fillRect((x - linha.length / 2) * s, y * s, s, s);
+        }));
+    } else if (p.tipo === 'morcego') {
+        const bate = Math.sin(t / 4 + p.fase);
+        ctx.scale(p.vx < 0 ? -1 : 1, 1);
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.quadraticCurveTo(-s * 0.5, -s * 0.6 * bate, -s * 1.3, -s * 0.5 * bate);
+        ctx.quadraticCurveTo(-s, s * 0.05, -s * 0.85, s * 0.25);
+        ctx.quadraticCurveTo(-s * 0.55, 0, -s * 0.3, s * 0.3);
+        ctx.quadraticCurveTo(0, s * 0.15, s * 0.3, s * 0.3);
+        ctx.quadraticCurveTo(s * 0.55, 0, s * 0.85, s * 0.25);
+        ctx.quadraticCurveTo(s, s * 0.05, s * 1.3, -s * 0.5 * bate);
+        ctx.quadraticCurveTo(s * 0.5, -s * 0.6 * bate, 0, 0);
+        ctx.fill();
+        ctx.beginPath(); ctx.ellipse(0, s * 0.08, s * 0.2, s * 0.3, 0, 0, 6.28); ctx.fill();
+        ctx.fillStyle = '#ffcc33';
+        ctx.fillRect(-s * 0.1, -s * 0.05, s * 0.06, s * 0.06); ctx.fillRect(s * 0.05, -s * 0.05, s * 0.06, s * 0.06);
+    } else if (p.tipo === 'petala') {
+        ctx.rotate(p.rot);
+        ctx.globalAlpha = 0.9;
+        ctx.beginPath(); ctx.ellipse(0, 0, s * 0.35, s * 0.7, 0, 0, 6.28); ctx.fill();
+    } else if (p.tipo === 'ovo') {
+        ctx.rotate(Math.sin(t / 25 + p.fase) * 0.4);
+        ctx.beginPath(); ctx.ellipse(0, 0, s * 0.72, s, 0, 0, 6.28); ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = s * 0.16;
+        ctx.beginPath();
+        for (let i = 0; i <= 6; i++) ctx.lineTo(-s * 0.68 + i * s * 0.227, (i % 2 ? -s * 0.12 : s * 0.12));
+        ctx.stroke();
+    } else if (p.tipo === 'balao') {
+        ctx.rotate(Math.sin(t / 40 + p.fase) * 0.12);
+        ctx.strokeStyle = 'rgba(80,80,80,.6)'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(0, s * 1.1); ctx.quadraticCurveTo(s * 0.3, s * 1.8, 0, s * 2.6); ctx.stroke();
+        ctx.beginPath(); ctx.ellipse(0, 0, s * 0.8, s, 0, 0, 6.28); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(-s * 0.15, s * 1.15); ctx.lineTo(s * 0.15, s * 1.15); ctx.lineTo(0, s * 0.95); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,.45)';
+        ctx.beginPath(); ctx.ellipse(-s * 0.3, -s * 0.4, s * 0.16, s * 0.3, -0.5, 0, 6.28); ctx.fill();
+    } else if (p.tipo === 'bola') {
+        ctx.rotate(p.rot);
+        ctx.fillStyle = '#fff'; ctx.strokeStyle = '#222'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.arc(0, 0, s, 0, 6.28); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#222';
+        ctx.beginPath();
+        for (let i = 0; i < 5; i++) { const a = i * 1.2566 - 1.57; ctx.lineTo(Math.cos(a) * s * 0.38, Math.sin(a) * s * 0.38); }
+        ctx.fill();
+        for (let i = 0; i < 5; i++) {
+            const a = i * 1.2566 - 1.57;
+            ctx.beginPath(); ctx.moveTo(Math.cos(a) * s * 0.38, Math.sin(a) * s * 0.38); ctx.lineTo(Math.cos(a) * s, Math.sin(a) * s); ctx.stroke();
+        }
+    } else if (p.tipo === 'palheta') {
+        ctx.rotate(p.rot);
+        ctx.beginPath();
+        ctx.moveTo(0, s); ctx.quadraticCurveTo(-s, -s * 0.2, -s * 0.5, -s * 0.8); ctx.quadraticCurveTo(0, -s * 1.05, s * 0.5, -s * 0.8);
+        ctx.quadraticCurveTo(s, -s * 0.2, 0, s); ctx.fill();
+    } else if (p.tipo === 'raio') {
+        ctx.rotate(p.rot * 0.2);
+        ctx.fillStyle = '#ffcc00';
+        ctx.beginPath();
+        ctx.moveTo(s * 0.2, -s); ctx.lineTo(-s * 0.5, s * 0.1); ctx.lineTo(0, s * 0.1); ctx.lineTo(-s * 0.2, s); ctx.lineTo(s * 0.5, -s * 0.15); ctx.lineTo(0, -s * 0.15); ctx.closePath();
+        ctx.fill();
+    } else if (p.tipo === 'estrela') {
+        ctx.rotate(p.rot);
+        ctx.globalAlpha = 0.6 + Math.sin(t / 15 + p.fase) * 0.35;
+        ctx.beginPath();
+        for (let i = 0; i < 10; i++) {
+            const r = i % 2 ? s * 0.42 : s;
+            ctx.lineTo(Math.cos(i * 0.6283 - 1.5708) * r, Math.sin(i * 0.6283 - 1.5708) * r);
+        }
+        ctx.fill();
+    } else if (p.tipo === 'serpentina') {
+        ctx.rotate(p.rot);
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        for (let i = 0; i <= 20; i++) ctx.lineTo(Math.sin(i * 0.9 + t / 10) * s * 0.25, -s / 2 + (i / 20) * s);
+        ctx.stroke();
+    }
+    ctx.restore();
+}
+
+// desenhinhos de pixel (cada letra e uma cor; ponto e vazio). "X" pinta a linha com a cor da lista
+const DESENHOS_PIXEL = {
+    abobora: { cores: { G: '#2e7d32', O: '#ff7518', o: '#c4520b', Y: '#ffe14d' }, linhas: [
+        '.....GG.....', '......G.....', '..oOOOOOOo..', '.OOOOOOOOOO.', 'OOYYOOOOYYOO', 'OOYYOOOOYYOO', 'OOOOOOOOOOOO',
+        'OYOYOYOYOYOO', 'OOYYYYYYYYOO', '.OOOOOOOOOO.', '..oOOOOOOo..'] },
+    arvore: { cores: { Y: '#ffe14d', G: '#1f8a3a', g: '#0f5a24', R: '#ff3b3b', B: '#3d9bff', N: '#7a4a1e' }, linhas: [
+        '.....Y.....', '....YYY....', '....GGG....', '...GGRGg...', '..GGGGGGg..', '...GgBGG...', '..GGGGGRGg.',
+        '.GgGGGGGGGg', 'GGRGGgGBGGG', '....NNN....', '....NNN....'] },
+    coracao: { cores: { R: '#ff2e63', r: '#c2185b', W: '#ffffff' }, linhas: [
+        '.RRR...RRR.', 'RWRRR.RRRRr', 'RWRRRRRRRRr', 'RRRRRRRRRRr', '.RRRRRRRRr.', '..RRRRRRr..', '...RRRRr...', '....RRr....', '.....r.....'] },
+    bolo: { cores: { Y: '#ffd23f', R: '#ff3b6b', W: '#ffffff', P: '#ff8fc7', p: '#e0569b', C: '#b0b0b0' }, linhas: [
+        '..Y..Y..Y..', '..R..R..R..', '..R..R..R..', '.WWWWWWWWW.', '.PWPPWPPWP.', '.PPPPPPPPP.', '.ppppppppp.',
+        '.WWWWWWWWW.', '.PPPPPPPPP.', 'CCCCCCCCCCC'] },
+    ovo: { cores: { P: '#ffb3c6', Y: '#ffe066', B: '#a2d2ff', W: '#ffffff' }, linhas: [
+        '...PPP...', '..PPPPP..', '.PWPPPPP.', '.YYYYYYY.', 'YBYBYBYBY', 'YYYYYYYYY', 'BBBBBBBBB', '.BBWBBBB.', '..BBBBB..'] },
+    estrela: { cores: { Y: '#ffd700', y: '#d49b00', W: '#ffffff' }, linhas: [
+        '....Y....', '....Y....', '...YWY...', 'YYYYYYYYY', '.YYYYYYy.', '..YYYYy..', '..YYyYy..', '.YYy.yYy.', '.Yy...yY.'] },
+    bola: { cores: { W: '#ffffff', K: '#1a1a1a', G: '#c0c0c0' }, linhas: [
+        '...KKKK...', '..WWKKWW..', '.WWWKKWWW.', 'KWWWWWWWWK', 'KKWWKKWWKK', 'KKWKKKKWKK', 'WWWWKKWWWW', '.WKWWWWKW.', '..GKWWKG..', '...KKKK...'] },
+    mascara: { cores: { P: '#b14dff', K: '#1a1a1a', Y: '#ffd60a', G: '#00c2ff' }, linhas: [
+        'Y.G.....G.Y', '.Y.G...G.Y.', 'PPPPPPPPPPP', 'PPKKKPKKKPP', 'PPKKKPKKKPP', '.PPPP.PPPP.', '..PP...PP..'] },
+    caveira: { cores: { W: '#ffffff', K: '#1a1a1a', P: '#ff3d8b', O: '#ff8c00', G: '#1abc9c' }, linhas: [
+        '..WWWWWW..', '.WWOWWOWW.', 'WWPPWWPPWW', 'WPKKPPKKPW', 'WWPPWWPPWW', 'WWWWKKWWWW', '.WGWWWWGW.', '..WKWKWK..', '..WWWWWW..'] },
+    raio: { cores: { Y: '#ffcc00', K: '#1a1a1a' }, linhas: [
+        '....KYYY', '...KYYYK', '..KYYYK.', '.KYYYYYK', '...KYYK.', '..KYYK..', '.KYYK...', 'KYYK....', 'YK......'] },
+    // t-rex de festa (olhando pra direita)
+    dino: { cores: { G: '#5cb85c', g: '#3e8e41', K: '#1a1a1a', W: '#ffffff', R: '#ff5e78', Y: '#ffd23f', B: '#ffe9a8' }, linhas: [
+        '.........Y....', '........RRR...', '.......RYRYR..', '......GGGGGGG.', '......GKGGGGGG', '......GGGGGGGG',
+        '......GGGGWW..', '......GGGGGGG.', 'g....GGGBGG...', 'gg..GGGBBGGGG.', 'gGGGGGGBBGgG..', '.gGGGGGBBGG...',
+        '..gGGGGGGG....', '...GG..GG.....', '...Gg...Gg....'] },
+    // dino pescocudo
+    braquio: { cores: { G: '#9b6bdc', g: '#7346b8', K: '#1a1a1a', P: '#ffb3d1' }, linhas: [
+        '..........GGG.', '.........GKGGG', '.........GGGG.', '.........GG...', '........GG....', '........GG....',
+        '.......GG.....', '..PGPGPGG.....', '.GGGGGGGGG....', 'GGGGGGGGGGG...', 'G.GGGGGGGGG...', '..gG.gG.gG....',
+        '..gG.gG.gG....'] },
+    coelho: { cores: { W: '#ffffff', P: '#ffb3c6', K: '#333333', G: '#d9d9d9' }, linhas: [
+        '..W....W...', '.WPW..WPW..', '.WPW..WPW..', '.WPW..WPW..', '..WW..WW...', '.WWWWWWWW..', 'WWKWWWWKWW.',
+        'WWWWPPWWWW.', 'WGWWWWWWGW.', '.WWWWWWWW..', '..WW..WW...'] },
+    taca: { cores: { Y: '#ffd700', y: '#c99a00', W: '#fff6b0', G: '#0f8a35' }, linhas: [
+        'yYYYYYYYYYy', 'Y.YWYYYYY.Y', 'Y.YWYYYYY.Y', '.YYWYYYYYy.', '..YYYYYYy..', '...YYYYy...', '....YYy....',
+        '.....Y.....', '....YYy....', '...GGGGG...', '...GGGGG...'] },
+    guitarra: { cores: { R: '#cc0000', r: '#8a0000', K: '#111111', W: '#dddddd', Y: '#ffcc00' }, linhas: [
+        '..........KK', '.........KKK', '........KW..', '.......KW...', '......KW....', '..RR.KW.....', '.RRRRW......',
+        'RRRRRRY.....', 'RRRKRRRr....', '.RRRRRRr....', '..RRRRr.....', '...Rrr......'] },
+    bandeira: { cores: {}, linhas: [
+        '.XX...XX.', 'XXXX.XXXX', 'XXXXXXXXX', 'XXXXXXXXX', '.XXXXXXX.', '..XXXXX..', '...XXX...', '....X....'] },
+};
+
+// quais desenhinhos e textos cada data usa
+const ENFEITES_TEMA = {
+    aniversario: { sprites: ['dino', 'bolo', 'braquio'], titulo: 'FELIZ DIA DO BOLINHO!!!', sub: 'deixa um recadinho de parabéns pro lucas' },
+    anonovo: { sprites: ['estrela'], titulo: 'FELIZ ANO NOVO!!!', sub: '3... 2... 1... feliz ano novo' },
+    namorados: { sprites: ['coracao'], titulo: 'FELIZ DIA DOS NAMORADOS', sub: 'amor de internet também conta' },
+    trans: { sprites: ['bandeira'], linhasBandeira: ['#5bcefa', '#f5a9b8', '#ffffff', '#f5a9b8', '#5bcefa', '#f5a9b8', '#ffffff', '#5bcefa'], titulo: 'VISIBILIDADE TRANS', sub: 'existir é resistir' },
+    consciencia: { sprites: ['bandeira', 'estrela'], linhasBandeira: ['#c8102e', '#c8102e', '#f4c400', '#f4c400', '#138a36', '#138a36', '#111111', '#111111'], titulo: 'DIA DA CONSCIÊNCIA NEGRA', sub: 'zumbi dos palmares vive' },
+    rock: { sprites: ['guitarra', 'raio'], titulo: 'DIA DO ROCK \\m/', sub: 'aumenta o som!!!' },
+    independencia: { sprites: ['estrela', 'estrela'], titulo: 'INDEPENDÊNCIA DO BRASIL', sub: 'brasil brasil brasil' },
+    muertos: { sprites: ['caveira'], titulo: 'DÍA DE LOS MUERTOS', sub: 'saudade de quem já se foi' },
+    halloween: { sprites: ['abobora'], titulo: 'FELIZ HALLOWEEN!!!', sub: 'doces ou travessuras?' },
+    pascoa: { sprites: ['coelho', 'ovo'], titulo: 'FELIZ PÁSCOA!!!', sub: 'cadê meu chocolate???' },
+    carnaval: { sprites: ['mascara'], titulo: 'É CARNAVAL!!!', sub: 'bora pro bloco' },
+    natal: { sprites: ['arvore', 'estrela'], titulo: 'FELIZ NATAL!!!', sub: 'ho ho ho! deixa um recado pro papai noel' },
+    copa: { sprites: ['taca', 'bola'], titulo: 'VAI BRASIL!!!', sub: 'é hexa!!! (por favor)' },
+    orgulho: { sprites: ['bandeira'], linhasBandeira: ['#e40303', '#ff8c00', '#ffed00', '#008026', '#004dff', '#750787', '#750787', '#e40303'], titulo: 'ORGULHO LGBTQIA+', sub: 'amor é amor' },
+};
+
+// monta o desenho de pixel em svg
+function spriteSVG(nome, px, linhasBandeira) {
+    const { cores, linhas } = DESENHOS_PIXEL[nome];
+    let rects = '';
+    linhas.forEach((linha, y) => [...linha].forEach((ch, x) => {
+        const cor = ch === 'X' ? (linhasBandeira || ['#ff2e63'])[y % (linhasBandeira || ['#ff2e63']).length] : cores[ch];
+        if (cor) rects += `<rect x="${x}" y="${y}" width="1.02" height="1.02" fill="${cor}"/>`;
+    }));
+    const w = linhas[0].length, h = linhas.length;
+    return `<svg xmlns="http://www.w3.org/2000/svg" class="pixel" width="${w * px}" height="${h * px}" viewBox="0 0 ${w} ${h}" shape-rendering="crispEdges">${rects}</svg>`;
+}
+
+// azulejo pro papel de parede (desenhinho repetido, igual site antigo)
+function azulejoSprite(nome, linhasBandeira) {
+    const sprite = spriteSVG(nome, 3, linhasBandeira).replace('class="pixel" ', '');
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="110" height="110"><g opacity=".5">${sprite.replace('<svg', '<svg x="8" y="8"')}${sprite.replace('<svg', '<svg x="63" y="60"')}</g></svg>`;
+    return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
+
+// faixa grandona em cima da pagina (tipo wordart)
+// gifs antigos de cada data (imagens/gifs/temas/<tema>-N.gif)
+const GIFS_TEMA = {
+    halloween: 8, natal: 8, aniversario: 8, pascoa: 4, anonovo: 4, independencia: 3, copa: 4, rock: 5,
+    namorados: 6, carnaval: 4, orgulho: 5, trans: 2, consciencia: 3, muertos: 3,
+};
+
+function gifsDoTema(nome) {
+    return Array.from({ length: GIFS_TEMA[nome] || 0 }, (_, i) => `imagens/gifs/temas/${nome}-${i + 1}.gif`);
+}
+
+// caixinha cheia de gifs da data, embaixo do menu (igual site antigo)
+function caixaGifsData(nome) {
+    const gifs = gifsDoTema(nome);
+    if (!gifs.length) return '';
+    return `<div class="caixa gifs-data" aria-hidden="true"><h3>enfeites do dia</h3><div class="lista-gifs-data">${gifs.map(g => `<img src="${g}" alt="" loading="lazy">`).join('')}</div></div>`;
+}
+
+function faixaComemorativa(nome) {
+    const e = ENFEITES_TEMA[nome];
+    const desenho = spriteSVG(e.sprites[0], 5, e.linhasBandeira);
+    // cada palavra fica inteira (so quebra linha entre palavras)
+    let k = 0;
+    const letras = e.titulo.split(' ').map(palavra => `<span class="palavra">${[...palavra].map(l => `<span style="animation-delay:${(k++ % 10) * 0.1}s">${esc(l)}</span>`).join('')}</span>`).join(' ');
+    const gifs = gifsDoTema(nome);
+    const gifLado = g => g ? `<img class="gif-faixa" src="${g}" alt="">` : '';
+    return `<div class="faixa-comemorativa" aria-hidden="true">
+        ${gifLado(gifs[0])}
+        <span class="lado-faixa">${desenho}</span>
+        <div class="miolo-faixa">
+            <div class="wordart">${letras}</div>
+            <div class="sub-faixa"><span class="piscar">★</span> ${esc(e.sub)} <span class="piscar">★</span></div>
+        </div>
+        <span class="lado-faixa espelho">${spriteSVG(e.sprites[e.sprites.length - 1], 5, e.linhasBandeira)}</span>
+        ${gifLado(gifs[1])}
+    </div>`;
+}
+
+// coisinhas caindo + rastro de brilho atras do mouse (canvas pequeno esticado = pixelado)
+const ESCALA_PIXEL = 2;
+
+function animarEnfeites(canvas, tipos, cores) {
+    const ctx = canvas.getContext('2d');
+    const meu = ++enfeiteAnimado.rodada;
+    const movimentos = tipos.filter(tp => tp !== 'fogos');
+    const fogos = tipos.includes('fogos');
+    const quantos = movimentos.length ? Math.round((window.innerWidth < 700 ? 18 : 34) / Math.max(1, movimentos.length * 0.8)) : 0;
+    enfeiteAnimado.pecas = [];
+    enfeiteAnimado.faiscas = [];
+    enfeiteAnimado.rastro = [];
+    movimentos.forEach(tp => {
+        const n = tp === 'morcego' ? Math.ceil(quantos / 2.5) : tp === 'balao' ? Math.ceil(quantos / 2) : tp === 'raio' ? 4 : tp === 'dino' ? 4 : quantos;
+        for (let i = 0; i < n; i++) enfeiteAnimado.pecas.push(novaPeca(tp, cores, true));
+    });
+    const ajustar = () => {
+        canvas.width = Math.ceil(window.innerWidth / ESCALA_PIXEL);
+        canvas.height = Math.ceil(window.innerHeight / ESCALA_PIXEL);
+    };
+    ajustar();
+    enfeiteAnimado.ajustar = ajustar;
+    let t = 0;
+    const passo = () => {
+        if (meu !== enfeiteAnimado.rodada) return;
+        if (!document.hidden) {
+            t++;
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.setTransform(1 / ESCALA_PIXEL, 0, 0, 1 / ESCALA_PIXEL, 0, 0);
+            const A = window.innerHeight, L = window.innerWidth;
+            enfeiteAnimado.pecas.forEach((p, i) => {
+                if (p.tipo === 'morcego') { p.x += p.vx; p.y += Math.sin(t / 20 + p.fase) * 0.6; }
+                else if (p.tipo === 'dino') { p.x += p.vx; }
+                else { p.y += p.vy; p.x += Math.sin(t / 50 + p.fase) * 0.5 + p.vx; p.rot += p.vr; }
+                const saiu = (p.tipo === 'morcego' || p.tipo === 'dino') ? (p.x < -70 || p.x > L + 70) : p.tipo === 'balao' ? p.y < -80 : p.y > A + 40;
+                if (saiu) enfeiteAnimado.pecas[i] = novaPeca(p.tipo, cores, false);
+                desenharPeca(ctx, p, t);
+            });
+            // fogos de artificio: estouram de vez em quando
+            if (fogos) {
+                if (t % 70 === 0) {
+                    const cx = L * (0.15 + Math.random() * 0.7), cy = A * (0.12 + Math.random() * 0.3);
+                    const cor = cores[Math.floor(Math.random() * cores.length)];
+                    for (let i = 0; i < 36; i++) {
+                        const ang = (i / 36) * 6.28, v = 1.5 + Math.random() * 2.2;
+                        enfeiteAnimado.faiscas.push({ x: cx, y: cy, vx: Math.cos(ang) * v, vy: Math.sin(ang) * v, vida: 60, cor });
+                    }
+                }
+                enfeiteAnimado.faiscas = enfeiteAnimado.faiscas.filter(f => f.vida > 0);
+                enfeiteAnimado.faiscas.forEach(f => {
+                    f.x += f.vx; f.y += f.vy; f.vy += 0.04; f.vx *= 0.985; f.vida--;
+                    ctx.globalAlpha = f.vida / 60;
+                    ctx.fillStyle = f.cor;
+                    ctx.fillRect(f.x - 2, f.y - 2, 4, 4);
+                });
+                ctx.globalAlpha = 1;
+            }
+            // brilhinho atras do mouse
+            enfeiteAnimado.rastro = enfeiteAnimado.rastro.filter(b => b.vida > 0);
+            enfeiteAnimado.rastro.forEach(b => {
+                b.vida--; b.y += 0.6;
+                ctx.globalAlpha = b.vida / 28;
+                ctx.fillStyle = b.cor;
+                const r = b.vida > 14 ? 6 : 4;
+                ctx.fillRect(b.x - 1, b.y - r, 2, r * 2);
+                ctx.fillRect(b.x - r, b.y - 1, r * 2, 2);
+            });
+            ctx.globalAlpha = 1;
+        }
+        requestAnimationFrame(passo);
+    };
+    requestAnimationFrame(passo);
+    enfeiteAnimado.cores = cores;
+}
+
+enfeiteAnimado.rodada = 0;
+window.addEventListener('resize', () => enfeiteAnimado.ajustar?.());
+document.addEventListener('pointermove', e => {
+    if (e.pointerType !== 'mouse' || !enfeiteAnimado.cores || !document.querySelector('.chuva-data')) return;
+    if (Math.random() < 0.45) return;
+    const cores = enfeiteAnimado.cores.length ? enfeiteAnimado.cores : ['#ffffff'];
+    enfeiteAnimado.rastro.push({ x: e.clientX + (Math.random() - 0.5) * 10, y: e.clientY + (Math.random() - 0.5) * 10, vida: 28, cor: cores[Math.floor(Math.random() * cores.length)] });
+    if (enfeiteAnimado.rastro.length > 60) enfeiteAnimado.rastro.shift();
+});
+
+// o que ta enfeitando agora (pra trocar sozinho quando muda o dia)
+const datasAgora = { tema: undefined, estacao: null, letreiroBase: null, largura: 0 };
+
+function tirarEnfeites() {
+    document.body.className = document.body.className.replace(/\btema-\S+/g, '').trim();
+    document.body.style.removeProperty('--t-tile');
+    document.body.style.removeProperty('--t-tile-fundo');
+    $$('.enfeites-data, .chuva-data, .faixa-comemorativa, .gifs-data').forEach(el => el.remove());
+    enfeiteAnimado.rodada++;
+    enfeiteAnimado.cores = null;
+}
+
+function botarEnfeites(nome, hoje) {
+    const tema = TEMAS[nome];
+    const extras = ENFEITES_TEMA[nome];
+    document.body.classList.add(`tema-${nome}`);
+    document.body.style.setProperty('--t-tile', azulejoSprite(extras.sprites[0], extras.linhasBandeira));
+    // datas com papel de parede especial nao ganham desenhinho repetido por cima da foto
+    if (!FUNDOS_DATA[nome]) document.body.style.setProperty('--t-tile-fundo', azulejoSprite(extras.sprites[0], extras.linhasBandeira));
+    const enfeites = document.createElement('div');
+    enfeites.className = 'enfeites-data';
+    enfeites.setAttribute('aria-hidden', 'true');
+    const faixa = tema.faixa;
+    enfeites.innerHTML = (faixa ? `<i class="faixa-data" style="background:linear-gradient(90deg,${faixa.map((c, i) => `${c} ${i / faixa.length * 100}% ${(i + 1) / faixa.length * 100}%`).join(',')})"></i>` : '')
+        + `<div class="varal ${tema.varal.tipo === 'pendurada' ? 'pendurado' : ''}">${montarVaral(tema.varal)}</div>`
+        + (tema.teias ? teiaDeAranha('esquerda') + teiaDeAranha('direita') + '<i class="aranha"></i>' : '');
+    document.body.append(enfeites);
+    datasAgora.largura = window.innerWidth;
+    $('.letreiro')?.insertAdjacentHTML('afterend', faixaComemorativa(nome));
+    $('.menuperfil')?.insertAdjacentHTML('afterend', caixaGifsData(nome));
+    if (tema.particulas.length && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        const canvas = document.createElement('canvas');
+        canvas.className = 'chuva-data';
+        canvas.setAttribute('aria-hidden', 'true');
+        document.body.append(canvas);
+        animarEnfeites(canvas, tema.particulas, tema.cores);
+    }
+}
+
+// ve qual e a data de hoje e enfeita (roda de minuto em minuto, entao troca sozinho a meia-noite)
+// da pra testar com ?tema=halloween no endereco
+function decorarDatas() {
+    const hoje = new Date();
+    const pedido = new URLSearchParams(location.search).get('tema');
+    const nome = TEMAS[pedido] ? pedido : (DATAS_TEMA.find(d => d.quando(hoje))?.tema || null);
+    const [estacao, nomeEstacao, periodo] = estacaoDoAno(hoje);
+    const letreiro = $('.letreiro marquee');
+    if (datasAgora.letreiroBase === null) datasAgora.letreiroBase = letreiro?.textContent || '';
+    // cor do winamp muda de dia da semana a meia-noite tambem
+    if (nome === datasAgora.tema && estacao === datasAgora.estacao) return corWinamp();
+
+    // estacao do ano na bandeja do lado do relogio
+    const bandeja = $('#estacao');
+    bandeja.innerHTML = `<i class="icone-estacao ${estacao}"></i><span>${nomeEstacao}</span>`;
+    bandeja.title = `Estamos ${estacao === 'primavera' ? 'na' : 'no'} ${nomeEstacao.toLowerCase()} (${periodo})`;
+
+    // a frase da data entra no comeco do letreiro (a estacao fica so la embaixo, do lado do relogio)
+    if (letreiro) letreiro.textContent = nome ? `★ ${TEMAS[nome].frase(hoje)} ${datasAgora.letreiroBase}` : datasAgora.letreiroBase;
+
+    const mudouTema = nome !== datasAgora.tema;
+    datasAgora.tema = nome;
+    datasAgora.estacao = estacao;
+    if (mudouTema) {
+        tirarEnfeites();
+        if (nome) botarEnfeites(nome, hoje);
+        // papel de parede do tema (no halloween entram os fundos de halloween)
+        aplicarFundo(fundoEscolhido());
+        if (!$('#fundos')?.hidden) montarFundos();
+        corWinamp();
+    }
+}
+
+window.addEventListener('resize', () => {
+    const varal = $('.enfeites-data .varal');
+    if (!varal || !datasAgora.tema || Math.abs(window.innerWidth - datasAgora.largura) < 40) return;
+    datasAgora.largura = window.innerWidth;
+    varal.innerHTML = montarVaral(TEMAS[datasAgora.tema].varal);
+});
+setInterval(decorarDatas, 60000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) decorarDatas(); });
+
+
 // --- relogio e inicio ---
 
 function relogio() {
@@ -5402,6 +7316,7 @@ function iniciar() {
     $('#ultima-atualizacao').textContent = new Date(document.lastModified).toLocaleDateString('pt-BR');
     relogio();
     setInterval(relogio, 10000);
+    decorarDatas();
     conectar();
     carregarDaNuvem();
     preencherOuvindo();

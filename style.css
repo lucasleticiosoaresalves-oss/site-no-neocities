@@ -19,6 +19,8 @@
 * { box-sizing: border-box; }
 
 html, body { min-height: 100%; }
+/* simbolos (▶ ♥ ★...) sempre como letra, nunca como emoji colorido de celular */
+html { font-variant-emoji: text; }
 
 body {
     margin: 0;
@@ -574,6 +576,7 @@ input, textarea, select { font-family: inherit; font-size: 12px; }
 }
 .avatar.grande { width: 60px; height: 60px; font-size: 26px; }
 img.avatar.com-icone { background: #fff; image-rendering: pixelated; padding: 2px; }
+img.avatar.boneco-msn { background: #fff; border-color: #b7c6e0; padding: 1px; box-sizing: border-box; object-fit: contain; }
 
 .grade-albuns { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px; }
 .grade-albuns.larga { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
@@ -901,9 +904,20 @@ a.rede:hover { background: #ffffcc; }
 .paint-ferramentas { display: grid; grid-template-columns: repeat(2, 26px); gap: 2px; align-content: start; }
 .paint-ferramentas button { width: 26px; height: 26px; padding: 0; border: 1px solid #fff; border-right-color: #808080; border-bottom-color: #808080; background: var(--xp-cinza); font-size: 13px; }
 .paint-ferramentas button.ativo { border-color: #808080 #fff #fff #808080; background: #fff; }
-.paint-ferramentas select { grid-column: span 2; font-size: 10px; }
-.paint-tela { flex: 1; background: #808080; padding: 4px; border: 1px solid #404040; overflow: auto; }
+.paint-ferramentas button:disabled { opacity: .45; cursor: default; }
+.paint-ferramentas button svg { display: block; margin: auto; }
+.paint-lado { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.paint-tela { position: relative; background: #808080; padding: 4px; border: 1px solid #404040; overflow: auto; }
 .paint-tela canvas { background: #fff; display: block; cursor: crosshair; width: 100%; touch-action: none; }
+.paint-tela canvas.pixelado { image-rendering: pixelated; }
+.paint-tela canvas[data-ferramenta="mao"] { cursor: grab; }
+.paint-tela canvas[data-ferramenta="conta-gotas"] { cursor: copy; }
+.paint-tela canvas[data-ferramenta="balde"] { cursor: cell; }
+.paint-opcoes { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; font-size: 11px; padding: 3px 4px; border: 1px solid; border-color: #808080 #fff #fff #808080; }
+.paint-opcoes label { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.paint-opcoes select { font-size: 10px; }
+.paint-opcoes input[type=range] { width: 70px; }
+#paint-zoom { margin-left: auto; font-weight: bold; color: #333; }
 .paint-cores { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
 .cor-atual { width: 30px; height: 30px; border: 2px inset #fff; }
 .paleta { display: grid; grid-template-columns: repeat(14, 15px); gap: 1px; }
@@ -1402,6 +1416,12 @@ img.foto-amigo { object-fit: cover; background: #fff; padding: 0; }
 /* tela baixinha (celular deitado): as janelas nao passam da altura da tela */
 .janela-app { max-height: calc(100vh - 40px); overflow: auto; }
 
+/* fazendinha (o jogo roda num iframe e se ajusta ao tamanho) */
+#fazenda { width: 776px; overflow: hidden; }
+#fazenda-frame { display: block; width: 100%; aspect-ratio: 760 / 600; max-height: calc(100vh - 80px); border: 0; background: #1c3309; }
+#fazenda.maximizada { display: flex; flex-direction: column; }
+#fazenda.maximizada #fazenda-frame { flex: 1; aspect-ratio: auto; max-height: none; }
+
 /* calculadora do windows antigo */
 #calculadora { width: 262px; }
 .menu-calc { display: flex; gap: 10px; padding: 2px 8px; background: #ece9d8; font: 11px Tahoma, sans-serif; border-bottom: 1px solid #fff; }
@@ -1431,6 +1451,11 @@ img.foto-amigo { object-fit: cover; background: #fff; padding: 0; }
 .area-secreta { text-align: center; padding: 30px 10px; background: #000; color: #0f0; font-family: "Lucida Console", "Courier New", monospace; border: 3px double #0f0; }
 .area-secreta h2 { color: #0f0; letter-spacing: 3px; }
 .area-secreta .piscar-cursor::after { content: '_'; animation: piscar-net 1s steps(2) infinite; }
+.item-secreto { background: #000; color: #0f0; font-family: "Lucida Console", "Courier New", monospace; border: 3px double #0f0; }
+.item-secreto h2 { color: #0f0; letter-spacing: 2px; }
+.item-secreto p { white-space: pre-wrap; line-height: 1.5; }
+.item-secreto a { color: #7fff7f; }
+.item-secreto > a > img { display: block; max-width: 100%; max-height: 420px; margin: 6px auto; border: 2px solid #0f0; }
 
 /* abas: da pra arrastar pro lado */
 .aba.arrastando { opacity: .85; z-index: 3; position: relative; box-shadow: 0 2px 6px rgba(0, 0, 0, .35); cursor: grabbing; }
@@ -1504,3 +1529,670 @@ img.foto-amigo { object-fit: cover; background: #fff; padding: 0; }
 @media (max-width: 1100px), (pointer: coarse) {
     #registros { height: auto; overflow: visible; cursor: auto; }
 }
+
+/* clona_cartao.exe: tela cheia de propaganda e aviso do windows xp */
+.camada-anuncios { position: fixed; inset: 0; z-index: 8000; pointer-events: none; }
+.anuncio {
+    position: absolute; pointer-events: auto; box-sizing: border-box; max-width: calc(100vw - 8px);
+    background: #ece9d8; color: #000; font: 11px Tahoma, Verdana, sans-serif;
+    border: 3px solid #0831d9; border-top: 0; border-radius: 8px 8px 0 0;
+    box-shadow: 3px 4px 10px rgba(0, 0, 0, .55);
+    animation: anuncio-abre .16s ease-out;
+}
+@keyframes anuncio-abre { from { transform: scale(.85); opacity: 0; } }
+.anuncio.sumindo { visibility: hidden; pointer-events: none; }
+.anuncio.maximizado { left: 0 !important; top: 0 !important; width: 100vw !important; max-width: none; height: calc(100vh - 34px); rotate: 0deg !important; }
+.anuncio.maximizado .anuncio-corpo { height: calc(100% - 26px); }
+/* barra azul do xp */
+.anuncio-barra {
+    display: flex; align-items: center; justify-content: space-between; gap: 6px; margin: 0 -3px; padding: 3px 3px 3px 8px;
+    border-radius: 7px 7px 0 0; color: #fff; font: bold 12px 'Trebuchet MS', Tahoma, sans-serif; text-shadow: 1px 1px #0a1f6b;
+    background: linear-gradient(180deg, #0997ff 0%, #0053ee 8%, #0050ee 40%, #0066ff 88%, #0019cf 100%);
+}
+.anuncio-barra span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.anuncio-botoes { display: flex; gap: 2px; flex: none; }
+.anuncio [data-x-anuncio], .anuncio [data-maximizar-anuncio], .anuncio [data-botao-anuncio] { cursor: pointer; }
+.anuncio-botoes button, .anuncio .x-solto {
+    width: 21px; height: 21px; padding: 0; border: 1px solid #fff; border-radius: 3px; color: #fff; font: bold 12px/1 Tahoma, sans-serif;
+    background: radial-gradient(circle at 30% 30%, #6ea8ff, #2160e8 70%);
+}
+.anuncio-botoes .x-vermelho, .anuncio .x-solto { background: radial-gradient(circle at 30% 30%, #f3a283, #d6461b 70%); }
+.anuncio .x-solto { position: absolute; top: 4px; right: 4px; z-index: 2; width: 18px; height: 18px; font-size: 10px; }
+
+/* banner */
+.anuncio-corpo { position: relative; padding: 8px 10px 8px; text-align: center; overflow: hidden; }
+.anuncio-corpo p { margin: 5px 0 8px; line-height: 1.3; font: 12px Verdana, sans-serif; }
+.anuncio-corpo .gif { display: block; margin: 2px auto 4px; max-width: 100%; max-height: 90px; height: auto; object-fit: contain; }
+.enfeite-anuncio { height: 22px; width: auto; margin-right: 4px; vertical-align: middle; }
+.anuncio-chamada { font: 900 19px/1.12 Impact, 'Arial Black', sans-serif; letter-spacing: .3px; text-transform: uppercase; }
+.anuncio-chamada mark { background: #fff200; color: #c00000; padding: 0 3px; box-shadow: 2px 2px 0 #000; }
+.anuncio-chamada u { text-decoration-thickness: 3px; text-decoration-color: #ff0000; }
+.anuncio-chamada em { font-style: normal; color: #e00000; text-shadow: 1px 1px 0 #fff; }
+.anuncio-corpo small { display: block; margin-top: 6px; }
+.anuncio-corpo small a { color: #00e; text-decoration: underline; font: 10px 'Times New Roman', serif; }
+.anuncio-botao {
+    padding: 5px 16px; cursor: pointer; border-radius: 3px; color: #fff; font: bold 13px Arial, sans-serif; text-shadow: 1px 1px 0 #6b3a00;
+    border: 1px solid #a64b00; background: linear-gradient(180deg, #ffd34d, #ff9a00 55%, #f07800); box-shadow: inset 0 1px 0 #fff3b0, 0 2px 0 #7a3a00;
+    animation: anuncio-treme 1.2s ease-in-out infinite;
+}
+@keyframes anuncio-treme { 0%, 80%, 100% { transform: none; } 85% { transform: rotate(-3deg) scale(1.06); } 90% { transform: rotate(3deg) scale(1.06); } }
+.anuncio-botao-gif { padding: 0; border: 0; background: none; cursor: pointer; line-height: 0; }
+.anuncio-botao-gif img { max-height: 60px; max-width: 100%; }
+/* selo estourando no canto (estrela de pontinhas) */
+.selo-anuncio {
+    position: absolute; top: 6px; left: 6px; z-index: 2; width: 58px; height: 58px; display: grid; place-items: center;
+    background: #ff1d1d; color: #fff; font: 900 12px/1 'Arial Black', sans-serif; text-align: center; rotate: -14deg;
+    clip-path: polygon(50% 0, 61% 14%, 79% 7%, 80% 25%, 98% 28%, 88% 44%, 100% 58%, 83% 66%, 88% 84%, 69% 83%, 61% 100%, 50% 88%, 39% 100%, 31% 83%, 12% 84%, 17% 66%, 0 58%, 12% 44%, 2% 28%, 20% 25%, 21% 7%, 39% 14%);
+    animation: selo-pisca .7s steps(1) infinite;
+}
+@keyframes selo-pisca { 50% { background: #ffcc00; color: #c00000; } }
+.curtiu-anuncio {
+    position: absolute; right: 6px; bottom: 26px; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 1px; width: 66px; padding: 5px 3px;
+    border-radius: 50%; background: #ff2a2a; color: #fff; font: 900 8px/1.05 'Arial Black', sans-serif; text-align: center; box-shadow: 0 0 0 2px #fff, 2px 3px 4px rgba(0,0,0,.5); rotate: 10deg;
+}
+.curtiu-anuncio img { width: 28px; height: 28px; }
+/* estilos de propaganda */
+.tema-amarelo .anuncio-corpo { background: #fff200; }
+.tema-amarelo .anuncio-chamada { color: #0026a8; }
+.tema-alerta .anuncio-corpo { background: repeating-linear-gradient(-45deg, #ffd800 0 12px, #111 12px 24px) top / 100% 8px no-repeat, #1a1a1a; color: #fff; padding-top: 16px; }
+.tema-alerta .anuncio-chamada { color: #fff; }
+.tema-alerta .anuncio-chamada em { color: #ff4040; text-shadow: none; }
+.tema-alerta .anuncio-corpo b { color: #ffe600; }
+.tema-gratis .anuncio-corpo { background: radial-gradient(circle at 50% 40%, #fff 0 30%, #ffe74d 70%); }
+.tema-gratis .anuncio-chamada { color: #e00000; font-size: 24px; -webkit-text-stroke: 1px #000; }
+.tema-azul .anuncio-corpo { background: linear-gradient(180deg, #003bb3, #2e7bff); color: #fff; }
+.tema-azul .anuncio-chamada { color: #fff; }
+.tema-azul .anuncio-chamada u { text-decoration-color: #fff200; }
+.tema-rosa .anuncio-corpo { background: #ffd6ef url(imagens/gifs/estrelinhas.gif); }
+.tema-rosa .anuncio-chamada { color: #d10070; }
+.tema-verde .anuncio-corpo { background: linear-gradient(180deg, #2f9e2f, #8ee04f); color: #fff; }
+.tema-verde .anuncio-chamada { color: #fff; text-shadow: 2px 2px 0 #0b4d0b; }
+.tema-escuro .anuncio-corpo { background: radial-gradient(circle at 50% 30%, #3a1d6e, #0b0420 75%); color: #e8e0ff; }
+.tema-escuro .anuncio-chamada { color: #fff; text-shadow: 0 0 8px #b06bff; }
+.tema-ceu .anuncio-corpo { background: linear-gradient(180deg, #7ec8ff, #e6f6ff 70%); }
+.tema-ceu .anuncio-chamada { color: #003a8c; }
+.tema-jornal .anuncio-corpo { background: #fff; border-top: 6px solid #c00000; }
+.tema-jornal .anuncio-chamada { color: #111; font-family: Georgia, 'Times New Roman', serif; text-transform: none; font-size: 21px; }
+.tema-alerta .anuncio-corpo small a, .tema-azul .anuncio-corpo small a, .tema-escuro .anuncio-corpo small a, .tema-verde .anuncio-corpo small a { color: #cfe3ff; }
+.barrinha-falsa { display: block; height: 12px; margin-top: 6px; border: 1px solid #888; background: #fff; border-radius: 2px; }
+.barrinha-falsa i { display: block; height: 100%; width: 97%; background: repeating-linear-gradient(90deg, #2bb52b 0 8px, transparent 8px 10px); animation: barrinha-falsa 2s steps(10) infinite; }
+@keyframes barrinha-falsa { from { width: 0; } }
+.macaco-anuncio { display: block; margin-top: 4px; font: bold 18px 'Courier New', monospace; color: #fff; animation: macaco-anda .8s steps(4) infinite alternate; }
+@keyframes macaco-anda { from { transform: translateX(-60px); } to { transform: translateX(60px); } }
+
+/* janela de aviso do windows xp */
+.dialogo-xp-corpo { display: flex; gap: 12px; align-items: flex-start; padding: 14px 14px 6px; }
+.dialogo-xp-corpo p { margin: 0; font: 12px Tahoma, sans-serif; line-height: 1.4; }
+.icone-dialogo { flex: none; width: 34px; height: 34px; display: grid; place-items: center; font: 900 22px/1 'Times New Roman', serif; font-style: normal; color: #fff; }
+.icone-dialogo.info { border-radius: 50%; background: radial-gradient(circle at 35% 30%, #8cc2ff, #1a5fd8 70%); box-shadow: inset 0 0 0 2px #fff, 0 1px 2px rgba(0,0,0,.4); }
+.icone-dialogo.info::before { content: 'i'; }
+.icone-dialogo.erro { border-radius: 50%; background: radial-gradient(circle at 35% 30%, #ff9a8a, #d01a1a 70%); box-shadow: inset 0 0 0 2px #fff, 0 1px 2px rgba(0,0,0,.4); font-family: Tahoma, sans-serif; font-size: 18px; }
+.icone-dialogo.erro::before { content: '✕'; }
+.icone-dialogo.pergunta { border-radius: 50%; background: radial-gradient(circle at 35% 30%, #8cc2ff, #1a5fd8 70%); box-shadow: inset 0 0 0 2px #fff, 0 1px 2px rgba(0,0,0,.4); font-family: Tahoma, sans-serif; }
+.icone-dialogo.pergunta::before { content: '?'; }
+.icone-dialogo.aviso { clip-path: polygon(50% 0, 100% 100%, 0 100%); background: linear-gradient(180deg, #ffe873, #f2b600); color: #000; padding-top: 10px; font-family: Tahoma, sans-serif; }
+.icone-dialogo.aviso::before { content: '!'; }
+.dialogo-xp-botoes { display: flex; justify-content: center; gap: 8px; padding: 8px 10px 12px; }
+.dialogo-xp-botoes button {
+    min-width: 76px; padding: 3px 10px; border: 1px solid #003c74; border-radius: 3px; color: #000; font: 11px Tahoma, sans-serif;
+    background: linear-gradient(180deg, #fff, #ecebe6 85%, #d6d0c5); box-shadow: inset 0 0 0 1px #fff;
+}
+.dialogo-xp-botoes button:first-child { box-shadow: inset 0 0 0 2px #98b8ea; }
+@media (prefers-reduced-motion: reduce) {
+    .anuncio, .anuncio-botao, .selo-anuncio, .barrinha-falsa i, .macaco-anuncio { animation: none; }
+}
+
+/* foto aberta: dentro de uma camera digital antiga (a telinha e um buraco na imagem) */
+.camera-foto { position: relative; margin: 0 auto; width: min(600px, 90vw); visibility: hidden; filter: drop-shadow(0 14px 18px rgba(0,0,0,.55)); }
+.camera-foto.pronta { visibility: visible; }
+.camera-foto .tela-camera { position: absolute; overflow: hidden; background: #000; cursor: zoom-in; }
+.lightbox .camera-foto .tela-camera > :first-child { display: block; width: 100%; height: 100%; max-height: none; border: 0; border-radius: 0; object-fit: cover; aspect-ratio: auto; font-size: 60px; }
+/* brilho do vidro da telinha */
+.camera-foto .reflexo-tela {
+    position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(120deg, rgba(255,255,255,.22) 0%, rgba(255,255,255,.06) 36%, transparent 36.5%), linear-gradient(180deg, rgba(255,255,255,.06), transparent 40%);
+}
+.camera-foto .moldura-camera { position: relative; display: block; width: 100%; height: auto; pointer-events: none; }
+
+/* zoom */
+.zoom-foto { position: fixed; inset: 0; z-index: 2100; display: grid; place-items: center; overflow: hidden; background: #000; touch-action: none; cursor: zoom-in; }
+.zoom-foto.ampliada { cursor: grab; }
+.zoom-foto img { max-width: 100vw; max-height: 100vh; transform-origin: center; user-select: none; -webkit-user-drag: none; pointer-events: none; }
+.barra-zoom {
+    position: fixed; top: 10px; left: 50%; translate: -50% 0; display: flex; align-items: center; gap: 4px; padding: 4px;
+    background: #ece9d8; border: 1px solid #0831d9; border-radius: 4px; box-shadow: 2px 2px 6px rgba(0,0,0,.5); font: 11px Tahoma, sans-serif; cursor: default;
+}
+.barra-zoom button { min-width: 26px; height: 24px; padding: 0 8px; background: linear-gradient(#fff, #e3e3db); border: 1px solid #7a7a7a; border-radius: 3px; font: bold 12px Tahoma, sans-serif; cursor: pointer; }
+.barra-zoom #zoom-nivel { min-width: 42px; text-align: center; }
+
+/* datas comemorativas: enfeites que aparecem sozinhos */
+.enfeites-data { position: fixed; inset: 0 0 auto 0; height: 0; z-index: 1900; pointer-events: none; }
+.chuva-data { position: fixed; inset: 0; z-index: 1890; pointer-events: none; }
+.faixa-data { position: absolute; left: 0; right: 0; top: 0; height: 5px; display: block; }
+.varal { position: absolute; left: 0; right: 0; top: 0; height: 60px; overflow: hidden; }
+.fio-varal { position: absolute; left: 0; top: 0; }
+.fio-varal path { fill: none; stroke: #4a3a2a; stroke-width: 1.5; }
+.peca-varal { position: absolute; display: block; font-style: normal; transform-origin: top center; animation: balanca-varal 3s ease-in-out infinite alternate; animation-delay: var(--atraso); }
+@keyframes balanca-varal { from { transform: rotate(-5deg); } to { transform: rotate(5deg); } }
+/* bandeirinha */
+.peca-varal.bandeira { width: 26px; height: 30px; margin-left: -13px; background: var(--cor); clip-path: polygon(0 0, 100% 0, 50% 100%); box-shadow: inset 0 -6px 8px rgba(0,0,0,.15); }
+/* bandeirinha com letra */
+.peca-varal.letra {
+    width: 32px; height: 36px; margin-left: -16px; padding-top: 3px; background: var(--cor); clip-path: polygon(0 0, 100% 0, 100% 72%, 50% 100%, 0 72%);
+    color: #fff; font: bold 15px/1 'Comic Sans MS', 'Comic Sans', cursive; text-align: center; text-shadow: 1px 1px 0 rgba(0,0,0,.45);
+}
+.tema-anonovo .peca-varal.letra { color: #3b2a00; text-shadow: 0 1px 0 rgba(255,255,255,.6); }
+/* papel picado (dia de los muertos) */
+.peca-varal.picado {
+    width: 38px; height: 34px; margin-left: -19px; background: var(--cor); opacity: .95;
+    clip-path: polygon(0 0, 100% 0, 100% 82%, 90% 100%, 80% 82%, 70% 100%, 60% 82%, 50% 100%, 40% 82%, 30% 100%, 20% 82%, 10% 100%, 0 82%);
+    -webkit-mask: radial-gradient(circle at 50% 42%, transparent 0 4px, #000 4.5px), radial-gradient(circle, transparent 0 2px, #000 2.5px) 0 0 / 9px 9px;
+    -webkit-mask-composite: source-in; mask-composite: intersect;
+}
+/* bandeirinha pendurada com prendedor no varal caido */
+.peca-varal.pendurada {
+    width: 34px; height: 23px; margin-left: -17px; margin-top: 1px; background: var(--cor);
+    outline: 1px solid rgba(0,0,0,.45); box-shadow: 2px 3px 3px rgba(0,0,0,.35);
+    transform: rotate(var(--torto)); animation: balanca-pendurada 2.6s ease-in-out infinite alternate; animation-delay: var(--atraso);
+}
+/* prendedor de madeira */
+.peca-varal.pendurada::before {
+    content: ''; position: absolute; left: calc(50% - 3px); top: -6px; width: 6px; height: 11px; border-radius: 1px;
+    background: linear-gradient(90deg, #c8955a 0 45%, #8a5a2b 45% 55%, #d9a86c 55%); box-shadow: 0 1px 1px rgba(0,0,0,.4);
+}
+@keyframes balanca-pendurada { from { transform: rotate(calc(var(--torto) - 6deg)); } to { transform: rotate(calc(var(--torto) + 6deg)); } }
+.varal.pendurado { height: 100px; }
+.varal.pendurado .fio-varal path { stroke: #f2f2f2; stroke-width: 1.6; }
+/* coracaozinho */
+.peca-varal.coracao { width: 20px; height: 18px; margin-left: -10px; margin-top: 2px; background: var(--cor); clip-path: path('M10 18 L1.5 9 A4.6 4.6 0 0 1 10 3.5 A4.6 4.6 0 0 1 18.5 9 Z'); }
+/* luzinha de natal */
+.peca-varal.luz {
+    width: 10px; height: 15px; margin-left: -5px; margin-top: 4px; border-radius: 50% 50% 45% 45% / 60% 60% 40% 40%;
+    background: var(--cor); box-shadow: 0 0 10px 3px var(--cor); animation: pisca-luz 1.4s ease-in-out infinite alternate; animation-delay: var(--atraso);
+}
+.peca-varal.luz::before { content: ''; position: absolute; left: 2px; top: -5px; width: 6px; height: 6px; border-radius: 1px; background: #2f3b2f; }
+@keyframes pisca-luz { from { opacity: 1; } to { opacity: .35; box-shadow: 0 0 3px 1px var(--cor); } }
+.tema-natal .fio-varal path { stroke: #1f4d2b; stroke-width: 2; }
+/* teia e aranha do halloween */
+.teia { position: absolute; top: 0; opacity: .75; }
+.teia line, .teia path { stroke: #e8e8e8; stroke-width: .8; fill: none; }
+.teia.esquerda { left: 0; }
+.teia.direita { right: 0; transform: scaleX(-1); }
+.aranha { position: absolute; right: 70px; top: 0; width: 1px; height: 120px; background: rgba(230,230,230,.7); animation: desce-aranha 6s ease-in-out infinite alternate; transform-origin: top; }
+.aranha::after {
+    content: ''; position: absolute; left: -7px; bottom: -10px; width: 14px; height: 12px; border-radius: 50%; background: #111;
+    box-shadow: -6px -3px 0 -4px #111, 6px -3px 0 -4px #111, -7px 2px 0 -4px #111, 7px 2px 0 -4px #111;
+}
+@keyframes desce-aranha { from { height: 40px; } to { height: 170px; } }
+/* --- cada data pinta o site inteiro ---
+   --t1 escuro (barras, bordas)  --t2 medio  --t3 claro (titulos das caixas)  --t4 bem claro (fundos)
+   --t5 destaque  --t-texto texto dos titulos  --t-titulo cor do texto em cima do --t3
+   --t-letreiro cor da letra do letreiro  --t-papel papel de parede */
+body.tema-aniversario {
+    /* por do sol: dourado, laranja, coral e rosa */
+    --t1: #c2410c; --t2: #f97316; --t3: #ffc77a; --t4: #fff3e0; --t5: #ff4f7b; --t-texto: #5b1d06; --t-titulo: #5b1d06; --t-letreiro: #ffe08a;
+    --t-papel: linear-gradient(180deg, #ffcf56 0%, #ff9a3c 40%, #ff5e78 75%, #8e44ad 100%);
+}
+body.tema-natal {
+    --t1: #8b0f17; --t2: #c41e3a; --t3: #f6caca; --t4: #fdf2f2; --t5: #1f7a3a; --t-texto: #5a0b0b; --t-titulo: #5a0b0b; --t-letreiro: #ffd700;
+    --t-papel:
+        radial-gradient(circle, rgba(255,255,255,.9) 0 2px, transparent 2.5px) 0 0 / 46px 46px,
+        radial-gradient(circle, rgba(255,255,255,.7) 0 1.5px, transparent 2px) 23px 23px / 46px 46px,
+        linear-gradient(180deg, #0b3d1f 0%, #14532d 60%, #e8f1ff 100%);
+}
+body.tema-halloween {
+    --t1: #2d0a3e; --t2: #5b1f7a; --t3: #ffb37a; --t4: #fff0e3; --t5: #ff7518; --t-texto: #3b1250; --t-titulo: #3b1250; --t-letreiro: #ff9a3d;
+    --t-papel:
+        radial-gradient(circle at 82% 18%, #fff6c9 0 55px, rgba(255,246,201,.25) 58px, transparent 90px),
+        radial-gradient(circle, rgba(255,255,255,.7) 0 1px, transparent 1.5px) 0 0 / 70px 70px,
+        linear-gradient(180deg, #12031c 0%, #3d0f52 60%, #b8460f 100%);
+}
+body.tema-anonovo {
+    --t1: #121212; --t2: #3a3a3a; --t3: #ecd98f; --t4: #fbf7e6; --t5: #d4af37; --t-texto: #2b2200; --t-titulo: #2b2200; --t-letreiro: #ffd700;
+    --t-papel:
+        radial-gradient(circle, #ffd700 0 1.5px, transparent 2px) 0 0 / 40px 40px,
+        radial-gradient(circle, #ffffff 0 1px, transparent 1.5px) 20px 20px / 40px 40px,
+        linear-gradient(180deg, #05060f 0%, #1a1c3a 70%, #3a2f0b 100%);
+}
+body.tema-pascoa {
+    --t1: #9c6fc4; --t2: #c9a3e8; --t3: #fbd3e4; --t4: #fff7fb; --t5: #ff8fb1; --t-texto: #5a3a7a; --t-titulo: #5a3a7a; --t-letreiro: #fff;
+    --t-papel:
+        radial-gradient(ellipse 7px 9px, #ffe066 0 98%, transparent 100%) 0 0 / 80px 80px,
+        radial-gradient(ellipse 7px 9px, #a2d2ff 0 98%, transparent 100%) 40px 40px / 80px 80px,
+        linear-gradient(180deg, #e8f7ff 0%, #fde2ef 60%, #c8f7c5 100%);
+}
+body.tema-carnaval {
+    --t1: #6a1b9a; --t2: #e91e63; --t3: #ffe066; --t4: #fff9e0; --t5: #00b4d8; --t-texto: #4a0e5c; --t-titulo: #4a0e5c; --t-letreiro: #ffe066;
+    --t-papel:
+        linear-gradient(45deg, #ffd60a 0 4px, transparent 4px) 0 0 / 50px 50px,
+        linear-gradient(-30deg, #00c2ff 0 4px, transparent 4px) 25px 10px / 60px 60px,
+        linear-gradient(70deg, #7cff3e 0 4px, transparent 4px) 10px 30px / 70px 70px,
+        linear-gradient(180deg, #4a0072 0%, #c2185b 60%, #ff7b00 100%);
+}
+body.tema-copa, body.tema-independencia {
+    --t1: #00752c; --t2: #009c3b; --t3: #ffe45c; --t4: #f3fbe6; --t5: #002776; --t-texto: #00331a; --t-titulo: #00331a; --t-letreiro: #ffdf00;
+    --t-papel:
+        repeating-linear-gradient(90deg, rgba(255,255,255,.07) 0 60px, transparent 60px 120px),
+        linear-gradient(180deg, #002776 0%, #0a7a35 45%, #009c3b 100%);
+}
+body.tema-namorados {
+    --t1: #a4133c; --t2: #e0245e; --t3: #ffc2d4; --t4: #fff0f5; --t5: #ff4d6d; --t-texto: #6b0f2b; --t-titulo: #6b0f2b; --t-letreiro: #ffd1dc;
+    --t-papel:
+        radial-gradient(circle, rgba(255,255,255,.55) 0 3px, transparent 3.5px) 0 0 / 50px 50px,
+        linear-gradient(180deg, #ff8fab 0%, #e0245e 70%, #a4133c 100%);
+}
+body.tema-consciencia {
+    --t1: #1b1b1b; --t2: #8b1a1a; --t3: #f4c400; --t4: #fff8e1; --t5: #138a36; --t-texto: #1b1b1b; --t-titulo: #1b1b1b; --t-letreiro: #f4c400;
+    --t-papel:
+        repeating-linear-gradient(90deg, #c8102e 0 30px, #f4c400 30px 60px, #138a36 60px 90px, #111 90px 120px);
+}
+body.tema-orgulho {
+    --t1: #4b0082; --t2: #750787; --t3: #e2ccff; --t4: #f8f2ff; --t5: #e40303; --t-texto: #3a0060; --t-titulo: #3a0060; --t-letreiro: #ffed00;
+    --t-papel: linear-gradient(180deg, #e40303 0 16.6%, #ff8c00 16.6% 33.3%, #ffed00 33.3% 50%, #008026 50% 66.6%, #004dff 66.6% 83.3%, #750787 83.3%);
+}
+body.tema-trans {
+    --t1: #2f86b0; --t2: #5bcefa; --t3: #f5a9b8; --t4: #fff5f8; --t5: #e0709a; --t-texto: #23516b; --t-titulo: #5a1f33; --t-letreiro: #fff;
+    --t-papel: linear-gradient(180deg, #5bcefa 0 20%, #f5a9b8 20% 40%, #ffffff 40% 60%, #f5a9b8 60% 80%, #5bcefa 80%);
+}
+body.tema-rock {
+    --t1: #111111; --t2: #2b2b2b; --t3: #b30000; --t4: #f0f0f0; --t5: #ff1a1a; --t-texto: #111111; --t-titulo: #ffffff; --t-letreiro: #ff1a1a;
+    --t-papel:
+        radial-gradient(circle at 50% 120%, rgba(204,0,0,.55), transparent 60%),
+        repeating-linear-gradient(135deg, rgba(255,255,255,.03) 0 2px, transparent 2px 6px),
+        linear-gradient(180deg, #000 0%, #1a1a1a 100%);
+}
+body.tema-muertos {
+    --t1: #4a148c; --t2: #e91e63; --t3: #ffcc80; --t4: #fff3e0; --t5: #ff6f00; --t-texto: #3d0c4f; --t-titulo: #3d0c4f; --t-letreiro: #ffb300;
+    --t-papel:
+        radial-gradient(circle, #ff8c00 0 4px, #ffb627 4.5px 6px, transparent 6.5px) 0 0 / 70px 70px,
+        radial-gradient(circle, #ff8c00 0 3px, transparent 3.5px) 35px 35px / 70px 70px,
+        linear-gradient(180deg, #1b0430 0%, #4a148c 60%, #7b1fa2 100%);
+}
+
+/* as cores entram em tudo */
+body[class*="tema-"] {
+    --azul-escuro: var(--t-texto); --azul-medio: var(--t2); --azul-claro: var(--t3); --lilas: var(--t3); --rosa: var(--t5);
+    --fundo-janela: var(--t4); --painel: linear-gradient(180deg, var(--t4) 0%, var(--t3) 100%); --painel-borda: var(--t2);
+    --link: var(--t1); --xp-azul: var(--t1);
+    background: var(--t-papel) !important; background-attachment: fixed !important;
+}
+body[class*="tema-"] .janela { border-color: var(--t1); }
+body[class*="tema-"] .barra-titulo { background: linear-gradient(180deg, var(--t1) 0%, var(--t2) 10%, var(--t1) 45%, var(--t1) 100%); text-shadow: 1px 1px 1px rgba(0,0,0,.5); }
+body[class*="tema-"] .abas { background: var(--t2); }
+body[class*="tema-"] .aba { background: var(--t3); color: var(--t-titulo); }
+body[class*="tema-"] .aba.ativa { background: var(--t4); color: var(--t-texto); }
+body[class*="tema-"] .icone-btn.ir { background: var(--t2); }
+body[class*="tema-"] .topo { background: url("imagens/gifs/fundo-estrelas.gif"), color-mix(in srgb, var(--t1) 55%, #000); background-blend-mode: screen; border-bottom-color: var(--t3); }
+body[class*="tema-"] .letreiro { background: var(--t1); color: var(--t-letreiro); border-bottom-color: var(--t5); }
+body[class*="tema-"] .conteudo {
+    background-color: var(--t4);
+    background-image:
+        linear-gradient(45deg, color-mix(in srgb, var(--t3) 45%, transparent) 25%, transparent 25%, transparent 75%, color-mix(in srgb, var(--t3) 45%, transparent) 75%),
+        linear-gradient(45deg, color-mix(in srgb, var(--t3) 45%, transparent) 25%, transparent 25%, transparent 75%, color-mix(in srgb, var(--t3) 45%, transparent) 75%);
+}
+body[class*="tema-"] .area-pagina { scrollbar-color: var(--t2) var(--t4); }
+body[class*="tema-"] .area-pagina a { color: var(--t1); }
+body[class*="tema-"] .area-pagina a:hover { color: var(--t5); }
+body[class*="tema-"] .area-pagina ::selection { background: var(--t5); }
+body[class*="tema-"] .nav a, body[class*="tema-"] .nav a:visited { color: #fff; border-left-color: var(--t3); }
+body[class*="tema-"] .nav a:hover { color: var(--t3); }
+body[class*="tema-"] .nav a.ativo { background: var(--t5); color: #fff; }
+body[class*="tema-"] .caixa, body[class*="tema-"] .menuperfil { border-color: var(--t2); box-shadow: 3px 3px 0 var(--t3); }
+body[class*="tema-"] .caixa > h2, body[class*="tema-"] .caixa > h3, body[class*="tema-"] .caixa-titulo { background: var(--t3); border-bottom-color: var(--t2); color: var(--t-titulo); }
+body[class*="tema-"] .caixa-titulo a, body[class*="tema-"] .caixa h2 small, body[class*="tema-"] .caixa h3 small { color: var(--t-titulo); }
+body[class*="tema-"] .sub-caixa { background: var(--t4); border-color: var(--t2); }
+body[class*="tema-"] .menuperfil a { border-bottom-color: var(--t3); }
+body[class*="tema-"] .menuperfil a.ativo { background: var(--t3); color: var(--t-titulo); }
+body[class*="tema-"] .nome-lateral { color: var(--t-texto); }
+body[class*="tema-"] .barra-tarefas { background: linear-gradient(180deg, var(--t2) 0%, color-mix(in srgb, var(--t2) 70%, #fff) 8%, var(--t1) 45%, var(--t1) 90%, color-mix(in srgb, var(--t1) 70%, #000) 100%); }
+body[class*="tema-"] .tarefas button { background: linear-gradient(180deg, color-mix(in srgb, var(--t2) 80%, #fff), var(--t2)); border-color: var(--t1); }
+body[class*="tema-"] .tarefas button.ativa { background: linear-gradient(180deg, var(--t1), color-mix(in srgb, var(--t1) 80%, #fff)); }
+body[class*="tema-"] .bandeja { background: linear-gradient(180deg, var(--t1), var(--t2) 50%, var(--t1)); border-left-color: color-mix(in srgb, var(--t1) 70%, #000); }
+body[class*="tema-"] .botao-iniciar { background: linear-gradient(180deg, var(--t5) 0%, color-mix(in srgb, var(--t5) 70%, #fff) 10%, var(--t5) 50%, color-mix(in srgb, var(--t5) 75%, #000) 100%); }
+body[class*="tema-"] .menu-iniciar { border-color: var(--t1); }
+/* no aniversario a letra da barra fica escura pra ler no amarelo */
+body.tema-aniversario .barra-titulo, body.tema-aniversario .tarefas button, body.tema-aniversario .bandeja { color: #fff; text-shadow: 1px 1px 1px rgba(80,50,0,.8); }
+
+/* estacao do ano do lado do relogio */
+.estacao { display: inline-flex; align-items: center; gap: 4px; color: #fff; font-size: 11px; cursor: default; }
+.icone-estacao { display: inline-block; width: 12px; height: 12px; flex: none; }
+.icone-estacao.verao { border-radius: 50%; background: radial-gradient(circle, #fff3a0 0 30%, #ffc800 32% 55%, transparent 58%), repeating-conic-gradient(#ffc800 0 12deg, transparent 12deg 45deg); }
+.icone-estacao.outono { background: linear-gradient(135deg, #ffb347, #d2531b); border-radius: 0 100% 0 100%; transform: rotate(-10deg); }
+.icone-estacao.inverno { background: radial-gradient(circle, #fff 0 18%, transparent 20%), conic-gradient(from 0deg, #bfe6ff 0 15deg, transparent 15deg 60deg, #bfe6ff 60deg 75deg, transparent 75deg 120deg, #bfe6ff 120deg 135deg, transparent 135deg 180deg, #bfe6ff 180deg 195deg, transparent 195deg 240deg, #bfe6ff 240deg 255deg, transparent 255deg 300deg, #bfe6ff 300deg 315deg, transparent 315deg); border-radius: 50%; }
+.icone-estacao.primavera { border-radius: 50%; background: radial-gradient(circle, #ffe14d 0 22%, transparent 24%), radial-gradient(circle at 50% 18%, #ff8fc7 0 22%, transparent 24%), radial-gradient(circle at 50% 82%, #ff8fc7 0 22%, transparent 24%), radial-gradient(circle at 18% 50%, #ff8fc7 0 22%, transparent 24%), radial-gradient(circle at 82% 50%, #ff8fc7 0 22%, transparent 24%); }
+@media (max-width: 720px) {
+    .estacao { font-size: 10px; gap: 3px; }
+    .varal { height: 50px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .peca-varal, .aranha { animation: none; }
+    .peca-varal.pendurada { transform: rotate(var(--torto)); }
+}
+
+/* --- datas com cara de internet antiga --- */
+/* azulejo de desenhinho repetido por cima do papel de parede */
+body[class*="tema-"] { background: var(--t-tile-fundo, linear-gradient(transparent, transparent)), var(--t-papel) !important; background-attachment: fixed !important; }
+.pixel { display: block; image-rendering: pixelated; }
+.chuva-data { width: 100vw; height: 100vh; image-rendering: pixelated; }
+/* varal com contorno preto, igual gif antigo */
+.varal { filter: drop-shadow(1px 0 0 rgba(0,0,0,.7)) drop-shadow(0 1px 0 rgba(0,0,0,.7)); }
+.peca-varal.letra { font: bold 15px/1 'Comic Sans MS', 'Comic Sans', cursive; }
+
+/* faixa grandona tipo wordart */
+.faixa-comemorativa {
+    display: flex; align-items: center; justify-content: center; gap: 14px; padding: 10px 12px; overflow: hidden;
+    background: var(--t-tile, none), color-mix(in srgb, var(--t1) 70%, #000);
+    border-top: 4px ridge var(--t3); border-bottom: 4px ridge var(--t3);
+}
+.lado-faixa { flex: none; animation: pula-pixel .6s steps(2) infinite alternate; }
+.lado-faixa.espelho { transform: scaleX(-1); animation-delay: .3s; }
+@keyframes pula-pixel { to { translate: 0 -6px; } }
+.miolo-faixa { text-align: center; min-width: 0; }
+.wordart {
+    font: 900 30px/1.1 'Comic Sans MS', 'Comic Sans', 'Arial Black', cursive; letter-spacing: 1px; white-space: normal;
+    -webkit-text-stroke: 1.5px #000;
+    filter: drop-shadow(2px 2px 0 var(--t5)) drop-shadow(2px 2px 0 #000);
+}
+/* letra com degrade por dentro, igual wordart */
+.wordart .palavra { display: inline-block; white-space: nowrap; background: none; animation: none; }
+.wordart span:not(.palavra) {
+    display: inline-block; animation: onda-letra 1.2s ease-in-out infinite;
+    background: linear-gradient(180deg, #ffffff 0%, var(--wa1, #ffe066) 35%, var(--wa2, var(--t5)) 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+@keyframes onda-letra { 50% { transform: translateY(-5px); } }
+.sub-faixa { margin-top: 4px; font: bold 12px 'Comic Sans MS', 'Comic Sans', cursive; color: #fff; text-shadow: 1px 1px 0 #000; }
+.sub-faixa .piscar { color: var(--t3); }
+/* faixas com fundo claro precisam de letra escura */
+/* cores do degrade da wordart em cada data */
+.tema-aniversario { --wa1: #ffe066; --wa2: #ff4f7b; }
+.tema-natal { --wa1: #ffd700; --wa2: #ff3b3b; }
+.tema-halloween { --wa1: #ffb347; --wa2: #ff5a00; }
+.tema-anonovo { --wa1: #fff3b0; --wa2: #d4af37; }
+.tema-pascoa { --wa1: #ffd6e8; --wa2: #b37ad9; }
+.tema-carnaval { --wa1: #ffe066; --wa2: #ff2e93; }
+.tema-copa, .tema-independencia { --wa1: #ffef5c; --wa2: #009c3b; }
+.tema-namorados { --wa1: #ffc2d4; --wa2: #e0245e; }
+.tema-consciencia { --wa1: #f4c400; --wa2: #c8102e; }
+.tema-orgulho { --wa1: #ffed00; --wa2: #e40303; }
+.tema-trans { --wa1: #f5a9b8; --wa2: #5bcefa; }
+.tema-rock { --wa1: #ffcc00; --wa2: #ff1a1a; }
+.tema-muertos { --wa1: #ffcc80; --wa2: #ff3d8b; }
+
+@media (max-width: 720px) {
+    .wordart { font-size: 20px; }
+    .lado-faixa .pixel { width: 36px; height: auto; }
+    .faixa-comemorativa { gap: 6px; padding: 8px 6px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .lado-faixa, .wordart span { animation: none; }
+}
+
+/* winamp no dia do tema: pinta a skin com as cores da data (sem o giro de cor do dia da semana) */
+body[class*="tema-"] .winamp { --wa-lcd: color-mix(in srgb, var(--t1) 55%, #000); background: linear-gradient(180deg, #fff, var(--t4) 40%, var(--t3)); border-color: var(--t1); color: var(--t-texto); }
+body[class*="tema-"] .wa-barra, body[class*="tema-"] .wa-titulo { color: var(--t-texto); }
+body[class*="tema-"] .wa-corpo { background: linear-gradient(180deg, var(--t3), var(--t2) 60%, var(--t1)); border-color: var(--t1); }
+body[class*="tema-"] .wa-lcd { background: var(--wa-lcd); border-color: var(--t2); color: var(--t3); }
+body[class*="tema-"] .wa-rotulos { color: var(--t3); }
+body[class*="tema-"] .wa-tempo { text-shadow: 0 0 4px var(--t3); }
+body[class*="tema-"] .tela-player { background: var(--t4); border-color: var(--t2); color: var(--t-texto); }
+body[class*="tema-"] .wa-info span { background: var(--t3); border-color: var(--t1); color: var(--t-titulo); }
+body[class*="tema-"] .equalizador i { background: linear-gradient(0deg, var(--t5), var(--t3)); }
+body[class*="tema-"] .progresso-player { background: var(--wa-lcd); border-color: var(--t2); }
+body[class*="tema-"] .progresso-player span { background: var(--t3); }
+body[class*="tema-"] .controles-player .wa-botao { background: linear-gradient(180deg, var(--t3), var(--t2)); color: var(--t-titulo); }
+body[class*="tema-"] .controles-player .wa-botao.ativo { background: linear-gradient(180deg, var(--t2), var(--t1)); color: #fff; }
+body[class*="tema-"] .wa-eq, body[class*="tema-"] .wa-playlist { background: linear-gradient(180deg, var(--t3), var(--t2)); border-color: var(--t1); }
+body[class*="tema-"] .wa-eq .wa-titulo, body[class*="tema-"] .wa-playlist .wa-titulo, body[class*="tema-"] .wa-sliders label { color: var(--t-titulo); }
+body[class*="tema-"] .wa-led, body[class*="tema-"] .wa-rodape b { background: var(--wa-lcd); color: var(--t3); }
+body[class*="tema-"] .wa-curva { background-color: var(--wa-lcd); background-image: radial-gradient(ellipse 60% 120% at 30% 120%, transparent 60%, var(--t3) 62%, transparent 66%); }
+body[class*="tema-"] .wa-sliders input { accent-color: var(--t1); }
+body[class*="tema-"] .lista-player { background: var(--t4); border-color: var(--t2); }
+body[class*="tema-"] .lista-player button, body[class*="tema-"] .lista-player a { color: var(--t-texto); }
+body[class*="tema-"] .lista-player .atual a { background: var(--wa-lcd); color: var(--t3); }
+/* rock: letra clara no titulo que fica em cima do vermelho */
+body.tema-rock .wa-barra, body.tema-rock .winamp > .wa-titulo { color: #111; }
+
+/* rodape do site tambem entra no tema */
+body[class*="tema-"] .rodape-site { background: color-mix(in srgb, var(--t1) 60%, #000); color: var(--t4); border-top-color: var(--t3); }
+body[class*="tema-"] .rodape-site a, body[class*="tema-"] .rodape-site a:visited { color: var(--t3); }
+body[class*="tema-"] .webring { background: var(--t1); border-color: var(--t3); }
+
+/* o varal fica so no alto da pagina (rola junto e nao cobre nada) e a area de trabalho desce pra ele caber */
+.enfeites-data { position: absolute; }
+body[class*="tema-"] .area-trabalho { padding-top: 64px !important; }
+body.tema-orgulho .area-trabalho, body.tema-trans .area-trabalho, body.tema-consciencia .area-trabalho, body.tema-independencia .area-trabalho, body.tema-copa .area-trabalho { padding-top: 74px !important; }
+@media (max-width: 1100px) {
+    body[class*="tema-"] .area-trabalho { padding-top: 54px !important; }
+    body.tema-orgulho .area-trabalho, body.tema-trans .area-trabalho, body.tema-consciencia .area-trabalho, body.tema-independencia .area-trabalho, body.tema-copa .area-trabalho { padding-top: 66px !important; }
+}
+
+/* aniversario: faixa com ceu de por do sol, sol se pondo e montanhas */
+.tema-aniversario .faixa-comemorativa {
+    position: relative;
+    background:
+        radial-gradient(circle at 50% 118%, #fff3b0 0 18%, #ffd56b 19% 24%, transparent 25%),
+        linear-gradient(180deg, transparent 72%, rgba(91, 29, 6, .55) 72%) ,
+        linear-gradient(180deg, #ffcf56 0%, #ff9a3c 45%, #ff5e78 80%, #c56cf0 100%);
+    border-top-color: #ffc77a; border-bottom-color: #ffc77a;
+}
+.tema-aniversario .faixa-comemorativa::before {
+    content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 30%; pointer-events: none;
+    background: var(--t-tile, none) 0 100% / 110px auto repeat-x;
+    opacity: .5; mix-blend-mode: multiply;
+}
+.tema-aniversario .faixa-comemorativa > * { position: relative; }
+.tema-aniversario .sub-faixa { color: #fff; text-shadow: 1px 1px 0 #5b1d06, -1px -1px 0 #5b1d06, 1px -1px 0 #5b1d06, -1px 1px 0 #5b1d06, 2px 2px 0 #5b1d06; }
+
+/* celular em pe: janela deitada (girada) ocupando a tela toda */
+.janela-app.deitado {
+    position: fixed !important; left: 0 !important; top: 0 !important; right: auto !important;
+    width: 100vh !important; height: 100vw !important; max-width: none !important; max-height: none !important;
+    transform-origin: top left; transform: translateX(100vw) rotate(90deg); translate: none !important;
+    z-index: 3000 !important; border-radius: 0; display: flex; flex-direction: column; overflow: hidden;
+}
+@supports (height: 100dvh) {
+    .janela-app.deitado { width: 100dvh !important; height: 100dvw !important; transform: translateX(100dvw) rotate(90deg); }
+}
+.janela-app.deitado > .barra-titulo { flex: none; }
+#fazenda.deitado #fazenda-frame { flex: 1; aspect-ratio: auto; max-height: none; height: auto; }
+/* paint deitado: desenho do tamanho da altura, ferramentas em 3 colunas e cores numa faixa so */
+#paint.deitado .corpo-app { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 4px; }
+#paint.deitado .paint-area { flex: 1; min-height: 0; }
+#paint.deitado .paint-ferramentas { grid-template-columns: repeat(3, 26px); }
+#paint.deitado .paint-lado { min-height: 0; }
+#paint.deitado .paint-tela { flex: 1; min-height: 0; display: flex; }
+#paint.deitado .paint-tela canvas { flex: none; width: auto; height: 100%; margin: auto; }
+#paint.deitado .paint-cores { flex: none; margin-top: 4px; gap: 4px; flex-wrap: nowrap; }
+#paint.deitado #paleta-personalizada { display: none; }
+#paint.deitado .paleta { grid-template-columns: repeat(14, 15px); }
+#paint.deitado .rodape-app { display: none; }
+
+/* jogo do dino deitado em tela cheia */
+.dino-deitado {
+    position: fixed; left: 0; top: 0; z-index: 4000; width: 100vh; height: 100vw;
+    transform-origin: top left; transform: translateX(100vw) rotate(90deg);
+    background: #fff; display: flex; flex-direction: column; justify-content: center; align-items: center; touch-action: none;
+}
+@supports (height: 100dvh) {
+    .dino-deitado { width: 100dvh; height: 100dvw; transform: translateX(100dvw) rotate(90deg); }
+}
+.dino-deitado canvas { width: 100%; max-width: none; margin: 0; background: #fff; image-rendering: pixelated; touch-action: none; }
+.dino-deitado canvas.noite { filter: invert(1); }
+.sair-dino { position: absolute; top: 10px; right: 10px; padding: 6px 12px; border: 2px solid #535353; border-radius: 6px; background: #fff; color: #535353; font: bold 13px Tahoma, sans-serif; }
+.dica-dino { margin: 10px 0 0; color: #8a8a8a; font: 12px Tahoma, sans-serif; }
+
+/* botao de expandir o jogo do dino: so aparece no celular em pe */
+.expandir-dino { display: none; margin: -14px auto 18px; padding: 6px 14px; border: 2px solid #535353; border-radius: 6px; background: #fff; color: #535353; font: bold 13px Tahoma, sans-serif; }
+@media (pointer: coarse) and (max-width: 720px) and (orientation: portrait) {
+    .expandir-dino { display: block; }
+}
+
+/* ---------- moldura de museu nas pinturas do mural ---------- */
+.moldura-museu {
+    --ouro: linear-gradient(135deg, #6e4a0e 0%, #e9c463 18%, #fff3b8 30%, #b8862b 48%, #f3d57c 66%, #8a6018 84%, #d9ad4c 100%);
+    --enfeite: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23fff3b8'/%3E%3Cstop offset='.45' stop-color='%23d6a23c'/%3E%3Cstop offset='1' stop-color='%236e4a0e'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cg fill='url(%23g)' stroke='%232e1d04' stroke-width='1.3' stroke-linejoin='round'%3E%3Cpath d='M3 37C1 24 4 12 12 6C19 1 30 1 37 4C31 5 25 8 23 13C28 11 32 14 31 18C29 22 23 21 22 17C18 21 16 28 17 37C13 34 8 34 3 37Z'/%3E%3Cpath d='M6 26C9 21 13 20 16 22C13 23 11 26 11 30C9 28 7 27 6 26Z'/%3E%3Cpath d='M26 6C27 9 30 10 33 9'/%3E%3Ccircle cx='9.5' cy='9.5' r='3.6'/%3E%3C/g%3E%3C/svg%3E");
+    --crista: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23fff3b8'/%3E%3Cstop offset='.5' stop-color='%23d6a23c'/%3E%3Cstop offset='1' stop-color='%236e4a0e'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cg fill='url(%23g)' stroke='%232e1d04' stroke-width='1.2' stroke-linejoin='round'%3E%3Cpath d='M17 24C8 25 2 20 5 14C8 9 14 11 13 16C17 15 19 19 17 24Z'/%3E%3Cpath d='M47 24C56 25 62 20 59 14C56 9 50 11 51 16C47 15 45 19 47 24Z'/%3E%3Cpath d='M32 2C23 4 17 12 16 23L13 27C18 31 46 31 51 27L48 23C47 12 41 4 32 2Z'/%3E%3Cpath fill='none' d='M32 28V6M32 28L24 8M32 28L40 8M32 28L19 16M32 28L45 16'/%3E%3C/g%3E%3C/svg%3E");
+    position: relative; display: inline-block; line-height: 0; padding: 15px; max-width: 100%; box-sizing: border-box;
+    background: var(--ouro);
+    box-shadow: 0 0 0 1px #2e1d04, 0 5px 10px rgba(0,0,0,.45),
+        inset 0 0 0 2px #fff3b8, inset 0 0 0 3px #6e4a0e, inset 0 0 0 9px #c9973a, inset 0 0 0 10px #4a3008, inset 0 0 0 12px #f0cf73;
+}
+/* fileira de bolinhas (perolado), igual ao anel pontilhado das molduras antigas */
+.moldura-museu::before {
+    content: ''; position: absolute; inset: 4px; pointer-events: none;
+    border: 3px dotted rgba(60, 38, 6, .55); border-radius: 1px;
+}
+.moldura-museu > img {
+    display: block; max-width: 100%; height: auto; position: relative;
+    border: 2px solid #2e1d04; box-shadow: 0 0 0 1px #f0cf73, inset 0 0 6px rgba(0,0,0,.4); background: #fff;
+}
+.moldura-museu .orn { position: absolute; width: 30px; height: 30px; background: var(--enfeite) center / contain no-repeat; pointer-events: none; z-index: 1; }
+.moldura-museu .o1 { top: -7px; left: -7px; }
+.moldura-museu .o2 { top: -7px; right: -7px; transform: scaleX(-1); }
+.moldura-museu .o3 { bottom: -7px; left: -7px; transform: scaleY(-1); }
+.moldura-museu .o4 { bottom: -7px; right: -7px; transform: scale(-1, -1); }
+.moldura-museu .crista { position: absolute; left: 50%; top: -16px; width: 52px; height: 26px; margin-left: -26px; background: var(--crista) center / contain no-repeat; pointer-events: none; z-index: 1; }
+.moldura-museu .crista.baixo { top: auto; bottom: -12px; width: 38px; height: 19px; margin-left: -19px; transform: scaleY(-1); }
+
+/* mural da pagina de recados: parede de museu */
+.grade-desenhos { gap: 26px 18px; padding: 18px 6px 6px; }
+.desenho { background: none; border: 0; padding: 0; text-align: center; }
+.desenho.aprovado { box-shadow: none; }
+.desenho.aprovado .moldura-museu { outline: 3px solid #2fb32f; outline-offset: 4px; }
+.ver-pintura { display: block; width: 100%; padding: 0; border: 0; background: none; cursor: zoom-in; line-height: 0; }
+.ver-pintura:hover .moldura-museu, .ver-pintura:focus-visible .moldura-museu { filter: brightness(1.08); transform: translateY(-2px); }
+.ver-pintura .moldura-museu { transition: transform .15s, filter .15s; }
+.desenho img { border: 2px solid #2e1d04; }
+.desenho figcaption { padding-top: 15px; }
+.plaquinha {
+    display: inline-block; padding: 3px 10px; line-height: 1.4; color: #2e1d04;
+    background: linear-gradient(#f6e3a0, #c9a24a); border: 1px solid #6e4a0e; border-radius: 2px;
+    box-shadow: inset 0 1px 0 #fff6cf, 0 1px 2px rgba(0,0,0,.35);
+}
+
+/* mini mural do inicio: moldurinha sem tanto enfeite */
+.mini-mural button { background: none; border: 0; padding: 4px 2px; display: flex; align-items: center; justify-content: center; }
+.mini-mural button:hover { background: none; }
+.mini-mural button:hover .moldura-museu { filter: brightness(1.1); }
+.moldura-museu.mini { padding: 5px; box-shadow: 0 0 0 1px #2e1d04, 0 2px 4px rgba(0,0,0,.4), inset 0 0 0 1px #fff3b8, inset 0 0 0 3px #b8862b, inset 0 0 0 4px #4a3008; }
+.moldura-museu.mini::before, .moldura-museu.mini .crista { display: none; }
+.moldura-museu.mini .orn { width: 11px; height: 11px; }
+.moldura-museu.mini .o1, .moldura-museu.mini .o2 { top: -3px; }
+.moldura-museu.mini .o3, .moldura-museu.mini .o4 { bottom: -3px; }
+.moldura-museu.mini .o1, .moldura-museu.mini .o3 { left: -3px; }
+.moldura-museu.mini .o2, .moldura-museu.mini .o4 { right: -3px; }
+.mini-mural .moldura-museu.mini > img { width: auto; max-width: 100%; max-height: 48px; aspect-ratio: auto; object-fit: contain; border-width: 1px; }
+
+/* pintura aberta grande */
+.quadro-grande { display: flex; justify-content: center; padding: 18px 0 8px; filter: drop-shadow(0 14px 18px rgba(0,0,0,.55)); }
+.moldura-museu.grande { padding: 26px; cursor: zoom-in;
+    box-shadow: 0 0 0 1px #2e1d04, inset 0 0 0 3px #fff3b8, inset 0 0 0 5px #6e4a0e, inset 0 0 0 14px #c9973a, inset 0 0 0 16px #4a3008, inset 0 0 0 19px #f0cf73; }
+.moldura-museu.grande::before { inset: 7px; border-width: 5px; }
+.moldura-museu.grande .orn { width: 54px; height: 54px; }
+.moldura-museu.grande .o1, .moldura-museu.grande .o2 { top: -12px; }
+.moldura-museu.grande .o3, .moldura-museu.grande .o4 { bottom: -12px; }
+.moldura-museu.grande .o1, .moldura-museu.grande .o3 { left: -12px; }
+.moldura-museu.grande .o2, .moldura-museu.grande .o4 { right: -12px; }
+.moldura-museu.grande .crista { width: 92px; height: 46px; margin-left: -46px; top: -30px; }
+.moldura-museu.grande .crista.baixo { width: 64px; height: 32px; margin-left: -32px; top: auto; bottom: -20px; }
+.lightbox .moldura-museu.grande > img.pintura-grande { max-width: min(78vw, 900px); max-height: 66vh; width: auto; height: auto; border: 3px solid #2e1d04; border-radius: 0; }
+@media (max-width: 560px) {
+    .moldura-museu.grande { padding: 16px; }
+    .moldura-museu.grande .orn { width: 34px; height: 34px; }
+    .moldura-museu.grande .crista { width: 64px; height: 32px; margin-left: -32px; top: -20px; }
+}
+
+/* gifs antigos de cada data */
+.gif-faixa { flex: none; max-height: 64px; max-width: 90px; width: auto; height: auto; }
+.gifs-data { margin-top: 10px; }
+.lista-gifs-data { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; padding: 4px 0; }
+.lista-gifs-data img { max-height: 56px; max-width: 70px; width: auto; height: auto; }
+@media (max-width: 720px) {
+    .gif-faixa { max-height: 40px; max-width: 48px; }
+}
+
+/* sessao da tv: sala antiga, tv sharp em cima da escrivaninha */
+.sala-tv {
+    position: relative; margin: 0 -8px; padding: 18px 10px 0; overflow: hidden;
+    background: linear-gradient(rgba(20, 10, 0, .35), rgba(20, 10, 0, .55)), url(imagens/tv/sala.jpg) center 30% / cover;
+}
+.palco-tv { position: relative; width: min(560px, 100%); margin: 0 auto; touch-action: pan-y; user-select: none; }
+/* tela fica atras da moldura (a moldura tem o buraco) */
+.tela-tv {
+    position: absolute; left: 8.39%; top: 10.31%; width: 81.94%; height: 69.98%;
+    border-radius: 6% / 8%; overflow: hidden; background: #000; z-index: 1;
+}
+.aparelho-tv { position: relative; z-index: 2; width: 78%; margin: 0 auto; }
+.tela-tv iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+/* brilho de vidro e linhas de tv de tubo por cima (nao atrapalha clicar) */
+.tela-tv::after {
+    content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 3;
+    background:
+        radial-gradient(120% 90% at 50% 50%, transparent 60%, rgba(0, 0, 0, .55) 100%),
+        linear-gradient(115deg, rgba(255, 255, 255, .12) 0%, transparent 35%),
+        repeating-linear-gradient(0deg, rgba(0, 0, 0, .18) 0 1px, transparent 1px 3px);
+}
+.chiado-tv { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 2; opacity: 0; pointer-events: none; image-rendering: pixelated; }
+.chiado-tv.ligado { opacity: 1; }
+.numero-canal {
+    position: absolute; top: 8%; right: 7%; z-index: 4; pointer-events: none; opacity: 0; transition: opacity .3s;
+    font: bold clamp(16px, 4vw, 28px) 'Courier New', monospace; color: #3dff5c; text-shadow: 0 0 6px #3dff5c, 2px 2px 0 #000;
+}
+.numero-canal.aparece { opacity: 1; }
+.moldura-tv { position: relative; z-index: 2; display: block; width: 100%; height: auto; pointer-events: none; filter: drop-shadow(0 10px 10px rgba(0, 0, 0, .6)); }
+/* botoes de canal em cima dos botoes de verdade da tv (CH ▲ ▼) */
+.botao-ch { position: absolute; z-index: 3; width: 3.4%; height: 4%; top: 90.2%; padding: 0; border: 0; background: transparent; cursor: pointer; }
+.botao-ch.baixo { left: 56.1%; }
+.botao-ch.cima { left: 59.8%; }
+.botao-ch:hover { background: rgba(255, 255, 200, .25); border-radius: 2px; }
+.escrivaninha-tv { position: relative; z-index: 1; display: block; width: 100%; height: auto; margin-top: -2%; pointer-events: none; }
+.controle-tv { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px; margin: 10px 0 4px; }
+#nome-canal-tv { min-width: 170px; text-align: center; font: bold 13px 'Courier New', monospace; color: #222; background: #e9f7d6; border: 2px inset #ccc; padding: 3px 8px; }
+.grade-programacao { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 4px; margin-top: 10px; padding: 8px; background: #000080; border: 2px inset #ccc; }
+.grade-programacao b { grid-column: 1 / -1; color: #ffff66; font: bold 13px 'Comic Sans MS', cursive; }
+.grade-programacao button { display: flex; align-items: baseline; gap: 6px; padding: 3px 6px; border: 1px solid #3a3aa8; background: #10107a; color: #fff; font: 11px Verdana, sans-serif; text-align: left; cursor: pointer; }
+.grade-programacao button span { color: #3dff5c; font: bold 11px 'Courier New', monospace; }
+.grade-programacao button small { margin-left: auto; color: #aab; font-size: 9px; }
+.grade-programacao button.ativo, .grade-programacao button:hover { background: #ffff66; color: #000080; }
+.grade-programacao button.ativo span, .grade-programacao button:hover span { color: #000080; }
+
+/* sessao da tv ocupando a pagina inteira, como se fosse uma sala de verdade */
+body.na-sala-tv .conteudo { grid-template-columns: minmax(0, 1fr); padding: 0; background: #2a1a0e; }
+body.na-sala-tv .perfil-lateral, body.na-sala-tv .coluna-direita { display: none; }
+body.na-sala-tv .caixa-tv { margin: 0; border: 0; box-shadow: none; padding: 0; background: #1c120a; }
+body.na-sala-tv .caixa-tv > .caixa-titulo { margin: 0; }
+body.na-sala-tv .sala-tv {
+    margin: 0; padding: 4vh 12px 0; min-height: 72vh; display: flex; align-items: flex-end; justify-content: center;
+    background:
+        radial-gradient(ellipse at 50% 35%, rgba(255, 220, 160, .18), transparent 60%),
+        linear-gradient(rgba(20, 10, 0, .25), rgba(20, 10, 0, .55)),
+        url(imagens/tv/sala.jpg) center 35% / cover;
+}
+body.na-sala-tv .palco-tv { width: min(820px, 100%); }
+body.na-sala-tv .controle-tv, body.na-sala-tv .dica { color: #f3e6d0; }
+body.na-sala-tv .controle-tv { padding: 10px 8px 2px; margin: 0; background: #1c120a; }
+body.na-sala-tv .caixa-tv > .dica { margin: 0; padding: 4px 8px 8px; background: #1c120a; }
+body.na-sala-tv .grade-programacao { margin: 0 10px 10px; }
+
+/* tela cheia */
+.sair-tela-cheia { display: none; }
+.tela-tv:fullscreen, .tela-tv.tela-cheia-falsa { border-radius: 0; background: #000; }
+.tela-tv.tela-cheia-falsa { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 9500; }
+/* celular em pe: a tela cheia de mentira deita o video, igual no app do youtube */
+@media (orientation: portrait) and (pointer: coarse) {
+    .tela-tv.tela-cheia-falsa { inset: auto; top: 0; left: 100vw; width: 100vh; height: 100vw; transform: rotate(90deg); transform-origin: top left; }
+}
+.tela-tv:fullscreen .sair-tela-cheia, .tela-tv.tela-cheia-falsa .sair-tela-cheia {
+    display: block; position: absolute; top: 10px; right: 10px; z-index: 5; padding: 6px 12px; border: 2px solid #fff; border-radius: 6px;
+    background: rgba(0, 0, 0, .6); color: #fff; font: bold 13px Tahoma, sans-serif; cursor: pointer;
+}
+body.tv-tela-cheia .barra-tarefas, body.tv-tela-cheia .icones-desktop, body.tv-tela-cheia .enfeites-data, body.tv-tela-cheia .chuva-data { display: none; }
+body.tv-tela-cheia #navegador { z-index: 9400 !important; }
+body.tv-tela-cheia #navegador > :not(.area-pagina):not(.corpo-navegador) { visibility: hidden; }
+
+/* mural do inicio: quadrinhos todos do mesmo tamanho preenchendo a caixa (2 por linha na coluna, 4 quando a caixa e larga) */
+.caixa-mural .mini-mural { grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 10px 8px; height: auto; max-width: 420px; margin: 4px auto 6px; padding: 4px 2px 0; overflow: visible; }
+.caixa-mural .mini-mural button { padding: 0; display: block; }
+.caixa-mural .mini-mural .moldura-museu.mini { display: block; width: 100%; }
+.caixa-mural .mini-mural .moldura-museu.mini > img { display: block; width: 100%; height: auto; max-height: none; aspect-ratio: 4 / 3; object-fit: cover; background: #fff; }

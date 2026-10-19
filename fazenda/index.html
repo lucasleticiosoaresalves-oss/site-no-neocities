@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; object-src 'none'; base-uri 'self'">
+    <title>Fazenda do Lucas</title>
+    <meta name="description" content="Fazenda do Lucas: joguinho de fazenda com fases, metas e medalhas, no estilo dos jogos de fazenda antigos.">
+    <link rel="stylesheet" href="fazenda.css?v=28">
+</head>
+<body>
+<div id="tela">
+    <div id="palco" data-tela="carregando">
+        <canvas id="cv"></canvas>
+
+        <!-- tela de titulo -->
+        <div id="tela-inicio" class="tela">
+            <div class="logo-ff">
+                <div class="medalhao"><img data-i="mascote" alt=""></div>
+                <h1 class="logo"><span class="l1">Fazenda</span><span class="l2">do Lucas</span></h1>
+            </div>
+            <div class="quadro-menu">
+                <div class="prego p1"></div><div class="prego p2"></div><div class="prego p3"></div><div class="prego p4"></div>
+                <button class="bt-azul verde" data-acao="continuar" hidden>Continuar</button>
+                <button class="bt-azul" data-acao="jogar">Carreira</button>
+                <button class="bt-azul" data-acao="infinito" title="Libera depois da fase 10">Fazenda Infinita</button>
+                <button class="bt-azul" data-acao="premios">Prêmios</button>
+                <button class="bt-azul" data-acao="ajuda">Como Jogar</button>
+                <button class="bt-azul vermelho" data-acao="sair" title="Fechar o jogo">Sair</button>
+            </div>
+            <div class="barra-madeira">
+                <button class="bt-azul" data-acao="opcoes">Opções</button>
+                <span class="versao">v1.0 &middot; Lucas Games &copy; 2009</span>
+                <button class="bt-azul" data-acao="creditos">Créditos</button>
+            </div>
+        </div>
+
+        <!-- mapa das fases -->
+        <div id="tela-mapa" class="tela">
+            <div class="placa-mapa">Escolha a Fase</div>
+            <div id="pontos-fase"></div>
+            <button class="ponto-culto" data-acao="culto" title="Culto do Cavalo Giratório"><img data-i="obj:animal:cavalo" alt=""><span>Culto do Cavalo Giratório</span><b id="selo-culto" class="selo-culto" hidden>!</b></button>
+            <div class="cofre" title="Estrelas para a Loja"><img data-i="estrela" alt=""><span id="v-cofre">0</span></div>
+            <div class="barra-mapa">
+                <button class="bt-azul" data-acao="inicio">Menu</button>
+                <button class="bt-azul" data-acao="loja"><img data-i="loja" alt="">Loja</button>
+                <button class="bt-azul vermelho" data-acao="sair" title="Fechar o jogo">Sair</button>
+            </div>
+        </div>
+
+        <!-- hud da fase -->
+        <div id="tela-jogo" class="tela">
+            <div id="animais"></div>
+            <div id="painel-moedas"><img data-i="moeda" alt=""><span id="v-moedas">0</span></div>
+            <div id="painel-agua" title="Água do poço"><img data-i="agua" alt=""><span id="v-agua">0</span></div>
+            <button id="b-som" class="bt-redondo" data-acao="som" title="Som"><img data-i="som" alt=""></button>
+            <button id="b-menu" class="bt-azul" data-acao="pausa">Menu</button>
+            <div id="metas">
+                <div class="metas-topo"><span id="v-fase">Fase 1</span><span class="relogio"><img id="ic-medalha" data-i="ouro" alt=""><span id="v-tempo">0:00</span></span></div>
+                <div id="lista-metas"></div>
+                <div id="bencao" hidden><img data-i="obj:animal:cavalo" alt="">Bênção do cavalo</div>
+            </div>
+        </div>
+
+        <div id="aviso"></div>
+        <div id="dica-tut" hidden></div>
+        <div id="camada"></div>
+
+        <div id="carregando">
+            <h1 class="logo"><span class="l1">Fazenda</span><span class="l2">do Lucas</span></h1>
+            <div class="carga">
+                <div class="barra"><div id="carga-encher"></div></div>
+                <div id="carga-txt">Carregando... 0%</div>
+                <button id="b-jogar" class="bt-azul grande" hidden>Clique para Jogar</button>
+                <div id="carga-dica"></div>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="dados.js?v=23"></script>
+<script src="sprites.js?v=29"></script>
+<script src="modelos3d.js?v=25"></script>
+<script src="jogo.js?v=32"></script>
+</body>
+</html>

@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; frame-src https://open.spotify.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://sdwlmxvpkexggupmrzmb.supabase.co https://ws.audioscrobbler.com; media-src 'self' blob: https://sdwlmxvpkexggupmrzmb.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; frame-src 'self' https://open.spotify.com https://www.youtube-nocookie.com https://www.youtube.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://sdwlmxvpkexggupmrzmb.supabase.co https://ws.audioscrobbler.com; media-src 'self' blob: https://sdwlmxvpkexggupmrzmb.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self'">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <title>QUARTO DO LUCAS</title>
     <meta name="description" content="O quarto do Lucas na internet: recados, álbuns, diário e playlists no estilo orkut.">
     <link rel="icon" href="imagens/icones/16/internet_explorer.png">
-    <link rel="stylesheet" href="style.css?v=78">
+    <link rel="stylesheet" href="style.css?v=152">
 </head>
 <body>
 
@@ -20,6 +20,7 @@
         <button class="icone-desktop" data-abrir="msn"><span class="com-contador"><img class="ico ico32" data-ico="msn_messenger" data-tam="32" alt=""><span class="contador-zap" hidden></span></span>Zap do Lucas</button>
         <button class="icone-desktop" data-abrir="paint"><img class="ico ico32" data-ico="palette" data-tam="32" alt="">Paint</button>
         <button class="icone-desktop" data-abrir="notas"><img class="ico ico32" data-ico="note" data-tam="32" alt="">Bloco de notas</button>
+        <button class="icone-desktop" data-abrir="fazenda" hidden><img class="ico ico32" data-ico="celeiro" data-tam="32" alt="">Fazenda do Lucas</button>
         <button class="icone-desktop" data-abrir="lixeira"><img class="ico ico32" data-ico="bin_recycle" data-tam="32" alt="">Lixeira</button>
         <button class="icone-desktop" data-abrir="fundos"><img class="ico ico32" data-ico="monitor_wallpaper" data-tam="32" alt="">Papel de parede</button>
         <button class="icone-desktop" data-abrir="calculadora" hidden><img class="ico ico32" data-ico="calculator" data-tam="32" alt="">Calculadora</button>
@@ -128,6 +129,7 @@
             <!-- quando a internet cai -->
             <div class="sem-internet" id="sem-internet" hidden>
                 <canvas id="dino" width="1200" height="300" aria-label="jogo do dinossauro de óculos"></canvas>
+                <button class="expandir-dino" type="button" data-comando="expandir-dino" title="Jogar deitado em tela cheia">□ expandir o jogo</button>
                 <div class="texto-sem-internet">
                     <h2>Sem internet</h2>
                     <p>Tente:</p>
@@ -181,6 +183,7 @@
                             <a href="#amigos" data-rota="amigos"><img class="ico" data-ico="group" alt=""> Amigos.</a>
                             <a href="#comunidades" data-rota="comunidades"><img class="ico" data-ico="comments" alt=""> Comunidades.</a>
                             <a href="#depoimentos" data-rota="depoimentos"><img class="ico" data-ico="award_star_gold_1" alt=""> Depoimentos.</a>
+                            <a href="#tv" data-rota="tv" hidden><img class="ico" data-ico="film" alt=""> Sessão da TV.</a>
                             <a href="#admin" data-rota="admin" data-so-dono hidden><img class="ico" data-ico="key" alt=""> Admin.</a>
                         </nav>
 
@@ -219,7 +222,7 @@
                             </div>
                             <div class="winamp" id="player">
                                 <div id="spotify-escondido" aria-hidden="true"></div>
-                                <div class="wa-barra"><span>METRIX</span><span class="wa-enfeite">▫ ▫ ✕</span></div>
+                                <div class="wa-barra"><span>METRIX</span><span class="wa-enfeite">▫︎ ▫︎ ✕</span></div>
                                 <div class="wa-corpo">
                                     <div class="wa-lcd">
                                         <div class="wa-rotulos"><span>ST.</span><span>MIN</span><span>SEC</span></div>
@@ -234,7 +237,7 @@
                                 </div>
                                 <div class="controles-player">
                                     <button data-player="anterior" title="Anterior"><img class="ico" data-ico="control_start" alt=""></button>
-                                    <button data-player="tocar" class="principal" id="player-play" title="Tocar">▶</button>
+                                    <button data-player="tocar" class="principal" id="player-play" title="Tocar">▶︎</button>
                                     <button data-player="parar" title="Parar"><img class="ico" data-ico="control_stop" alt=""></button>
                                     <button data-player="proxima" title="Próxima"><img class="ico" data-ico="control_end" alt=""></button>
                                     <button data-player="eq" class="wa-botao" title="Equalizador">EQ</button>
@@ -275,7 +278,7 @@
                     </div>
                     <div class="selos">
                         <span class="selo a">MADE WITH<br>NOTEPAD</span>
-                        <span class="selo b">INSPIRADO NO<br>ORKUT ♥</span>
+                        <span class="selo b">INSPIRADO NO<br>ORKUT ♥︎</span>
                         <span class="selo c">&gt; NEOCITIES_</span>
                         <span class="selo d">INTERNET<br>EXPLORER 6</span>
                         <span class="selo e">MSN<br>ONLINE</span>
@@ -329,28 +332,50 @@
         <div class="botoes">
             <button data-ajuda="paint" title="Ajuda">?</button>
             <button data-janela="minimizar" title="Minimizar">_</button>
+            <button data-janela="maximizar" title="Maximizar">□</button>
             <button data-janela="fechar" class="fechar" title="Fechar">✕</button>
         </div>
     </div>
     <div class="corpo-app">
         <div class="paint-area">
             <div class="paint-ferramentas">
-                <button data-ferramenta="lapis" class="ativo" title="Lápis"><img class="ico" data-ico="pencil" alt=""></button>
-                <button data-ferramenta="pincel" title="Pincel"><img class="ico" data-ico="brushes" alt=""></button>
-                <button data-ferramenta="spray" title="Spray"><img class="ico" data-ico="spray" alt=""></button>
-                <button data-ferramenta="balde" title="Balde de tinta"><img class="ico" data-ico="paintcan" alt=""></button>
-                <button data-ferramenta="borracha" title="Borracha"><img class="ico" data-ico="draw_eraser" alt=""></button>
+                <button data-ferramenta="lapis" class="ativo" title="Lápis (P)"><img class="ico" data-ico="pencil" alt=""></button>
+                <button data-ferramenta="pincel" title="Pincel (B)"><img class="ico" data-ico="brushes" alt=""></button>
+                <button data-ferramenta="spray" title="Spray (S)"><img class="ico" data-ico="spray" alt=""></button>
+                <button data-ferramenta="balde" title="Balde de tinta (G)"><img class="ico" data-ico="paintcan" alt=""></button>
+                <button data-ferramenta="borracha" title="Borracha (E)"><img class="ico" data-ico="draw_eraser" alt=""></button>
+                <button data-ferramenta="conta-gotas" title="Conta-gotas: pega a cor do desenho (I)" data-desenho="conta-gotas"></button>
+                <button data-ferramenta="linha" title="Linha (L) · segure Shift pra ficar reta" data-desenho="linha"></button>
+                <button data-ferramenta="retangulo" title="Retângulo (R) · Shift deixa quadrado" data-desenho="retangulo"></button>
+                <button data-ferramenta="elipse" title="Círculo / elipse (O) · Shift deixa redondinho" data-desenho="elipse"></button>
+                <button data-ferramenta="mao" title="Mão: arrasta o desenho quando tá com zoom (H)" data-desenho="mao"></button>
+                <button data-ferramenta="desfazer" title="Desfazer (Ctrl+Z)" data-desenho="desfazer"></button>
+                <button data-ferramenta="refazer" title="Refazer (Ctrl+Y)" data-desenho="refazer"></button>
+                <button data-ferramenta="zoom-mais" title="Mais zoom (+)" data-desenho="zoom-mais"></button>
+                <button data-ferramenta="zoom-menos" title="Menos zoom (-)" data-desenho="zoom-menos"></button>
                 <button data-ferramenta="limpar" title="Limpar tudo"><img class="ico" data-ico="bin" alt=""></button>
                 <button data-ferramenta="salvar" title="Salvar como PNG"><img class="ico" data-ico="disk" alt=""></button>
                 <button data-ferramenta="enviar" title="Enviar desenho pro Lucas"><img class="ico" data-ico="email_go" alt=""></button>
-                <select id="paint-tamanho" title="Tamanho">
-                    <option value="2">fino</option>
-                    <option value="5" selected>médio</option>
-                    <option value="10">grosso</option>
-                    <option value="20">enorme</option>
-                </select>
             </div>
-            <div class="paint-tela"><canvas id="paint-canvas" width="460" height="290"></canvas></div>
+            <div class="paint-lado">
+                <div class="paint-tela"><canvas id="paint-canvas" width="460" height="290"></canvas></div>
+                <div class="paint-opcoes">
+                    <label title="Tamanho do traço">tamanho
+                        <select id="paint-tamanho">
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="5" selected>5</option>
+                            <option value="10">10</option>
+                            <option value="20">20</option>
+                            <option value="40">40</option>
+                        </select>
+                    </label>
+                    <label title="Deixa o pincel, o spray e as formas transparentes">opacidade <input type="range" id="paint-opacidade" min="10" max="100" step="10" value="100"></label>
+                    <label title="Formas pintadas por dentro"><input type="checkbox" id="paint-preencher"> cheio</label>
+                    <label title="Tudo que você desenha aparece espelhado do outro lado"><input type="checkbox" id="paint-espelho"> espelho</label>
+                    <span id="paint-zoom">zoom 100%</span>
+                </div>
+            </div>
         </div>
         <form class="paint-enviar" id="paint-enviar" data-form="desenho" hidden>
             <b>Enviar desenho pro Lucas:</b>
@@ -369,7 +394,7 @@
             <button class="btn pequeno" data-ferramenta="cores" title="Editar cores"><img class="ico" data-ico="palette" alt=""> editar cores...</button>
         </div>
     </div>
-    <div class="rodape-app"><span>Para obter ajuda, clique no ? da janela.</span><span id="paint-coords"></span></div>
+    <div class="rodape-app"><span>Ctrl+Z desfaz · Ctrl+rodinha dá zoom · ? tem a ajuda</span><span id="paint-coords"></span></div>
 </div>
 
 
@@ -457,6 +482,20 @@
 </div>
 
 
+<div class="janela janela-app" id="fazenda" data-titulo="Fazenda do Lucas" data-icone="celeiro" hidden style="left:120px; top:20px;">
+    <div class="barra-titulo">
+        <span><img class="ico" data-ico="celeiro" alt=""> Fazenda do Lucas</span>
+        <div class="botoes">
+            <button data-ajuda="fazenda" title="Ajuda">?</button>
+            <button data-janela="minimizar" title="Minimizar">_</button>
+            <button data-janela="maximizar" title="Maximizar">□</button>
+            <button data-janela="fechar" class="fechar" title="Fechar">✕</button>
+        </div>
+    </div>
+    <iframe id="fazenda-frame" title="Fazenda do Lucas" data-src="fazenda/index.html?v=32" allow="fullscreen"></iframe>
+</div>
+
+
 <div class="janela janela-app" id="lixeira" data-titulo="Lixeira" data-icone="bin_recycle" hidden style="left:260px; top:150px;">
     <div class="barra-titulo">
         <span><img class="ico" data-ico="bin_recycle" alt=""> Lixeira</span>
@@ -518,7 +557,7 @@
         <div class="cores-direita">
             <div class="cores-quadros">
                 <canvas id="cores-espectro" width="176" height="176"></canvas>
-                <div class="cores-lum-caixa"><canvas id="cores-lum" width="12" height="176"></canvas><span id="cores-seta">◀</span></div>
+                <div class="cores-lum-caixa"><canvas id="cores-lum" width="12" height="176"></canvas><span id="cores-seta">◀︎</span></div>
             </div>
             <div class="cores-valores">
                 <div class="cores-amostra"><div id="cores-previa"></div><span>Cor|<u>S</u>ólida</span></div>
@@ -545,6 +584,7 @@
         <button data-abrir="paint"><img class="ico ico32" data-ico="palette" data-tam="32" alt="">Paint</button>
         <button data-abrir="notas"><img class="ico ico32" data-ico="note" data-tam="32" alt="">Bloco de notas</button>
         <button data-abrir="calculadora" hidden><img class="ico ico32" data-ico="calculator" data-tam="32" alt="">Calculadora</button>
+        <button data-abrir="fazenda" hidden><img class="ico ico32" data-ico="celeiro" data-tam="32" alt="">Fazenda do Lucas</button>
         <button data-abrir="lixeira"><img class="ico ico32" data-ico="bin_recycle" data-tam="32" alt="">Lixeira</button>
         <hr>
         <button data-comando="papel-parede"><img class="ico ico32" data-ico="monitor_wallpaper" data-tam="32" alt="">Papel de parede</button>
@@ -562,6 +602,7 @@
     <div class="bandeja">
         <span title="Volume"><img class="ico" data-ico="sound" alt=""></span>
         <button class="icone-net" id="icone-net" data-comando="internet" title="Conectado à internet (clique pra desconectar)"><img class="ico" data-ico="network_wireless" alt=""></button>
+        <span class="estacao" id="estacao"></span>
         <span id="relogio">--:--</span>
     </div>
 </div>
@@ -575,6 +616,18 @@
         <figcaption id="lightbox-legenda"></figcaption>
     </figure>
     <button class="nav-lightbox proxima" data-lightbox="proxima" title="Próxima">›</button>
+</div>
+
+<!-- zoom da foto aberta -->
+<div class="zoom-foto" id="zoom-foto" hidden>
+    <img alt="">
+    <div class="barra-zoom">
+        <button data-zoom="menos" title="Diminuir">−</button>
+        <span id="zoom-nivel">100%</span>
+        <button data-zoom="mais" title="Aumentar">+</button>
+        <button data-zoom="normal">tamanho normal</button>
+        <button data-zoom="sair" title="Voltar (Esc)">voltar</button>
+    </div>
 </div>
 
 <div class="fundo-escuro" id="fundo-dialogo" hidden>
@@ -620,6 +673,6 @@
 
 <script src="js/supabase.js"></script>
 
-<script src="script.js?v=78"></script>
+<script src="script.js?v=320"></script>
 </body>
 </html>
