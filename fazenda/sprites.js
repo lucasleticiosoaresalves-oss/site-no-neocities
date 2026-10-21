@@ -1,10 +1,10 @@
 'use strict';
-/* Fazenda do Lucas — primitivas 2d e icones de interface (os modelos 3d ficam em modelos3d.js) */
+/* Fazenda do Lucas: desenhos 2d e icones dos botoes (os bichos em 3d ficam em modelos3d.js) */
 
 const TINTA = 'rgba(48,30,12,.78)';
 const TAU = Math.PI * 2;
 
-// ---------- primitivas ----------
+// ---------- desenhos basicos ----------
 function mix(hex, f) {
     const n = parseInt(hex.slice(1), 16);
     const alvo = f < 0 ? 0 : 255, p = Math.abs(f);

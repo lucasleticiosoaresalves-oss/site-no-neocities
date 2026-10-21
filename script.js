@@ -314,20 +314,22 @@ function amigoPeloNome(nome) {
     return amigos.todos().find(a => semAcento(String(a.nome).trim()) === chave) || null;
 }
 
-function avatar(nome, classe = '') {
+function avatar(nome, classe = '', boneco = numeroBoneco(nome)) {
     const cadastrado = amigoPeloNome(nome);
     const foto = cadastrado && imagemSegura(cadastrado.foto);
     if (foto) return `<img class="avatar foto-amigo ${classe}" src="${esc(foto)}" alt="" title="${esc(cadastrado.nome)} é amigo do ${esc(DADOS.nome)}">`;
     const amigo = DADOS.amigos.find(a => a.nome === nome);
     if (amigo?.icone) return `<img class="avatar com-icone ${classe}" src="${urlIcone(amigo.icone, 32)}" alt="">`;
-    return `<img class="avatar boneco-msn ${classe}" src="${bonecoMsn(nome)}" alt="">`;
+    return `<img class="avatar boneco-msn ${classe}" src="imagens/msn/msn${boneco}.png" alt="">`;
 }
 
-// quem nao tem foto ganha um bonequinho do msn (a mesma pessoa sempre fica com a mesma cor)
-function bonecoMsn(nome) {
+// quem nao tem foto ganha um bonequinho do msn (cada nome tem o seu, de 1 a 20)
+// "evitar" e o boneco do recado de cima, pra nao ficar dois iguais seguidos
+function numeroBoneco(nome, evitar = 0) {
     let soma = 0;
     for (const letra of semAcento(String(nome || '').trim())) soma = (soma * 31 + letra.charCodeAt(0)) % 9973;
-    return `imagens/msn/msn${soma % 20 + 1}.png`;
+    const n = soma % 20 + 1;
+    return n === evitar ? n % 20 + 1 : n;
 }
 
 // so deixa link http ou https
@@ -512,6 +514,36 @@ function diarioAberto() {
     return souDono;
 }
 
+
+// --- datas de lancamento: cada novidade so aparece no site a partir do dia dela (e fica pra sempre) ---
+// pra ver tudo antes da hora: entrar logado como dono ou abrir o site com ?previa no endereco
+const LANCAMENTOS = {
+    tv: [2026, 10, 23], minado: [2026, 10, 23],
+    fazenda: [2026, 11, 20],
+    celular: [2026, 12, 2], jujuba: [2026, 12, 2], calculadora: [2026, 12, 2],
+};
+const PREVIA = new URLSearchParams(location.search).has('previa');
+const RECURSO_DA_JANELA = { fazenda: 'fazenda', minado: 'minado', calculadora: 'calculadora' };
+
+function liberado(recurso) {
+    const data = LANCAMENTOS[recurso];
+    if (!data || PREVIA || souDono) return true;
+    const [ano, mes, dia] = data;
+    return new Date() >= new Date(ano, mes - 1, dia);
+}
+
+// mostra ou esconde tudo que tem data (roda ao abrir e de minuto em minuto, pra virar a meia-noite sozinho)
+function aplicarLancamentos() {
+    $$('[data-recurso]').forEach(el => {
+        el.hidden = !liberado(el.dataset.recurso) || (el.classList.contains('so-toque') && !celularPossivel());
+    });
+    // a jujuba chega no dia dela mesmo com o site aberto
+    if (liberado('jujuba') && !assistente.iniciado && !assistente.tentou) {
+        assistente.tentou = true;
+        iniciarAssistente();
+    }
+}
+
 async function atualizarDono(sessao) {
     const dono = Boolean(sessao);
     if (dono === souDono) return;
@@ -525,6 +557,7 @@ async function atualizarDono(sessao) {
         await desenhos.carregar(); // sem login so vem os aprovados
     }
     $$('[data-so-dono]').forEach(el => { el.hidden = !souDono; });
+    aplicarLancamentos();
     if (!$('#msn').hidden) abrirZap();
     caixaDiario();
     mostrarPagina();
@@ -615,15 +648,24 @@ function lembrarNome(nome) {
     if (limpo && !souDono) guardar.salvar('meu-nome', limpo.slice(0, 30));
 }
 
-function blocoRecado(r, comBotao, nomeLista = 'recados') {
+function blocoRecado(r, comBotao, nomeLista = 'recados', boneco) {
     return `
         <div class="recado">
-            ${avatar(r.autor)}
+            ${avatar(r.autor, '', boneco)}
             <div class="corpo">
                 <b>${esc(r.autor)}${amigoPeloNome(r.autor) ? ` ${icone('heart')}` : ''}:</b> ${formatar(r.texto)}
                 <div class="meta"><span>${esc(r.data)}</span>${comBotao && podeApagar() ? `<button class="btn-x" data-apagar="${r.id}" data-lista="${nomeLista}">apagar</button>` : ''}</div>
             </div>
         </div>`;
+}
+
+// lista de recados ou depoimentos, sem repetir o mesmo bonequinho em dois seguidos
+function listaRecados(itens, comBotao, nomeLista) {
+    let anterior = 0;
+    return itens.map(r => {
+        anterior = numeroBoneco(r.autor, anterior);
+        return blocoRecado(r, comBotao, nomeLista, anterior);
+    }).join('');
 }
 
 function formRecado(id, compacto) {
@@ -670,7 +712,7 @@ function paginaInicio() {
                 <div class="sub-caixa">
                     <div class="caixa-titulo"><h3>Recados <small>(${total})</small></h3><a class="mini-link" href="#recados">ver todos</a></div>
                     ${formRecado('texto-recado-inicio', true)}
-                    <div class="previa-recados">${ultimos.map(r => blocoRecado(r, false)).join('') || mensagemVazia(recados, 'nenhum recado ainda')}</div>
+                    <div class="previa-recados">${listaRecados(ultimos, false) || mensagemVazia(recados, 'nenhum recado ainda')}</div>
                 </div>
                 <div class="sub-caixa">
                     <div class="caixa-titulo"><h3>Meus álbuns</h3><a class="mini-link" href="#albuns">ver todos</a></div>
@@ -749,7 +791,7 @@ function paginaPerfil() {
         <div class="caixa">
             <div class="caixa-titulo"><h2>Depoimentos</h2><a class="mini-link" href="#depoimentos">${souDono ? 'ver todos' : 'escrever um'}</a></div>
             ${souDono
-                ? depoimentos.todos().slice(0, 2).map(d => blocoRecado(d, false)).join('') || mensagemVazia(depoimentos, 'ninguém escreveu ainda')
+                ? listaRecados(depoimentos.todos().slice(0, 2), false) || mensagemVazia(depoimentos, 'ninguém escreveu ainda')
                 : `<p class="vazio">os depoimentos só o ${esc(DADOS.nome)} lê. escreve um pra ele! ${textoRico('(L)')}</p>`}
         </div>`;
 }
@@ -778,7 +820,7 @@ function paginaRecados() {
             <h2>Recados <small>(${itens.length})</small></h2>
             <div class="livro-visitas">${gif('livro', 120)}<p>Assine meu livro de visitas!<br>Deixe um recado aqui embaixo ${gif('email', 40)}</p></div>
             <div class="sub-caixa">${formRecado('texto-recado', false)}</div>
-            <div style="margin-top:10px">${itens.map(r => blocoRecado(r, true)).join('') || mensagemVazia(recados, 'nenhum recado ainda')}</div>
+            <div style="margin-top:10px">${listaRecados(itens, true) || mensagemVazia(recados, 'nenhum recado ainda')}</div>
             <p class="dica">${nuvem ? 'todo mundo que visita o site vê os recados.' : 'os recados ficam salvos neste navegador.'}</p>
         </div>
         ${desenhosPublicos().length ? `
@@ -808,7 +850,7 @@ function paginaDepoimentos() {
                 </form>
             </div>
             ${souDono
-                ? `<div style="margin-top:10px">${itens.map(d => blocoRecado(d, true, 'depoimentos')).join('') || mensagemVazia(depoimentos, 'nenhum depoimento ainda')}</div>`
+                ? `<div style="margin-top:10px">${listaRecados(itens, true, 'depoimentos') || mensagemVazia(depoimentos, 'nenhum depoimento ainda')}</div>`
                 : `<p class="dica">seu depoimento vai direto pro ${esc(DADOS.nome)}, só ele lê. quer apagar? é só pedir.</p>`}
         </div>`;
 }
@@ -863,7 +905,7 @@ const CANAIS_TV = [
     { nome: 'Cavalo de Fogo', tipo: 'desenho', segundos: 18134, videos: ['rfz1YpPsQa0', 'DHfypI5gO0w', 'tVSo4KTXM0I', 'Qq-xwVO1Lh8', 'Gix8Xt6U6Dg', 'jl5JjDxxO2o', 'ewTYQqFI9is'] },
     { nome: 'Filmes da Barbie', tipo: 'filme', segundos: 4803, videos: ['-eCEAeDGDTg', 'lBpitQv-kTI', 'dbJDXswQYBM', 'x27iPHXvJk0', 'P2eo828nhlw', 'Xwr5_gKDxMU'] },
     { nome: 'Moranguinho (anos 80)', tipo: 'desenho', segundos: 2758, videos: ['2GaNHPudtAA', '3-cf3jkfq9E', 'iy5aMov-1rw', 'SRD9OUx2d0c'] },
-    { nome: 'Moranguinho (atual)', tipo: 'desenho', segundos: 10449, videos: ['3TsUBvkEqSc', '-bAUU8hAlnY', 'Z1Odn-e8zEk', 'sqLy-cUessE'] },
+    { nome: 'Moranguinho em Tutti Frutti', tipo: 'desenho', segundos: 1338, videos: ['3ohZ3E5fiII', 'GXiHxMfuzZw', 'pAZ2-aMbmmA', 'YM5PrmGo4Hs', '-eVKBAgOFzs', 'Ikr-Ep3UVjE', 'fKAv2_ETGB4', 'iPkkfsNRISI', 'grSoi8i3v_Q', 'bxafz6njMbs', 'cnPE_ESEd5g', 'hWKa4HSsf2A', 'Q-6_uXX3KZM', '2ujp54G4OW4', '8UQDTO4j_3A', 'e9ZS7v9wBFQ', 'znGCyJgZKu8', 'cpofcMwFt_Y', 'RXb-dloLVcs', 'IvoIKvGOeuE', 'OnamQo70dnU', 'zfahZpGMNe0', 'GPgU9lfBfXU', 'a2Hrami9Lag', 'AAfgyJwMtt0'] },
     { nome: 'Zica e os Camaleões', tipo: 'desenho', segundos: 676, videos: ['0DV053nX0a8', 'pcmnjDdydsk', 't5nQ0O4_qjE', 'GMPX2wPNzzM'] },
     { nome: 'Scooby-Doo', tipo: 'desenho', segundos: 3627, videos: ['iAXCN57j7NY', 'pvwh5YwmxEE', 'J1Fsfq57wdM', 'ZydHnUTqArQ', 'he0Y7tvFNTM', '3zyNEt6uH6I', 'C-upU-cb8CY'] },
     { nome: 'Irmão do Jorel', tipo: 'desenho', segundos: 3608, videos: ['1kDGtRuPGx4', 'Iywamsi11tQ', 'RPf8cYrA9wQ', '2i2xfBEmYZc'] },
@@ -875,8 +917,26 @@ const CANAIS_TV = [
     { nome: 'Bakugan', tipo: 'desenho', segundos: 1417, videos: ['95uVEgpnYfY', '0GhsAZMQtUk', 'UgFI2yBWyi8', '56S_Ei_AQEA', '8uYcrQ_CeUU', 'ASg5GPIuLqI', 'U8ZzXyvOWvQ', '2wLcdKyAkew', 'lX8TdVBOI8g', 'AdjzXHoijg0', '4_GTtNnqKXc', '-5YCRNREA78', 'E9Q2DNx2qDs', 'H2T0ohPtEhk'] },
     { nome: 'Mecanimais', tipo: 'desenho', segundos: 4092, videos: ['tigjnO2KnKg', 'kN_Eh7UL-_E', '6OfOfl3n9D0', '_lfp-7gSNf8', 'eujPax9g7lI', 'EYkX7XtoWdE'] },
     { nome: 'Os Flintstones', tipo: 'desenho', segundos: 1903, videos: ['GM0Yumrt2Go', 'Qs4KDer6oME', 'qy4QW5AjLgM', 'pgkLdRxM7W0'] },
+    { nome: 'Detetives do Prédio Azul (1ª temporada, 2012)', tipo: 'série', segundos: 777, videos: ['Kc_vqdo-bzo', '9_zLpvK0tGY', 'Tu5gcvQyRW0', 'PaH0zTyPmjA', '-JXtIPS5iWE', 'LBrERf5cqkA', 'pgvK7SrwOG4', 'sDVpNE9JrPM', 'HxidbsO0vNM', '-3bmoEsUPf8'] },
     { nome: 'Chume Labs', tipo: 'série', segundos: 1605, videos: ['q9TuttD6oPk', 'iMVAmeote1Y', 'iBpIDMrm1M4', 'POYLzaekBaQ', '0gEf-sNCJSU', '2FWgYKRg58o', 'ok0vG0IZrOA', 'GUEIPmoSbuA', 'sPdVf9UEI2A', 'ceEkAZN2TT8', '9V2Bk8A9iu4', '95x8NP7K32I', 'eRn3HVQxVT0', 'BPyHPK17ehI', 'LURJ_n-KsXI', 'mV5GhTzBzBc', 'DZH22Cb7QTc', 'AD3EjHYGmcU', '869Za72AhTM'] },
 ];
+
+// no dia do halloween entram uns canais so de filme de terror (no comeco da lista)
+const CANAIS_HALLOWEEN = [
+    { nome: 'Halloween: A Noite do Terror (1978)', tipo: 'terror', segundos: 5374, videos: ['lsFxNlHLfHs', 'fr3taQAKwsY', 'fA7_sPVQHfI'] },
+    { nome: 'Dango Balango (especial de Halloween)', tipo: 'série', segundos: 1321, videos: ['lkkCG1tf8Mc', '8SOPnjiERPA', '0hnksk3Qi6Q', '7TBu2YsOzDw', 'AXYZ_BHOOrg'] },
+    { nome: 'Reflexões de um Liquidificador', tipo: 'terror', segundos: 4823, videos: ['a0rfrVVfnPs'] },
+    { nome: 'À Meia-Noite Levarei Sua Alma (Zé do Caixão)', tipo: 'terror', segundos: 4916, videos: ['e2ZWcBaXOco'] },
+    { nome: 'A Noite dos Mortos-Vivos (1968)', tipo: 'terror', segundos: 5762, videos: ['py4UDrciwkA'] },
+    { nome: 'Nosferatu (1922)', tipo: 'terror', segundos: 5515, videos: ['tQeSA_Tt4YM'] },
+    { nome: 'A Casa dos Maus Espíritos (1959)', tipo: 'terror', segundos: 4495, videos: ['i6URXIDs1wg'] },
+    { nome: 'Carnaval das Almas (1962)', tipo: 'terror', segundos: 4985, videos: ['zkiRxjjXCh8'] },
+    { nome: 'A Pequena Loja dos Horrores (1960)', tipo: 'terror', segundos: 4310, videos: ['YXHbey_6Xsc'] },
+];
+
+function canaisTV() {
+    return datasAgora.tema === 'halloween' ? [...CANAIS_HALLOWEEN, ...CANAIS_TV] : CANAIS_TV;
+}
 
 const tv = { canal: guardar.ler('tv-canal', 0), som: false, timerChiado: null, timerNumero: null, chiado: null, arrasto: null };
 
@@ -909,14 +969,14 @@ function paginaTV() {
             <p class="dica centro">arraste pro lado em cima da TV (ou use as setinhas do teclado) pra mudar de canal</p>
             <div class="grade-programacao">
                 <b>Programação</b>
-                ${CANAIS_TV.map((c, i) => `<button data-ir-canal="${i}"><span>CH ${String(i + 2).padStart(2, '0')}</span> ${esc(c.nome)} <small>${c.tipo}</small></button>`).join('')}
+                ${canaisTV().map((c, i) => `<button data-ir-canal="${i}"><span>CH ${String(i + 2).padStart(2, '0')}</span> ${esc(c.nome)} <small>${c.tipo}</small></button>`).join('')}
             </div>
         </div>`;
 }
 
 // endereco do video, comecando "no meio" como se o canal estivesse no ar desde sempre
 function enderecoCanal(canal) {
-    const c = CANAIS_TV[canal];
+    const c = canaisTV()[canal];
     const inicio = Math.floor(Date.now() / 1000) % c.segundos;
     const fila = [...c.videos.slice(1), c.videos[0]].join(',');
     const parametros = new URLSearchParams({
@@ -930,14 +990,14 @@ function comandoTV(func, args = []) {
 }
 
 function sintonizar(canal) {
-    const total = CANAIS_TV.length;
+    const total = canaisTV().length;
     tv.canal = ((canal % total) + total) % total;
     guardar.salvar('tv-canal', tv.canal);
     const tela = $('#tela-tv');
     if (!tela) return;
     tela.querySelector('iframe')?.remove();
     const frame = document.createElement('iframe');
-    frame.title = CANAIS_TV[tv.canal].nome;
+    frame.title = canaisTV()[tv.canal].nome;
     frame.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
     frame.allowFullscreen = true;
     frame.src = enderecoCanal(tv.canal);
@@ -951,7 +1011,7 @@ function sintonizar(canal) {
     numero.classList.add('aparece');
     clearTimeout(tv.timerNumero);
     tv.timerNumero = setTimeout(() => numero.classList.remove('aparece'), 2500);
-    $('#nome-canal-tv').textContent = CANAIS_TV[tv.canal].nome;
+    $('#nome-canal-tv').textContent = canaisTV()[tv.canal].nome;
     $$('[data-ir-canal]').forEach(b => b.classList.toggle('ativo', Number(b.dataset.irCanal) === tv.canal));
 }
 
@@ -978,6 +1038,8 @@ function mostrarChiado(ms) {
 }
 
 function ligarTV() {
+    // no halloween a tv ja liga no primeiro filme de terror
+    if (datasAgora.tema === 'halloween' && canaisTV()[tv.canal]?.tipo !== 'terror') tv.canal = 0;
     sintonizar(tv.canal);
     $('[data-som-tv]').textContent = tv.som ? 'desligar o som' : 'ligar o som';
     const palco = $('#palco-tv');
@@ -1109,7 +1171,7 @@ function vestirCamera(caixa, n) {
 }
 
 
-// --- zoom da foto aberta (rodinha, arrastar, pinça no celular) ---
+// --- zoom da foto aberta (rodinha, arrastar, pinca no celular) ---
 
 const zoomFoto = { escala: 1, x: 0, y: 0, dedos: new Map(), distancia: 0 };
 
@@ -1181,7 +1243,7 @@ function mudarZoomFoto(fator, cx = window.innerWidth / 2, cy = window.innerHeigh
                 desenharZoomFoto();
             }
         } else if (zoomFoto.dedos.size === 2) {
-            // pinça com dois dedos
+            // pinca com dois dedos
             const [a, b] = [...zoomFoto.dedos.values()];
             const outro = a === antes ? b : a;
             const dAntes = Math.hypot(antes.x - outro.x, antes.y - outro.y);
@@ -1362,7 +1424,7 @@ function paginaComunidades() {
 
 function indiceBusca() {
     const itens = [
-        ...Object.entries(PAGINAS).filter(([, p]) => p.titulo && !p.escondida)
+        ...Object.entries(PAGINAS).filter(([id, p]) => p.titulo && !p.escondida && (id !== 'tv' || liberado('tv')))
             .map(([id, p]) => ({ tipo: 'página', titulo: p.titulo, link: '#' + id })),
         ...DADOS.perfil.map(([campo, valor]) => ({ tipo: 'perfil', titulo: `${campo}: ${valor}`, link: '#perfil' })),
         ...DADOS.sobre.map(t => ({ tipo: 'sobre', titulo: t, link: '#sobre' })),
@@ -1840,7 +1902,7 @@ function adminRecebidos() {
         </div>
         <div class="caixa">
             <h2>Depoimentos <small>(${depoimentos.todos().length}) · só você lê</small></h2>
-            ${depoimentos.todos().map(d => blocoRecado(d, true, 'depoimentos')).join('') || mensagemVazia(depoimentos, 'nenhum depoimento ainda')}
+            ${listaRecados(depoimentos.todos(), true, 'depoimentos') || mensagemVazia(depoimentos, 'nenhum depoimento ainda')}
         </div>
         <div class="caixa">
             <h2>Amigos <small>(${amigos.todos().length})</small></h2>
@@ -1940,10 +2002,13 @@ function rotaAtual() {
 let carregando;
 function mostrarPagina() {
     const { nome, arg } = rotaAtual();
-    const pagina = PAGINAS[nome];
+    const pagina = nome === 'tv' && !liberado('tv') ? null : PAGINAS[nome];
     const central = $('#central');
 
-    central.innerHTML = pagina ? pagina.render(arg) : pagina404(DADOS.endereco + '#' + nome);
+    // no modo celular (menos no app internet) a pagina vira tela de aplicativo
+    const nativo = cel.ativo && cel.app && !cel.app.completo && TELAS_CEL[nome];
+    central.innerHTML = nativo ? TELAS_CEL[nome](arg) : pagina ? pagina.render(arg) : pagina404(DADOS.endereco + '#' + nome);
+    document.body.classList.toggle('cel-nativo', !!nativo);
 
     const titulo = pagina ? pagina.titulo : 'Página não encontrada';
     const menuAtivo = pagina?.menu || nome;
@@ -1957,9 +2022,11 @@ function mostrarPagina() {
     // efeito de carregando
     caixaMural();
     // na sessao da tv a pagina inteira vira a sala (sem as colunas do lado)
-    document.body.classList.toggle('na-sala-tv', nome === 'tv');
-    if (nome === 'tv') ligarTV();
+    const naTV = nome === 'tv' && Boolean(pagina);
+    document.body.classList.toggle('na-sala-tv', naTV);
+    if (naTV) ligarTV();
     else desligarTV();
+    assistenteViuPagina(nome);
     const barra = $('#progresso-status');
     clearTimeout(carregando);
     status('Abrindo página ' + DADOS.endereco + '#' + nome + '...');
@@ -1972,7 +2039,7 @@ function mostrarPagina() {
     carregando = setTimeout(() => { statusLivre(); barra.style.width = '0'; }, 500);
 
     const janela = $('#navegador');
-    if (janela.getBoundingClientRect().top < 0) janela.scrollIntoView({ block: 'start' });
+    if (!cel.ativo && janela.getBoundingClientRect().top < 0) janela.scrollIntoView({ block: 'start' });
 }
 
 function ir(rota) {
@@ -1987,7 +2054,7 @@ function ir(rota) {
 // no celular o conteudo fica embaixo do perfil, entao desce ate ele quando troca de aba
 const CELULAR_ESTREITO = matchMedia('(max-width: 720px)');
 function descerProConteudo() {
-    if (!CELULAR_ESTREITO.matches) return;
+    if (!CELULAR_ESTREITO.matches || (cel.ativo && !cel.app?.completo)) return;
     const suave = !matchMedia('(prefers-reduced-motion: reduce)').matches;
     requestAnimationFrame(() => $('#central').scrollIntoView({ behavior: suave ? 'smooth' : 'auto', block: 'start' }));
 }
@@ -2577,7 +2644,7 @@ async function carregarLastfm() {
         guardar.salvar('ouvindo', ouvindo.faixas);
         ouvindo.erro = false;
     } catch (erro) {
-        console.error(erro);
+        console.warn('last.fm fora do ar:', erro.message);
         ouvindo.erro = !ouvindo.faixas.length;
     }
     ouvindo.carregado = true;
@@ -2845,10 +2912,18 @@ function focarJanela(janela) {
 }
 
 function abrirJanela(id) {
+    if (RECURSO_DA_JANELA[id] && !liberado(RECURSO_DA_JANELA[id])) return;
+    // no modo celular os programas abrem como aplicativo
+    if (cel.ativo) {
+        if (id === 'navegador') return abrirAppCel('internet');
+        const app = APPS_CEL.find(a => a.janela === id);
+        if (app && cel.app?.id !== app.id) return abrirAppCel(app.id);
+    }
     const janela = document.getElementById(id);
     janela.hidden = false;
     janela.classList.remove('minimizada');
     focarJanela(janela);
+    assistenteViuJanela(id);
     if (id === 'paint') {
         iniciarPaint();
         const autor = $('#paint-enviar [name=autor]');
@@ -2859,6 +2934,7 @@ function abrirJanela(id) {
     if (id === 'notas') $('#notas-texto').focus();
     if (id === 'lixeira') mostrarLixeira();
     if (id === 'calculadora') mostrarCalc();
+    if (id === 'minado') iniciarMinado();
     if (id === 'fazenda') {
         // so carrega o jogo quando abre, pra musica nao tocar escondida
         const frame = $('#fazenda-frame');
@@ -2874,12 +2950,15 @@ function abrirJanela(id) {
         janela.style.top = (10 + abertas * 26) + 'px';
         janela.style.left = (5 + Math.min(abertas * 8, 40)) + 'px';
     }
-    // se a janela passar do fim da tela, sobe ela
-    if (janela.classList.contains('janela-app')) {
-        const r = janela.getBoundingClientRect();
-        if (r.bottom > innerHeight - 32) janela.style.top = Math.max(4, innerHeight - 32 - r.height) + 'px';
-        if (r.right > innerWidth) janela.style.left = Math.max(4, innerWidth - r.width - 4) + 'px';
-    }
+    caberNaTela(janela);
+}
+
+// se a janela passar do fim da tela, puxa ela pra dentro
+function caberNaTela(janela) {
+    if (!janela.classList.contains('janela-app') || janela.classList.contains('maximizada')) return;
+    const r = janela.getBoundingClientRect();
+    if (r.bottom > innerHeight - 32) janela.style.top = Math.max(4, innerHeight - 32 - r.height) + 'px';
+    if (r.right > innerWidth) janela.style.left = Math.max(4, innerWidth - r.width - 4) + 'px';
 }
 
 // celular ou tablet em pe: fazenda e paint ficam deitados (girados) quando a pessoa aperta o quadradinho de maximizar
@@ -2900,6 +2979,9 @@ function ajustarDeitados() {
         // o tamanho do desenho muda, entao o zoom do paint volta pro normal
         if (id === 'paint' && paint.iniciado) zoomPaint(1);
     });
+    // sem internet: maximizar o navegador no celular em pe deixa o jogo do dino deitado
+    const nav = $('#navegador');
+    deitarDino(semInternet() && nav.classList.contains('maximizada') && !nav.classList.contains('minimizada') && celularEmPe());
 }
 window.addEventListener('resize', ajustarDeitados);
 
@@ -2914,15 +2996,21 @@ function acaoJanela(janela, acao) {
     if (acao === 'maximizar') {
         janela.classList.toggle('maximizada');
         janela.style.translate = '';
+        // voltando do maximizado, a janela nao pode ficar pra fora da tela
+        caberNaTela(janela);
+        // o tamanho do desenho muda, entao o zoom do paint volta pro normal
+        if (janela.id === 'paint' && paint.iniciado) zoomPaint(1);
     }
     if (acao !== 'maximizar') {
         janela.classList.remove('ativa');
         if (janela.id === 'navegador') janela.classList.remove('maximizada');
     }
+    celJanelaFechou(janela, acao);
     atualizarTarefas();
 }
 
 function atualizarTarefas() {
+    if (cel.ativo) return ajustarDeitados();
     ajustarDeitados();
     $('#tarefas').innerHTML = $$('#navegador, .janela-app')
         .filter(j => !j.hidden)
@@ -3108,6 +3196,27 @@ function opacidadePaint() {
     return Number($('#paint-opacidade').value) / 100;
 }
 
+// no celular a barrinha de opacidade nao andava com o dedo: o proprio site calcula onde o dedo ta
+// (com o paint deitado a barrinha fica em pe na tela, entao conta de cima pra baixo)
+(() => {
+    const barra = $('#paint-opacidade');
+    const mostrar = () => { $('#paint-opacidade-valor').textContent = barra.value + '%'; };
+    const mover = e => {
+        const r = barra.getBoundingClientRect();
+        const fracao = barra.closest('.deitado') ? (e.clientY - r.top) / r.height : (e.clientX - r.left) / r.width;
+        const min = Number(barra.min), max = Number(barra.max), passo = Number(barra.step) || 1;
+        barra.value = Math.round((min + Math.min(1, Math.max(0, fracao)) * (max - min)) / passo) * passo;
+        mostrar();
+    };
+    barra.addEventListener('pointerdown', e => {
+        e.preventDefault();
+        try { barra.setPointerCapture(e.pointerId); } catch { /* alguns navegadores nao deixam */ }
+        mover(e);
+    });
+    barra.addEventListener('pointermove', e => { if (barra.hasPointerCapture?.(e.pointerId)) mover(e); });
+    barra.addEventListener('input', mostrar);
+})();
+
 function espelhar(p) {
     return { x: $('#paint-canvas').width - p.x, y: p.y };
 }
@@ -3117,7 +3226,8 @@ function tracarLivre(ctx, pontos) {
     const tamanho = Number($('#paint-tamanho').value);
     const f = paint.ferramenta;
     ctx.save();
-    ctx.globalAlpha = f === 'pincel' ? opacidadePaint() : 1;
+    // a opacidade vale pro lapis e pro pincel (a borracha apaga sempre por inteiro)
+    ctx.globalAlpha = f === 'borracha' ? 1 : opacidadePaint();
     ctx.strokeStyle = f === 'borracha' ? '#ffffff' : paint.cor;
     ctx.fillStyle = ctx.strokeStyle;
     ctx.lineWidth = f === 'lapis' ? Math.max(1, tamanho / 2) : tamanho * (f === 'borracha' ? 2 : 1);
@@ -3698,6 +3808,7 @@ function mostrarAvisoZap(ultima) {
         bolinha.textContent = n > 99 ? '99+' : n;
     });
     tituloComZap();
+    atualizarCel();
     if (!n) return ($('#balao-zap').hidden = true);
     // balaozinho so pra mensagem que chegou agora, com o site aberto
     const chegouAgora = ultima && avisoZap.maiorNaAbertura !== null && Number(ultima.id) > avisoZap.maiorNaAbertura;
@@ -3870,6 +3981,8 @@ function abrirArquivoLixeira(n, depoisDosAnuncios = false) {
         if (!$('#anuncios')) chuvaDeAnuncios(() => abrirArquivoLixeira(n, true));
         return;
     }
+    // as "senhas secretas" sao o rick astley (toda vez)
+    if (/senha/i.test(arquivo.nome)) return rickroll();
     if (/virus/i.test(arquivo.nome)) {
         aberturasVirus++;
         if (aberturasVirus >= 3) {
@@ -3884,6 +3997,34 @@ function abrirArquivoLixeira(n, depoisDosAnuncios = false) {
         imagem: arquivo.imagem ? urlFotoPostada(arquivo.imagem) : '',
         rodape: /virus/i.test(arquivo.nome) && aberturasVirus === 2 ? '(não é como você pensa)' : '',
     });
+}
+
+
+// --- senhas_secretas.txt: never gonna give you up ---
+function rickroll() {
+    $('#rickroll')?.remove();
+    const tela = document.createElement('div');
+    tela.className = 'fundo-escuro rickroll';
+    tela.id = 'rickroll';
+    tela.innerHTML = `
+        <div class="janela dialogo ativa janela-rick" role="dialog" aria-label="senhas_secretas.txt">
+            <div class="barra-titulo">
+                <span>${icone('sound')} senhas_secretas.txt - Windows Media Player</span>
+                <div class="botoes"><button class="fechar" type="button" data-fechar-rick title="Fechar">✕</button></div>
+            </div>
+            <div class="video-rick">
+                <iframe src="https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?autoplay=1&rel=0&playsinline=1&modestbranding=1" title="Never Gonna Give You Up" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>
+            </div>
+        </div>`;
+    // fechar tira o video junto (pra parar a musica)
+    tela.addEventListener('click', e => {
+        if (e.target === tela || e.target.closest('[data-fechar-rick]')) tela.remove();
+    });
+    document.body.append(tela);
+    if (assistente.iniciado && !$('#assistente').hidden) {
+        animarJujuba('dancar', 2200);
+        assistenteFalar('Hahaha! Never gonna give you up, never gonna let you down... ♪');
+    }
 }
 
 
@@ -4586,7 +4727,7 @@ Ferramentas:
 Pra pintar melhor:
 • Desfazer (Ctrl+Z) e refazer (Ctrl+Y) as últimas 40 coisas.
 • Zoom: lupas da barra, teclas + e -, Ctrl + rodinha do mouse ou pinça com dois dedos no celular.
-• Opacidade deixa o pincel, o spray e as formas transparentes, bom pra fazer sombra.
+• Opacidade deixa o lápis, o pincel, o spray e as formas transparentes, bom pra fazer sombra.
 • Espelho: tudo que você desenha aparece do outro lado, ótimo pra rosto e borboleta.
 • O desenho fica salvo sozinho no seu navegador, mesmo se fechar a janela.
 
@@ -4609,6 +4750,16 @@ Como usar:
 • Clique no armazém ou no caminhão pra mandar vender na cidade.
 • Ursos: clique várias vezes até prender na jaula!
 • Cumpra as metas rápido pra ganhar medalha de ouro e moedas pra Loja.`],
+    minado: ['Campo Tekisminado', 'mina', `Pra que serve: o campo minado do Windows, versão Tekis. Abra todos os quadradinhos sem explodir nenhuma mina!
+
+Como jogar:
+• Clique num quadradinho pra abrir. O primeiro clique nunca tem mina.
+• O número mostra quantas minas tem nos 8 quadradinhos em volta.
+• Botão direito (ou segurar o dedo no celular) põe uma bandeira onde você acha que tem mina.
+• No celular também dá pra ligar o "bandeira: sim" lá em cima: aí cada toque vira bandeira.
+• Clicar num número que já tem as bandeiras certas em volta abre o resto de uma vez.
+• A carinha recomeça o jogo (ou aperte F2). Iniciante: 9x9 com 10 minas, Intermediário: 16x16 com 40, Especialista: 30x16 com 99.
+• Ganhou? O tempo vai pros recordes de cada nível.`],
     calculadora: ['Calculadora', 'calculator', `Pra que serve: fazer contas, igualzinha à calculadora do Windows antigo.
 
 Como usar:
@@ -4649,6 +4800,231 @@ function ajudaDoApp(app) {
     dialogo({ titulo: `Ajuda - ${titulo}`, icone: nomeIcone, texto });
 }
 
+
+
+// --- campo tekisminado (o campo minado do windows xp) ---
+
+const NIVEIS_MINADO = { iniciante: [9, 9, 10], intermediario: [16, 16, 40], especialista: [30, 16, 99] };
+const NOMES_NIVEL_MINADO = { iniciante: 'Iniciante', intermediario: 'Intermediário', especialista: 'Especialista' };
+const CARAS_MINADO = { normal: 'emotion_smile', susto: 'emotion_suprised', ganhou: 'emotion_cool', perdeu: 'emotion_cry' };
+const MINA_SVG = '<svg viewBox="0 0 16 16" aria-hidden="true"><g stroke="#000" stroke-width="1.6" stroke-linecap="round"><path d="M8 1.5v13M1.5 8h13M3.4 3.4l9.2 9.2M12.6 3.4l-9.2 9.2"/></g><circle cx="8" cy="8" r="4.6" fill="#000"/><rect x="5.6" y="5.6" width="2" height="2" fill="#fff"/></svg>';
+const BANDEIRA_SVG = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9 2.5 3.5 5.2 9 8z" fill="#e00"/><path d="M9 2v9" stroke="#000" stroke-width="1.4"/><path d="M5 12.2h7v1.6H5zM7 11h3v1.4H7z" fill="#000"/></svg>';
+
+const minado = { nivel: guardar.ler('minado-nivel', 'iniciante'), cols: 9, lins: 9, minas: 10, campo: [], comecou: false, acabou: false, tempo: 0, timer: null, bandeiras: 0, modoBandeira: false, iniciado: false, segurando: null, ignorarClique: false };
+
+function novoMinado(nivel = minado.nivel) {
+    if (!NIVEIS_MINADO[nivel]) nivel = 'iniciante';
+    minado.nivel = nivel;
+    guardar.salvar('minado-nivel', nivel);
+    [minado.cols, minado.lins, minado.minas] = NIVEIS_MINADO[nivel];
+    minado.campo = Array.from({ length: minado.cols * minado.lins }, () => ({ mina: false, aberta: false, bandeira: false, n: 0 }));
+    minado.comecou = false;
+    minado.acabou = false;
+    minado.bandeiras = 0;
+    minado.tempo = 0;
+    clearInterval(minado.timer);
+    const campo = $('#campo-minado');
+    campo.style.gridTemplateColumns = `repeat(${minado.cols}, var(--casa-minado))`;
+    campo.innerHTML = minado.campo.map((_, i) => `<button type="button" class="casa-minado" data-casa="${i}" aria-label="quadradinho ${i % minado.cols + 1}, ${Math.floor(i / minado.cols) + 1}"></button>`).join('');
+    $$('.menu-minado [data-minado]').forEach(b => b.classList.toggle('ativo', b.dataset.minado === nivel));
+    caraMinado('normal');
+    placarMinado();
+}
+
+function vizinhosMinado(i) {
+    const c = i % minado.cols, l = Math.floor(i / minado.cols), lista = [];
+    for (let dl = -1; dl <= 1; dl++) for (let dc = -1; dc <= 1; dc++) {
+        if (!dc && !dl) continue;
+        const nc = c + dc, nl = l + dl;
+        if (nc >= 0 && nl >= 0 && nc < minado.cols && nl < minado.lins) lista.push(nl * minado.cols + nc);
+    }
+    return lista;
+}
+
+// as minas so entram depois do primeiro clique (ele e os vizinhos ficam livres)
+function espalharMinas(seguro) {
+    const livres = new Set([seguro, ...vizinhosMinado(seguro)]);
+    const lugares = minado.campo.map((_, i) => i).filter(i => !livres.has(i));
+    for (let k = 0; k < minado.minas && lugares.length; k++) {
+        const j = Math.floor(Math.random() * lugares.length);
+        minado.campo[lugares.splice(j, 1)[0]].mina = true;
+    }
+    minado.campo.forEach((casa, i) => { casa.n = vizinhosMinado(i).filter(v => minado.campo[v].mina).length; });
+}
+
+function abrirCasaMinado(i) {
+    const casa = minado.campo[i];
+    if (minado.acabou || casa.aberta || casa.bandeira) return;
+    if (!minado.comecou) {
+        minado.comecou = true;
+        espalharMinas(i);
+        minado.timer = setInterval(() => { minado.tempo = Math.min(999, minado.tempo + 1); placarMinado(); }, 1000);
+    }
+    if (casa.mina) return perderMinado(i);
+    // abre tudo que for zero em volta
+    const pilha = [i];
+    while (pilha.length) {
+        const v = pilha.pop();
+        const c = minado.campo[v];
+        if (c.aberta || c.bandeira) continue;
+        c.aberta = true;
+        desenharCasaMinado(v);
+        if (!c.n) vizinhosMinado(v).forEach(n => { if (!minado.campo[n].aberta && !minado.campo[n].mina) pilha.push(n); });
+    }
+    conferirVitoriaMinado();
+}
+
+// clicar num numero com as bandeiras certinhas em volta abre o resto
+function acordeMinado(i) {
+    const casa = minado.campo[i];
+    if (!casa.aberta || !casa.n || minado.acabou) return;
+    const viz = vizinhosMinado(i);
+    if (viz.filter(v => minado.campo[v].bandeira).length !== casa.n) return;
+    viz.forEach(v => { if (!minado.campo[v].bandeira && !minado.campo[v].aberta) abrirCasaMinado(v); });
+}
+
+function bandeiraMinado(i) {
+    const casa = minado.campo[i];
+    if (minado.acabou || casa.aberta) return;
+    casa.bandeira = !casa.bandeira;
+    minado.bandeiras += casa.bandeira ? 1 : -1;
+    vibrar(15);
+    desenharCasaMinado(i);
+    placarMinado();
+}
+
+function desenharCasaMinado(i, explodiu = false) {
+    const casa = minado.campo[i];
+    const el = $(`#campo-minado [data-casa="${i}"]`);
+    if (!el) return;
+    el.className = 'casa-minado' + (casa.aberta ? ` aberta n${casa.n}` : '') + (explodiu ? ' explodiu' : '') + (casa.errada ? ' errada' : '');
+    el.innerHTML = casa.aberta
+        ? (casa.mina ? MINA_SVG : casa.n || '')
+        : (casa.bandeira ? BANDEIRA_SVG : '');
+}
+
+function perderMinado(i) {
+    minado.acabou = true;
+    clearInterval(minado.timer);
+    minado.campo.forEach((casa, v) => {
+        if (casa.mina && !casa.bandeira) casa.aberta = true;
+        if (!casa.mina && casa.bandeira) { casa.errada = true; casa.aberta = false; }
+        desenharCasaMinado(v, v === i);
+    });
+    caraMinado('perdeu');
+    vibrar(200);
+    if (assistente.iniciado && !$('#assistente').hidden) {
+        animarJujuba('cocar', 1500);
+        assistenteFalar(sorteio(['BUUUM! Essa doeu até em mim. :(', 'Explodiu tudo! Clica na carinha pra tentar de novo.', 'Kabum! Calma, até eu já pisei numa mina. Eu não tenho pé, mas pisei.']));
+    }
+}
+
+function conferirVitoriaMinado() {
+    const faltam = minado.campo.filter(c => !c.mina && !c.aberta).length;
+    if (faltam) return;
+    minado.acabou = true;
+    clearInterval(minado.timer);
+    minado.campo.forEach((casa, v) => { if (casa.mina && !casa.bandeira) { casa.bandeira = true; desenharCasaMinado(v); } });
+    minado.bandeiras = minado.minas;
+    placarMinado();
+    caraMinado('ganhou');
+    const recordes = guardar.ler('minado-recordes', {});
+    const recorde = !recordes[minado.nivel] || minado.tempo < recordes[minado.nivel];
+    if (recorde) {
+        recordes[minado.nivel] = minado.tempo;
+        guardar.salvar('minado-recordes', recordes);
+    }
+    if (assistente.iniciado && !$('#assistente').hidden) animarJujuba('comemorar', 1800);
+    dialogo({
+        titulo: 'Campo Tekisminado',
+        icone: 'mina',
+        texto: `Você ganhou no ${NOMES_NIVEL_MINADO[minado.nivel]} em ${minado.tempo} segundo${minado.tempo === 1 ? '' : 's'}! (Y)${recorde ? '\nNovo recorde nesse nível!' : ''}`,
+    });
+}
+
+function placarMinado() {
+    const led = n => (n < 0 ? '-' + String(Math.min(99, -n)).padStart(2, '0') : String(Math.min(999, n)).padStart(3, '0'));
+    $('#minas-minado').textContent = led(minado.minas - minado.bandeiras);
+    $('#tempo-minado').textContent = led(minado.tempo);
+}
+
+function caraMinado(qual) {
+    $('#cara-minado').src = urlIcone(CARAS_MINADO[qual]);
+}
+
+function recordesMinado() {
+    const r = guardar.ler('minado-recordes', {});
+    dialogo({
+        titulo: 'Recordes do Campo Tekisminado',
+        icone: 'award_star_gold_1',
+        texto: Object.keys(NIVEIS_MINADO).map(n => `${NOMES_NIVEL_MINADO[n]}: ${r[n] !== undefined ? r[n] + ' segundos' : 'ninguém ganhou ainda'}`).join('\n'),
+    });
+}
+
+function iniciarMinado() {
+    if (minado.iniciado) return;
+    minado.iniciado = true;
+    const campo = $('#campo-minado');
+    const casaDe = e => e.target.closest('[data-casa]');
+    // segurar o dedo poe bandeira; enquanto aperta, a carinha leva susto
+    campo.addEventListener('pointerdown', e => {
+        const el = casaDe(e);
+        if (!el || minado.acabou || e.button === 2) return;
+        caraMinado('susto');
+        clearTimeout(minado.segurando);
+        if (e.pointerType !== 'mouse') {
+            minado.segurando = setTimeout(() => {
+                minado.ignorarClique = true;
+                bandeiraMinado(Number(el.dataset.casa));
+                caraMinado('normal');
+            }, 420);
+        }
+    });
+    const soltar = () => {
+        clearTimeout(minado.segurando);
+        if (!minado.acabou) caraMinado('normal');
+    };
+    campo.addEventListener('pointerup', soltar);
+    campo.addEventListener('pointerleave', soltar);
+    campo.addEventListener('pointercancel', soltar);
+    campo.addEventListener('click', e => {
+        const el = casaDe(e);
+        if (!el) return;
+        if (minado.ignorarClique) { minado.ignorarClique = false; return; }
+        const i = Number(el.dataset.casa);
+        const casa = minado.campo[i];
+        if (casa.aberta) return acordeMinado(i);
+        if (minado.modoBandeira) return bandeiraMinado(i);
+        abrirCasaMinado(i);
+    });
+    campo.addEventListener('contextmenu', e => {
+        const el = casaDe(e);
+        if (!el) return;
+        e.preventDefault();
+        bandeiraMinado(Number(el.dataset.casa));
+    });
+    $('#minado').addEventListener('click', e => {
+        const b = e.target.closest('[data-minado]');
+        if (!b) return;
+        const acao = b.dataset.minado;
+        if (acao === 'novo') novoMinado();
+        if (NIVEIS_MINADO[acao]) novoMinado(acao);
+        if (acao === 'recordes') recordesMinado();
+        if (acao === 'bandeira') {
+            minado.modoBandeira = !minado.modoBandeira;
+            b.innerHTML = `bandeira: <b>${minado.modoBandeira ? 'sim' : 'não'}</b>`;
+            b.classList.toggle('ligado', minado.modoBandeira);
+        }
+    });
+    // f2 comeca de novo (igual no windows)
+    document.addEventListener('keydown', e => {
+        if (e.key === 'F2' && !$('#minado').hidden && $('#minado').classList.contains('ativa')) {
+            e.preventDefault();
+            novoMinado();
+        }
+    });
+    novoMinado();
+}
 
 // --- calculadora (igual a do windows antigo) ---
 
@@ -4842,10 +5218,12 @@ function mostrarConexao() {
     icone.innerHTML = `<img class="ico" src="${urlIcone(caiu ? 'disconnect' : 'network_wireless')}" alt="">`;
     icone.title = caiu ? 'Sem conexão (clique pra conectar)' : 'Conectado à internet (clique pra desconectar)';
     icone.classList.toggle('caiu', caiu);
+    ajustarDeitados();
     if (caiu) {
         document.title = 'Não é possível acessar esta página';
         status('Sem conexão com a Internet');
         $('#navegador').scrollIntoView({ block: 'start' });
+        assistenteViuJanela('semInternet');
         dino.reiniciar();
         dino.desenhar();
     } else {
@@ -5424,7 +5802,7 @@ document.addEventListener('keyup', e => {
     if (e.code === 'Space' || e.key === 'ArrowUp') dino.soltouPular();
     if (e.key === 'ArrowDown') dino.soltouAbaixar();
 });
-// no celular em pe o botao de expandir deixa o jogo deitado em tela cheia (fica bem maior)
+// no celular em pe o quadradinho de maximizar deixa o jogo deitado em tela cheia (fica bem maior)
 function deitarDino(ligar) {
     const canvas = $('#dino');
     let caixa = $('#dino-deitado');
@@ -5437,7 +5815,10 @@ function deitarDino(ligar) {
         caixa.insertBefore(canvas, caixa.querySelector('.dica-dino'));
         // tocar em qualquer lugar da tela pula
         caixa.addEventListener('pointerdown', e => {
-            if (e.target.closest('.sair-dino')) return deitarDino(false);
+            if (e.target.closest('.sair-dino')) {
+                $('#navegador').classList.remove('maximizada');
+                return atualizarTarefas();
+            }
             if (e.target === canvas) return;
             e.preventDefault();
             if (dino.acabou) dino.horaDoFim = 0;
@@ -5449,7 +5830,6 @@ function deitarDino(ligar) {
         caixa.remove();
     }
 }
-window.addEventListener('resize', () => { if (!celularEmPe()) deitarDino(false); });
 
 // clicar ou tocar no jogo pula (depois de perder, clicar recomeca na hora)
 $('#dino').addEventListener('pointerdown', e => {
@@ -5458,6 +5838,15 @@ $('#dino').addEventListener('pointerdown', e => {
     dino.apertouPular();
 });
 $('#dino').addEventListener('pointerup', () => dino.soltouPular());
+
+// depois que o jogo comeca, clicar em qualquer lugar do navegador tambem pula
+$('#navegador').addEventListener('pointerdown', e => {
+    if (!semInternet() || !dino.rodando || e.target === $('#dino')) return;
+    if (e.target.closest('button, a, input, textarea, select, .barra-titulo')) return;
+    e.preventDefault();
+    dino.apertouPular();
+});
+$('#navegador').addEventListener('pointerup', () => { if (semInternet()) dino.soltouPular(); });
 
 
 // --- traducao automatica (ingles ou espanhol pra quem nao e de pais que fala portugues) ---
@@ -5865,7 +6254,6 @@ const COMANDOS = {
     'idioma-es': () => trocarIdioma('es', true),
     'fechar-aviso-traducao': () => { $('#aviso-traducao').hidden = true; },
     'internet': () => alternarInternet(),
-    'expandir-dino': () => deitarDino(true),
     'nova-guia': novaAba,
     'imprimir': () => window.print(),
     'fechar': () => acaoJanela($('#navegador'), 'fechar'),
@@ -5905,6 +6293,9 @@ const COMANDOS = {
         montarFavoritos();
     },
     'papel-parede': () => abrirJanela('fundos'),
+    'assistente': () => liberado('jujuba') && chamarAssistente(),
+    'modo-celular': () => liberado('celular') && entrarModoCelular(true, false),
+    'modo-tablet': () => liberado('celular') && entrarModoCelular(true, true),
     'limpar-dados': () => confirmar('Excluir histórico',
         nuvem
             ? 'Isso apaga as notas, favoritos e preferências salvos neste navegador.\n(os recados do servidor continuam lá)\nDeseja continuar?'
@@ -5931,7 +6322,7 @@ const COMANDOS = {
         mostrarPagina();
     },
     'sorte-luucas': () => {
-        const paginas = Object.entries(PAGINAS).filter(([, pagina]) => !pagina.escondida).map(([id]) => id);
+        const paginas = Object.entries(PAGINAS).filter(([id, pagina]) => !pagina.escondida && (id !== 'tv' || liberado('tv'))).map(([id]) => id);
         const rota = paginas[Math.floor(Math.random() * paginas.length)];
         if (!abaNovaViraSite(rota)) ir(rota);
     },
@@ -7259,7 +7650,8 @@ function decorarDatas() {
 
     // estacao do ano na bandeja do lado do relogio
     const bandeja = $('#estacao');
-    bandeja.innerHTML = `<i class="icone-estacao ${estacao}"></i><span>${nomeEstacao}</span>`;
+    // so o simbolo da estacao (o nome aparece passando o mouse)
+    bandeja.innerHTML = `<i class="icone-estacao ${estacao}" role="img" aria-label="${nomeEstacao}"></i>`;
     bandeja.title = `Estamos ${estacao === 'primavera' ? 'na' : 'no'} ${nomeEstacao.toLowerCase()} (${periodo})`;
 
     // a frase da data entra no comeco do letreiro (a estacao fica so la embaixo, do lado do relogio)
@@ -7294,6 +7686,2029 @@ function relogio() {
     $('#relogio').textContent = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }
 
+// --- jujuba, a agua-viva assistente (igual ao clippy do office, so que molhada) ---
+
+const FALAS_ASSISTENTE = {
+    oi: 'Oi! Eu sou a Jujuba, a água-viva assistente do Quarto do Lucas. Parece que você está tentando navegar no site. Quer ajuda?',
+    sim: 'Ótimo! Com o que você precisa de ajuda? Escolhe uma pergunta ou escreve a sua:',
+    nao: 'Tudo bem... vou ficar aqui flutuando, caso você mude de ideia. :(',
+    soltas: [
+        'Dica: pra ler um texto, comece pela primeira palavra.',
+        'Você sabia? Clicando num link, ele te leva pra outro lugar. A tecnologia é incrível.',
+        'Parece que você está mexendo o mouse. Quer que eu mexa por você?',
+        'Fato: água-viva não tem cérebro. Mesmo assim eu sei mais de internet que muita gente. ;)',
+        'Eu sou 95% água e 5% vontade de ajudar.',
+        'Lembrete: beba água. Eu bebo o tempo todo, eu moro nela.',
+        'Qual é o peixe que caiu do décimo andar? Aaaaaatum! :P',
+        'O que o tubarão falou pra água-viva? "Você é gelatina demais pra mim." Até hoje eu choro.',
+        'Se o site travar, desligue e ligue de novo. Funciona com tudo, menos comigo.',
+        'Dica de segurança: nunca conte sua senha pra ninguém. Nem pra mim. Principalmente pra mim.',
+        'Você está navegando há um tempão! Quer que eu chame sua mãe pra desligar o computador?',
+        'Este site é melhor visualizado em 800x600 no Internet Explorer 6. Brincadeira... ou não.',
+        'Se você ouvir um barulho de modem discado, não se assuste: sou eu respirando.',
+        'Quer ver uma mágica? Aperte F5. Pronto, a página sumiu e voltou!',
+        'Já deixou seu recado hoje? O Lucas fica feliz. Eu também, mas eu nem tenho coração.',
+        'Pode me arrastar pela tela, eu não queimo. Quase nunca.',
+        'Parece que você está lendo isso. Quer ajuda pra continuar lendo?',
+        'Você sabia que tem uma área secreta nesse site? Eu sei a senha, mas não conto. :x',
+        'Psiu! O Zap do Lucas tem o botão "chamar a atenção". Use com moderação. Ou não.',
+        'Se eu fosse você, eu clicava em tudo. Mas eu sou uma água-viva, então não me escute.',
+    ],
+    paginas: {
+        inicio: 'Parece que você chegou na página inicial. Quer que eu leia ela em voz alta? (eu não tenho boca)',
+        perfil: 'Parece que você está tentando conhecer o Lucas melhor. Pode fuçar, eu deixo.',
+        sobre: 'Parece que você está tentando conhecer o Lucas melhor. Pode fuçar, eu deixo.',
+        recados: 'Parece que você está tentando deixar um recado. Quer ajuda pra escrever "passando pra deixar um beijo"?',
+        depoimentos: 'Escrever depoimento é coisa séria. Dica: elogie bastante, o Lucas adora. (L)',
+        albuns: 'Parece que você está vendo fotos. Quer que eu faça cara de surpresa? :O',
+        album: 'Que foto bonita! Eu falo isso de todas, mas dessa vez é sério.',
+        photodump: 'Photodump! Antigamente a gente revelava foto na farmácia e esperava uma semana, sabia?',
+        diario: 'Diário dos outros a gente não lê! ...tá bom, só um pouquinho.',
+        playlist: 'Parece que você gosta de música. Eu só escuto o som do mar. É meio repetitivo.',
+        amigos: 'Quer virar amigo do Lucas? Se cadastra lá, que eu prometo não contar pra ninguém.',
+        comunidades: '"Eu odeio acordar cedo" é minha comunidade favorita.',
+        tv: 'Hora da Sessão da TV! Arraste pro lado pra mudar de canal. Eu prefiro documentário do fundo do mar.',
+        avaliacoes: 'Parece que você está avaliando coisas. Me dá 5 estrelas também?',
+        projetos: 'Projetos do Lucas! Eu também tenho um projeto: flutuar.',
+        redes: 'Redes sociais! Eu só conheço a rede de pesca. Péssima, prende todo mundo.',
+        busca: 'Procurando alguma coisa? Eu procuraria debaixo do sofá.',
+    },
+    janelas: {
+        paint: 'Parece que você está tentando desenhar. Quer uma dica? Desenhe uma água-viva. Fica lindo.',
+        msn: 'Parece que você está tentando conversar. Cuidado com o "chamar a atenção", treme tudo! Até eu.',
+        calculadora: 'Calculadora! 2 + 2 = 4. Viu? Nem precisava ter aberto.',
+        fazenda: 'Uma fazenda! Eu não posso entrar, lá não tem mar. Planta umas cenouras por mim.',
+        notas: 'Bloco de notas aberto. Anota aí: "a Jujuba é a melhor assistente do mundo".',
+        minado: 'Campo Tekisminado! Dica de especialista: não clique nas minas. De nada.',
+        lixeira: 'Mexendo no lixo? Eu não julgo. Eu moro no oceano, já vi coisa pior.',
+        fundos: 'Trocando o papel de parede? Tem algum do fundo do mar? Não? Que pena.',
+        semInternet: 'A internet caiu! Calma, não fui eu que mordi o fio. Joga o dinossauro enquanto isso.',
+    },
+};
+
+
+// perguntas que a jujuba sabe responder (o menu "obter ajuda" e a caixinha de pesquisa usam essa lista)
+const PIADAS_JUJUBA = [
+    'Por que o computador foi ao médico? Porque ele tava com vírus! :P',
+    'Qual é o peixe que caiu do décimo andar? Aaaaaatum!',
+    'Por que a água-viva não joga pôquer? Porque todo mundo enxerga através dela. :(',
+    'O que o zero falou pro oito? Que cinto bonito!',
+    'Por que o livro de matemática tava triste? Porque tinha muitos problemas.',
+    'Como o mouse se despede? Com um clique de tchau. ;)',
+    'Por que o polvo atravessou o mar? Pra chegar do outro lado. Ok, essa foi ruim até pra mim.',
+    'Qual é o contrário de volátil? Vem cá, sobrinho!',
+];
+
+const AJUDA_JUJUBA = [
+    { id: 'recado', pergunta: 'Como deixo um recado?', chaves: 'recado recados mensagem livro visitas escrever deixar assinar',
+        resposta: 'É fácil! Vai em Recados, escreve seu nome e a mensagem e manda. Todo mundo que visita vê. Dá pra usar [b]negrito[/b] e carinhas tipo :)', ir: { rota: 'recados' } },
+    { id: 'zap', pergunta: 'Como converso no Zap?', chaves: 'zap msn conversa conversar bate papo chat falar mensagem atencao',
+        resposta: 'Abre o Zap do Lucas, escolhe um nome e manda mensagem. É um bate-papo aberto com todo mundo do site. O "Chamar a atenção" faz a tela de todo mundo tremer!', ir: { janela: 'msn' } },
+    { id: 'paint', pergunta: 'Como desenho e mando pro Lucas?', chaves: 'paint desenho desenhar pintar mandar enviar arte mural',
+        resposta: 'Abre o Paint, desenha o que quiser e toca no envelope pra enviar. Se o Lucas aprovar, seu desenho vai pro mural de recados!', ir: { janela: 'paint' } },
+    { id: 'fotos', pergunta: 'Onde vejo as fotos?', chaves: 'foto fotos album albuns photodump imagem galeria camera',
+        resposta: 'Nos Álbuns tem as fotos separadinhas, e no Photodump tem tudo misturado. Clica numa foto pra ver ela grande.', ir: { rota: 'albuns' } },
+    { id: 'amigos', pergunta: 'Como entro pros amigos do Lucas?', chaves: 'amigo amigos adicionar add entrar contato contatos lista',
+        resposta: 'Vai em Amigos, escolhe uma foto sua e coloca seu nome. Pronto, você aparece na lista de amigos dele!', ir: { rota: 'amigos' } },
+    { id: 'depoimento', pergunta: 'Como escrevo um depoimento?', chaves: 'depoimento depoimentos elogio escrever sobre',
+        resposta: 'Em Depoimentos você escreve o que acha do Lucas. Só ele lê, então pode caprichar no elogio. (L)', ir: { rota: 'depoimentos' } },
+    { id: 'tv', pergunta: 'Como funciona a Sessão da TV?', chaves: 'tv televisao canal canais desenho filme assistir video sessao',
+        resposta: 'Tem desenho e filme passando "ao vivo". Arrasta pro lado em cima da TV (ou usa as setinhas) pra mudar de canal, e aperta "ligar o som".', ir: { rota: 'tv' } },
+    { id: 'musica', pergunta: 'Que música o Lucas tá ouvindo?', chaves: 'musica musicas ouvindo spotify playlist som cancao tocando',
+        resposta: () => {
+            const f = ouvindo.faixas?.[0];
+            return f ? `${f.agora ? 'Agora mesmo' : 'Por último'} o Lucas ${f.agora ? 'tá ouvindo' : 'ouviu'} "${f.titulo}", de ${f.artista}. Bom gosto, né?` : 'Dá uma olhada na Playlist, tem as músicas favoritas dele lá!';
+        }, ir: { rota: 'playlist' } },
+    { id: 'minado', pergunta: 'Como joga o Campo Tekisminado?', chaves: 'campo minado mina minas tekisminado bomba bandeira jogo',
+        resposta: 'Clica nos quadradinhos pra abrir. O número diz quantas minas tem em volta, e o botão direito (ou segurar o dedo) põe bandeira. O primeiro clique nunca explode!', ir: { janela: 'minado' } },
+    { id: 'fazenda', pergunta: 'Como jogo a Fazenda?', chaves: 'fazenda jogo jogar plantar colher bichos medalha game',
+        resposta: 'Abre a Fazenda do Lucas e clica em Jogar. Planta, colhe, cuida dos bichos e cumpre as metas pra ganhar medalhas!', ir: { janela: 'fazenda' } },
+    { id: 'dino', pergunta: 'Tem algum jogo escondido?', chaves: 'escondido segredo dinossauro dino jogo internet offline',
+        resposta: 'Psiu... se a internet cair aparece o jogo do dinossauro de óculos. E dá pra "desligar" a internet no ícone perto do relógio. Eu não te contei nada.', ir: { comando: 'internet', texto: 'Desligar a internet' } },
+    { id: 'segredo', pergunta: 'Tem área secreta?', chaves: 'secreta secreto senha calculadora escondida misterio',
+        resposta: 'Dizem que quem digita a senha certa na Calculadora descobre uma coisa... mas eu não falei nada. :x', ir: { janela: 'calculadora' } },
+    { id: 'papel', pergunta: 'Como troco o papel de parede?', chaves: 'papel parede fundo wallpaper cor tela',
+        resposta: () => cel.ativo ? 'No modo celular o fundo é o dente-de-leão. No computador dá pra trocar em Ferramentas > Trocar papel de parede.' : 'Vai em Ferramentas > Trocar papel de parede, ou abre o ícone "Papel de parede" na área de trabalho.',
+        ir: { janela: 'fundos', soPc: true } },
+    { id: 'celular', pergunta: 'Tem versão de celular?', chaves: 'celular telefone mobile android modo pc computador',
+        resposta: () => cel.ativo ? 'Você já tá nela! Pra voltar pro computador, vai em Configurações > Interface de computador.' : 'Tem! Em tela de toque aparece o "Modo celular" no menu Iniciar. Fica igualzinho um celular antigo.',
+        ir: { comando: 'modo-celular', texto: 'Abrir o modo celular', soToque: true } },
+    { id: 'lucas', pergunta: 'Quem é o Lucas?', chaves: 'lucas quem dono sobre perfil ele idade',
+        resposta: () => `Ele é o dono desse quarto! ${DADOS.sobre?.[0] ? DADOS.sobre[0].slice(0, 140) + (DADOS.sobre[0].length > 140 ? '...' : '') : ''}`, ir: { rota: 'sobre' } },
+    { id: 'piada', pergunta: 'Me conta uma piada', chaves: 'piada piadas rir engracado graca humor',
+        resposta: () => sorteio(PIADAS_JUJUBA), maisUma: true },
+    { id: 'dica', pergunta: 'Me dá uma dica', chaves: 'dica dicas conselho',
+        resposta: () => sorteio(FALAS_ASSISTENTE.soltas), maisUma: true },
+    { id: 'jujuba', pergunta: 'Quem é você?', chaves: 'voce jujuba agua viva assistente clippy quem',
+        resposta: 'Eu sou a Jujuba, uma água-viva que mora no seu navegador. Gosto de dar dicas, contar piada ruim e flutuar. Sou parente distante do clipe do Office.' },
+    { id: 'sumir', pergunta: 'Como faço você sumir?', chaves: 'sumir esconder fechar desligar sai embora chata',
+        resposta: 'Que grosseria! Mas tudo bem, é só tocar em "esconder a Jujuba". Pra me chamar de volta: menu Iniciar > Jujuba. :(', ir: { comando: 'esconder', texto: 'Esconder a Jujuba' } },
+];
+
+function respostaAjuda(item) {
+    return typeof item.resposta === 'function' ? item.resposta() : item.resposta;
+}
+
+// o menu de ajuda: perguntas prontas e uma caixinha pra digitar
+function menuAjudaJujuba(texto = 'O que você gostaria de saber? Escolhe uma pergunta ou escreve a sua:') {
+    assistenteFalar(texto, [], { menu: true });
+    animarJujuba('pensar', 1600);
+}
+
+function responderAjuda(id) {
+    const item = AJUDA_JUJUBA.find(a => a.id === id);
+    if (!item) return;
+    const botoes = [];
+    const ir = item.ir;
+    const podeIr = ir && !(ir.soPc && cel.ativo) && !(ir.soToque && (cel.ativo || !celularPossivel()));
+    if (podeIr) botoes.push({ texto: ir.texto || 'Me leva lá', acao: 'ir:' + item.id });
+    if (item.maisUma) botoes.push({ texto: 'Outra!', acao: 'topico:' + item.id });
+    botoes.push({ texto: 'Outra pergunta', acao: 'ajuda' });
+    assistenteFalar(respostaAjuda(item), botoes);
+}
+
+function irAjuda(id) {
+    const ir = AJUDA_JUJUBA.find(a => a.id === id)?.ir;
+    if (!ir) return;
+    $('#balao-assistente').hidden = true;
+    if (ir.rota) {
+        const app = cel.ativo && APPS_CEL.find(a => a.rota === ir.rota);
+        if (app) abrirAppCel(app.id);
+        else location.hash = '#' + ir.rota;
+    }
+    if (ir.janela) abrirJanela(ir.janela);
+    if (ir.comando === 'internet') alternarInternet();
+    if (ir.comando === 'modo-celular') entrarModoCelular(true);
+    if (ir.comando === 'esconder') esconderAssistente();
+}
+
+// palavras que nao ajudam a achar nada
+const PALAVRAS_VAZIAS = new Set('como onde quando qual quais que quem pra para por com sem uma umas uns dos das nos nas pelo pela isso esse essa este esta aqui ali voce vc eu meu minha seu sua tem ter faz fazer faco consigo posso pode quero queria gostaria preciso saber ajuda ajudar site lucas jujuba favor obrigado oi ola tudo bem entao ai'.split(' '));
+// jeitos diferentes de falar a mesma coisa
+const SINONIMOS_JUJUBA = {
+    recado: 'recado mensagem scrap comentario comentar livro visita assinar', zap: 'zap msn chat conversa conversar papo falar whatsapp',
+    paint: 'paint desenho desenhar pintar arte rabisco', fotos: 'foto fotos imagem imagens album galeria photodump selfie',
+    amigos: 'amigo amigos amizade adicionar add seguir contato', depoimento: 'depoimento elogio testemunho',
+    tv: 'tv televisao canal desenho filme video assistir youtube', musica: 'musica musicas som cancao spotify playlist ouvir ouvindo',
+    fazenda: 'fazenda jogo jogar plantar colheita bicho galinha vaca', dino: 'dino dinossauro escondido offline internet caiu',
+    segredo: 'secreto secreta senha calculadora segredo', papel: 'papel parede fundo wallpaper tema',
+    celular: 'celular telefone mobile android tela toque', lucas: 'lucas dono quem idade aniversario',
+    piada: 'piada piadas rir engracado graca', dica: 'dica dicas conselho', jujuba: 'voce jujuba agua viva assistente clippy',
+    sumir: 'sumir esconder sair fechar embora chata desligar',
+};
+
+function distanciaPalavras(a, b) {
+    if (Math.abs(a.length - b.length) > 2) return 9;
+    const linha = Array.from({ length: b.length + 1 }, (_, i) => i);
+    for (let i = 1; i <= a.length; i++) {
+        let anterior = linha[0];
+        linha[0] = i;
+        for (let j = 1; j <= b.length; j++) {
+            const guardado = linha[j];
+            linha[j] = Math.min(linha[j] + 1, linha[j - 1] + 1, anterior + (a[i - 1] === b[j - 1] ? 0 : 1));
+            anterior = guardado;
+        }
+    }
+    return linha[b.length];
+}
+
+function palavrasDe(texto) {
+    return semAcento(String(texto).toLowerCase()).split(/[^a-z0-9]+/).filter(p => p.length > 2 && !PALAVRAS_VAZIAS.has(p));
+}
+
+// nota de cada pergunta: palavra igual vale mais, comeco parecido ou erro de digitacao vale menos
+function notasAjuda(pergunta) {
+    const palavras = palavrasDe(pergunta);
+    return AJUDA_JUJUBA.map(item => {
+        const chaves = palavrasDe(`${item.chaves} ${item.pergunta} ${SINONIMOS_JUJUBA[item.id] || ''}`);
+        let nota = 0;
+        palavras.forEach(p => {
+            let melhor = 0;
+            chaves.forEach(c => {
+                if (c === p) melhor = Math.max(melhor, 3);
+                else if (p.length >= 4 && (c.startsWith(p.slice(0, 4)) || p.startsWith(c.slice(0, 4)))) melhor = Math.max(melhor, 2);
+                else if (p.length >= 4 && c.length >= 4 && distanciaPalavras(p, c) <= 1) melhor = Math.max(melhor, 1.5);
+                else if (p.length >= 7 && distanciaPalavras(p, c) <= 2) melhor = Math.max(melhor, 1);
+            });
+            nota += melhor;
+        });
+        return { item, nota };
+    }).filter(n => n.nota > 0).sort((a, b) => b.nota - a.nota);
+}
+
+// o que digitou tambem procura no site (recados, fotos, musicas...)
+function achadosNoSite(pergunta) {
+    const palavras = palavrasDe(pergunta);
+    if (!palavras.length) return [];
+    return indiceBusca().filter(i => {
+        const texto = semAcento(i.titulo.toLowerCase());
+        return palavras.every(p => texto.includes(p));
+    }).slice(0, 3);
+}
+
+// procura a pergunta mais parecida com o que a pessoa escreveu
+function buscarAjuda(pergunta) {
+    if (!palavrasDe(pergunta).length) return menuAjudaJujuba('Escreve alguma coisa que eu tento ajudar! Ou escolhe uma dessas:');
+    // ela "procura" um pouquinho antes de responder, igual o clippy com o binoculo
+    animarJujuba('procurar', 1100);
+    // para de escrever a fala anterior
+    clearInterval(assistente.timerFala);
+    $('#assistente').classList.remove('falando');
+    $('#fala-assistente').textContent = 'Procurando...';
+    $('#botoes-assistente').innerHTML = '<span class="procurando-jujuba"><i></i><i></i><i></i></span>';
+    clearTimeout(assistente.timerBusca);
+    assistente.timerBusca = setTimeout(() => respostaBusca(pergunta), 900);
+}
+
+function respostaBusca(pergunta) {
+    const notas = notasAjuda(pergunta);
+    const site = achadosNoSite(pergunta);
+    // uma resposta bem melhor que as outras: responde direto
+    if (notas.length && (notas.length === 1 || notas[0].nota >= notas[1].nota * 1.6) && !site.length) return responderAjuda(notas[0].item.id);
+    if (!notas.length && !site.length) {
+        animarJujuba('cocar', 1500);
+        return assistenteFalar(`Hmm... "${pergunta.slice(0, 50)}"? Não achei nada sobre isso. Sou só uma água-viva, não tenho cérebro! Tenta outras palavras ou escolhe uma dessas:`, [], { menu: true });
+    }
+    const botoes = [
+        ...notas.slice(0, 3).map(n => ({ texto: n.item.pergunta, acao: 'topico:' + n.item.id })),
+        ...site.map(i => ({ texto: `${i.tipo}: ${i.titulo.slice(0, 40)}${i.titulo.length > 40 ? '...' : ''}`, acao: 'link:' + i.link })),
+    ];
+    assistenteFalar(`Achei isso sobre "${pergunta.slice(0, 40)}". O que você quer fazer?`, [], { lista: botoes });
+}
+
+const assistente = { iniciado: false, pagina: null, ultimaFala: 0, timerFala: null, timerFechar: null, arrasto: null };
+
+function sorteio(lista) {
+    return lista[Math.floor(Math.random() * lista.length)];
+}
+
+// escreve a fala letra por letra no balaozinho amarelo
+function assistenteFalar(texto, botoes = [], { menu = false, lista = null } = {}) {
+    if (!assistente.iniciado || $('#assistente').hidden) return;
+    const caixa = $('#assistente');
+    const balao = $('#balao-assistente');
+    const fala = $('#fala-assistente');
+    assistente.ultimaFala = Date.now();
+    acordarAssistente();
+    clearInterval(assistente.timerFala);
+    clearTimeout(assistente.timerFechar);
+    balao.classList.toggle('com-menu', menu || !!lista);
+    balao.hidden = false;
+    const padrao = [
+        { texto: 'Obter ajuda', acao: 'ajuda' },
+        { texto: 'Outra dica', acao: 'dica' },
+        { texto: 'Esconder', acao: 'esconder' },
+    ];
+    const caixaBusca = `<form class="busca-jujuba" data-busca-jujuba><input type="text" maxlength="80" placeholder="Digite sua pergunta..." aria-label="Pergunta pra Jujuba" autocomplete="off"><button type="submit">Pesquisar</button></form>`;
+    $('#botoes-assistente').innerHTML = menu
+        ? `<div class="perguntas-jujuba" id="perguntas-jujuba">${AJUDA_JUJUBA.map(a => `<button type="button" data-assistente="topico:${a.id}">${esc(a.pergunta)}</button>`).join('')}</div>${caixaBusca}`
+        : lista
+            ? `<div class="perguntas-jujuba">${lista.map(b => `<button type="button" data-assistente="${esc(b.acao)}">${esc(b.texto)}</button>`).join('')}<button type="button" data-assistente="ajuda" class="ver-todas-jujuba">Ver todas as perguntas</button></div>${caixaBusca}`
+            : (botoes.length ? botoes : padrao).map(b => `<button type="button" data-assistente="${b.acao}">${esc(b.texto)}</button>`).join('');
+    posicionarBalao();
+    let letras = 0;
+    fala.textContent = '';
+    caixa.classList.add('falando');
+    assistente.timerFala = setInterval(() => {
+        letras += 2;
+        fala.textContent = texto.slice(0, letras);
+        if (letras >= texto.length) {
+            clearInterval(assistente.timerFala);
+            fala.innerHTML = textoRico(texto);
+            caixa.classList.remove('falando');
+        }
+    }, 25);
+    pulinhoAssistente();
+    // sem pergunta, o balao fecha sozinho depois de um tempo
+    if (!botoes.length && !menu) assistente.timerFechar = setTimeout(() => { balao.hidden = true; }, 14000 + texto.length * 40);
+}
+
+
+// --- jeitinhos da jujuba: pisca, olha pro mouse, se mexe sozinha, comemora (igual o clippy e o merlin) ---
+
+const ANIMACOES_JUJUBA = ['olhar', 'esticar', 'bolhas', 'assobiar', 'cocar', 'girar', 'pensar', 'acenar', 'chamar', 'dancar', 'comemorar', 'procurar', 'bocejar', 'tchau'];
+const PARADAS_JUJUBA = ['olhar', 'esticar', 'bolhas', 'assobiar', 'cocar', 'girar', 'bolhas', 'olhar'];
+
+function animarJujuba(nome, ms = 1500) {
+    const caixa = $('#assistente');
+    if (!caixa || caixa.hidden) return;
+    ANIMACOES_JUJUBA.forEach(a => caixa.classList.remove('anim-' + a));
+    void caixa.offsetWidth;
+    caixa.classList.add('anim-' + nome);
+    clearTimeout(assistente.timerAnim);
+    assistente.timerAnim = setTimeout(() => caixa.classList.remove('anim-' + nome), ms);
+    if (nome === 'bolhas' || nome === 'acenar') soltarEnfeitesJujuba('bolha', 6);
+    if (nome === 'assobiar' || nome === 'dancar') soltarEnfeitesJujuba('nota', nome === 'dancar' ? 6 : 3);
+    if (nome === 'comemorar') soltarEnfeitesJujuba('estrela', 8);
+    if (nome === 'pensar') soltarEnfeitesJujuba('pergunta', 1);
+    if (nome === 'chamar') soltarEnfeitesJujuba('onda', 2);
+}
+
+// bolhinhas, notas musicais, estrelinhas... saindo de perto dela
+function soltarEnfeitesJujuba(tipo, quantos) {
+    const lugar = $('#efeitos-assistente');
+    if (!lugar) return;
+    for (let i = 0; i < quantos; i++) {
+        const el = document.createElement('i');
+        el.className = 'enfeite-jujuba ' + tipo;
+        if (tipo === 'nota') el.textContent = sorteio(['♪', '♫', '♪']);
+        if (tipo === 'pergunta') el.textContent = '?';
+        el.style.setProperty('--x', `${Math.round((Math.random() - 0.5) * 70)}px`);
+        el.style.setProperty('--atraso', `${i * (tipo === 'onda' ? 0.35 : 0.14)}s`);
+        el.style.setProperty('--tam', `${6 + Math.random() * 9}px`);
+        lugar.append(el);
+        setTimeout(() => el.remove(), 2600);
+    }
+}
+
+function piscarJujuba() {
+    const caixa = $('#assistente');
+    if (!caixa || caixa.hidden || caixa.classList.contains('dormindo')) return;
+    caixa.classList.add('piscando');
+    setTimeout(() => caixa.classList.remove('piscando'), 150);
+    // as vezes pisca duas vezes seguidas
+    if (Math.random() < 0.25) setTimeout(() => {
+        caixa.classList.add('piscando');
+        setTimeout(() => caixa.classList.remove('piscando'), 130);
+    }, 280);
+}
+
+function iniciarJeitinhosJujuba() {
+    const caixa = $('#assistente');
+    const corpo = caixa.querySelector('.corpo-assistente');
+    // pisca de tempos em tempos
+    const proximaPiscada = () => setTimeout(() => { piscarJujuba(); proximaPiscada(); }, 2200 + Math.random() * 4200);
+    proximaPiscada();
+    // e de vez em quando faz alguma coisinha sozinha
+    const proximoJeito = () => setTimeout(() => {
+        const parada = Date.now() - assistente.ultimaFala > 4000;
+        if (!document.hidden && !caixa.hidden && parada && !caixa.classList.contains('dormindo') && !caixa.classList.contains('arrastando')) {
+            animarJujuba(sorteio(PARADAS_JUJUBA), 1800);
+        }
+        proximoJeito();
+    }, 9000 + Math.random() * 9000);
+    proximoJeito();
+    // no computador ela se inclina pro lado do mouse (como se tivesse olhando)
+    let espera = 0;
+    document.addEventListener('pointermove', e => {
+        if (e.pointerType !== 'mouse' || caixa.hidden || Date.now() - espera < 80) return;
+        espera = Date.now();
+        const r = caixa.getBoundingClientRect();
+        const dx = e.clientX - (r.left + r.width / 2);
+        const dy = e.clientY - (r.top + r.height / 3);
+        const angulo = Math.max(-9, Math.min(9, dx / 40));
+        corpo.style.setProperty('--inclinar', `${caixa.classList.contains('dormindo') ? 0 : angulo}deg`);
+        corpo.style.setProperty('--olhar-y', `${Math.max(-3, Math.min(3, dy / 120))}px`);
+    }, { passive: true });
+    // mandou recado, depoimento ou entrou pros amigos: ela comemora
+    document.addEventListener('submit', e => {
+        const tipo = e.target.dataset?.form;
+        if (!['recado', 'depoimento', 'amigo', 'diario'].includes(tipo) || caixa.hidden) return;
+        setTimeout(() => {
+            animarJujuba('comemorar', 1800);
+            assistenteFalar(sorteio(['Uhul! Mandou bem! (Y)', 'Ebaaa! O Lucas vai adorar! :D', 'Prontinho! Você é demais! (L)']));
+        }, 1200);
+    }, true);
+}
+
+// sem ninguem mexer por um tempo ela tira um cochilo
+function acordarAssistente() {
+    const caixa = $('#assistente');
+    clearTimeout(assistente.timerSono);
+    const dormia = caixa.classList.contains('dormindo');
+    caixa.classList.remove('dormindo');
+    assistente.timerSono = setTimeout(() => {
+        if (!$('#balao-assistente').hidden) return acordarAssistente();
+        animarJujuba('bocejar', 1600);
+        setTimeout(() => caixa.classList.add('dormindo'), 1500);
+    }, 150000);
+    return dormia;
+}
+
+function pulinhoAssistente() {
+    const caixa = $('#assistente');
+    caixa.classList.remove('pulando');
+    void caixa.offsetWidth;
+    caixa.classList.add('pulando');
+}
+
+// o balao abre pro lado que tem espaco
+function posicionarBalao() {
+    const caixa = $('#assistente');
+    const r = caixa.getBoundingClientRect();
+    caixa.classList.toggle('balao-esquerda', r.left + r.width / 2 < innerWidth / 2);
+    caixa.classList.toggle('balao-embaixo', r.top < 190);
+}
+
+function assistenteViuPagina(nome) {
+    if (!assistente.iniciado || nome === assistente.pagina) return;
+    assistente.pagina = nome;
+    const fala = FALAS_ASSISTENTE.paginas[nome];
+    // nao comenta toda vez, senao fica chato (mais chato)
+    if (fala && Date.now() - assistente.ultimaFala > 8000 && Math.random() < 0.6) assistenteFalar(fala);
+}
+
+function assistenteViuJanela(id) {
+    const fala = FALAS_ASSISTENTE.janelas[id];
+    if (fala && Date.now() - assistente.ultimaFala > 5000 && Math.random() < 0.7) assistenteFalar(fala);
+}
+
+function esconderAssistente() {
+    const caixa = $('#assistente');
+    $('#balao-assistente').hidden = true;
+    animarJujuba('tchau', 900);
+    setTimeout(() => esconderAssistenteAgora(), 850);
+}
+
+function esconderAssistenteAgora() {
+    $('#assistente').hidden = true;
+    guardar.salvar('assistente-escondida', true);
+    status('A Jujuba foi nadar. Pra chamar de volta: menu Iniciar > Jujuba.');
+}
+
+function chamarAssistente() {
+    $('#menu-iniciar').hidden = true;
+    const caixa = $('#assistente');
+    guardar.salvar('assistente-escondida', false);
+    if (!assistente.iniciado) iniciarAssistente(true);
+    caixa.hidden = false;
+    caixa.classList.remove('chegando');
+    void caixa.offsetWidth;
+    caixa.classList.add('chegando');
+    setTimeout(() => animarJujuba('acenar', 1600), 700);
+    assistenteFalar('Voltei! Sentiu minha falta? Parece que você precisa de ajuda. Quer ajuda?', [
+        { texto: 'Sim, por favor', acao: 'sim' },
+        { texto: 'Não, obrigado', acao: 'nao' },
+    ]);
+}
+
+// arrastar a jujuba pela tela (e o lugar fica guardado)
+function colocarAssistente(x, y) {
+    const caixa = $('#assistente');
+    // escondida (atras da tela de bloqueio, por exemplo) ela nao tem tamanho: usa o tamanho normal dela
+    const largura = caixa.offsetWidth || (innerWidth <= 720 ? 62 : 92);
+    const altura = caixa.offsetHeight || largura * 1.5;
+    const l = Math.min(Math.max(0, x), innerWidth - largura);
+    const t = Math.min(Math.max(0, y), innerHeight - 30 - altura);
+    caixa.style.left = l + 'px';
+    caixa.style.top = t + 'px';
+    caixa.style.right = 'auto';
+    caixa.style.bottom = 'auto';
+}
+
+function iniciarAssistente(chamada = false) {
+    const caixa = $('#assistente');
+    const boneco = $('#boneco-assistente');
+    // no celular, quem ainda nao escolheu o modo ganha a pergunta mesmo com a jujuba escondida
+    const perguntarModo = !chamada && celularPossivel() && !guardar.ler('modo', '');
+    if (!chamada && !perguntarModo && guardar.ler('assistente-escondida', false)) return;
+    assistente.iniciado = true;
+    assistente.pagina = rotaAtual().nome;
+    caixa.hidden = false;
+    const lugar = guardar.ler('assistente-lugar', null);
+    if (lugar) colocarAssistente(lugar.x, lugar.y);
+    iniciarJeitinhosJujuba();
+    if (!chamada) {
+        caixa.classList.add('chegando');
+        setTimeout(() => animarJujuba('acenar', 1600), 3200);
+        setTimeout(() => {
+            if (perguntarModo) {
+                const tablet = ehTablet();
+                return assistenteFalar(`Psiu! Esse site fica ideal no computador, ele imita um Windows XP inteirinho. Você quer a interface normal de PC ou prefere o modo ${tablet ? 'tablet, com cara de tablet antigo' : 'celular, com cara de celular antigo'}?`, [
+                    { texto: tablet ? 'Modo tablet' : 'Modo celular', acao: tablet ? 'tablet' : 'celular' },
+                    { texto: 'Interface de PC', acao: 'pc' },
+                ]);
+            }
+            // no modo celular ela so fala depois de desbloquear
+            if (cel.ativo) return;
+            const tema = datasAgora.tema;
+            const h = new Date().getHours();
+            const nome = meuNome();
+            const ola = `${h < 5 ? 'Boa madrugada' : h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite'}${nome ? `, ${nome.split(' ')[0]}` : ''}! `;
+            assistenteFalar((tema ? TEMAS[tema].frase(new Date()) + ' ' : '') + ola + FALAS_ASSISTENTE.oi.replace(/^Oi! /, ''), [
+                { texto: 'Sim, por favor', acao: 'sim' },
+                { texto: 'Não, obrigado', acao: 'nao' },
+            ]);
+        }, 3500);
+    }
+    // de vez em quando ela solta uma dica que ninguem pediu
+    setInterval(() => {
+        if (document.hidden || caixa.hidden || !$('#balao-assistente').hidden) return;
+        if (caixa.classList.contains('dormindo')) return;
+        if (Date.now() - assistente.ultimaFala > 60000) {
+            animarJujuba('chamar', 1300);
+            setTimeout(() => assistenteFalar(sorteio(FALAS_ASSISTENTE.soltas)), 700);
+        }
+    }, 30000);
+
+    boneco.addEventListener('pointerdown', e => {
+        e.preventDefault();
+        const r = caixa.getBoundingClientRect();
+        assistente.arrasto = { dx: e.clientX - r.left, dy: e.clientY - r.top, x0: e.clientX, y0: e.clientY, mexeu: false };
+        try { boneco.setPointerCapture(e.pointerId); } catch { /* alguns navegadores nao deixam */ }
+    });
+    boneco.addEventListener('pointermove', e => {
+        const a = assistente.arrasto;
+        if (!a) return;
+        if (!a.mexeu && Math.hypot(e.clientX - a.x0, e.clientY - a.y0) < 6) return;
+        a.mexeu = true;
+        caixa.classList.add('arrastando');
+        colocarAssistente(e.clientX - a.dx, e.clientY - a.dy);
+        posicionarBalao();
+    });
+    boneco.addEventListener('pointerup', () => {
+        const a = assistente.arrasto;
+        assistente.arrasto = null;
+        caixa.classList.remove('arrastando');
+        if (!a) return;
+        if (a.mexeu) {
+            const r = caixa.getBoundingClientRect();
+            guardar.salvar('assistente-lugar', { x: r.left, y: r.top });
+        } else if (Date.now() - (assistente.ultimoToque || 0) < 380) {
+            // dois toques rapidinhos: dancinha
+            clearTimeout(assistente.timerToque);
+            assistente.ultimoToque = 0;
+            animarJujuba('dancar', 2200);
+            assistenteFalar(sorteio(['Olha minha dancinha! ♪', 'Tô dançando a dança da água-viva! ♪♫', 'Eu danço melhor que o clipe do Office, admite.']));
+        } else if (caixa.classList.contains('dormindo')) {
+            assistenteFalar('Ah! Eu não tava dormindo não, tava... pensando. Precisa de alguma coisa?', [
+                { texto: 'Obter ajuda', acao: 'ajuda' },
+                { texto: 'Me conta uma piada', acao: 'topico:piada' },
+            ]);
+        } else {
+            // um toque: espera um tiquinho pra ver se vem o segundo (danca) antes de abrir a ajuda
+            assistente.ultimoToque = Date.now();
+            clearTimeout(assistente.timerToque);
+            assistente.timerToque = setTimeout(() => {
+                assistente.ultimoToque = 0;
+                menuAjudaJujuba(sorteio([
+                    'Oi! Em que posso ajudar? Escolhe uma pergunta ou escreve a sua:',
+                    'Chamou? Escolhe uma pergunta ou escreve a sua:',
+                    'Parece que você quer ajuda! O que você gostaria de saber?',
+                ]));
+            }, 330);
+        }
+        if (a.mexeu && Math.random() < 0.3) assistenteFalar(sorteio(['Uiii! Cuidado, eu sou feita de gelatina!', 'Aqui tá bom, a vista é ótima.', 'Me mudou de lugar? Tudo bem, eu flutuo em qualquer canto.']));
+    });
+    window.addEventListener('resize', () => {
+        if (!caixa.style.left) return;
+        const r = caixa.getBoundingClientRect();
+        colocarAssistente(r.left, r.top);
+    });
+
+    caixa.addEventListener('input', e => {
+        if (!e.target.closest('[data-busca-jujuba]')) return;
+        const lista = $('#perguntas-jujuba');
+        if (!lista) return;
+        const texto = e.target.value.trim();
+        const ordem = texto ? notasAjuda(texto).map(n => n.item.id) : [];
+        const botoes = [...lista.querySelectorAll('button')];
+        botoes.forEach(b => {
+            const id = b.dataset.assistente.slice(7);
+            const pos = ordem.indexOf(id);
+            b.style.order = pos < 0 ? 100 : pos;
+            b.classList.toggle('apagada', !!texto && pos < 0);
+            b.classList.toggle('achada', pos === 0);
+        });
+        lista.scrollTop = 0;
+    });
+    caixa.addEventListener('submit', e => {
+        if (!e.target.matches('[data-busca-jujuba]')) return;
+        e.preventDefault();
+        e.stopPropagation();
+        buscarAjuda(e.target.querySelector('input').value.trim());
+    });
+
+    caixa.addEventListener('click', e => {
+        const b = e.target.closest('[data-assistente]');
+        if (!b) return;
+        const acao = b.dataset.assistente;
+        if (acao === 'sim' || acao === 'ajuda') return menuAjudaJujuba(acao === 'sim' ? FALAS_ASSISTENTE.sim : undefined);
+        if (acao.startsWith('topico:')) return responderAjuda(acao.slice(7));
+        if (acao.startsWith('ir:')) return irAjuda(acao.slice(3));
+        if (acao.startsWith('link:')) {
+            $('#balao-assistente').hidden = true;
+            const destino = acao.slice(5);
+            const app = cel.ativo && APPS_CEL.find(a => a.rota && destino.startsWith('#' + a.rota));
+            if (app) abrirAppCel(app.id);
+            location.hash = destino;
+            return;
+        }
+        if (acao === 'nao') assistenteFalar(FALAS_ASSISTENTE.nao);
+        if (acao === 'dica') assistenteFalar(sorteio(FALAS_ASSISTENTE.soltas));
+        if (acao === 'calar') {
+            clearInterval(assistente.timerFala);
+            $('#balao-assistente').hidden = true;
+        }
+        if (acao === 'esconder') esconderAssistente();
+        if (acao === 'celular' || acao === 'tablet') {
+            $('#balao-assistente').hidden = true;
+            entrarModoCelular(true, acao === 'tablet');
+        }
+        if (acao === 'pc') {
+            guardar.salvar('modo', 'pc');
+            assistenteFalar('Tudo bem! Se mudar de ideia, o modo celular fica no menu Iniciar.');
+        }
+    });
+}
+
+// --- modo celular: o site inteiro vira um galaxy antigo (tela de bloqueio, tela inicial e aplicativos) ---
+
+// cada app: abre uma pagina do site (rota) ou um programa (janela)
+const APPS_CEL = [
+    { id: 'internet', nome: 'Internet', ico: 'world', cor: '#2a7fd4', rota: 'inicio', completo: true },
+    { id: 'zap', nome: 'Zap', ico: 'msn_messenger', cor: '#3aa547', janela: 'msn' },
+    { id: 'contatos', nome: 'Contatos', ico: 'group', cor: '#e8892c', rota: 'amigos' },
+    { id: 'paint', nome: 'S Paint', ico: 'palette', cor: '#b98a4e', janela: 'paint' },
+    { id: 'recados', nome: 'Recados', ico: 'email', cor: '#e2a516', rota: 'recados' },
+    { id: 'galeria', nome: 'Galeria', ico: 'photo_album', cor: '#d94b8b', rota: 'albuns' },
+    { id: 'camera', nome: 'Câmera', ico: 'camera', cor: '#4c5560', camera: true },
+    { id: 'musica', nome: 'Música', ico: 'headphone', cor: '#7b4fc9', rota: 'playlist' },
+    { id: 'tv', nome: 'TV', ico: 'film', cor: '#c0392b', rota: 'tv' },
+    { id: 'diario', nome: 'Diário', ico: 'book_open', cor: '#8e5a2b', rota: 'diario' },
+    { id: 'perfil', nome: 'Perfil', ico: 'user', cor: '#2f80c9', rota: 'perfil' },
+    { id: 'depoimentos', nome: 'Depoimentos', ico: 'award_star_gold_1', cor: '#d4891a', rota: 'depoimentos' },
+    { id: 'memo', nome: 'Memo', ico: 'note', cor: '#e9c440', janela: 'notas' },
+    { id: 'calculadora', nome: 'Calculadora', ico: 'calculator', cor: '#4a4f57', janela: 'calculadora' },
+    { id: 'fazenda', nome: 'Fazenda', ico: 'celeiro', cor: '#5f9e45', janela: 'fazenda' },
+    { id: 'config', nome: 'Configurações', ico: 'computer', cor: '#5f6b78', config: true },
+    { id: 'sobre', nome: 'Sobre mim', ico: 'heart', cor: '#e0457b', rota: 'sobre' },
+    { id: 'comunidades', nome: 'Comunidades', ico: 'comments', cor: '#3b9bd1', rota: 'comunidades' },
+    { id: 'avaliacoes', nome: 'Avaliações', ico: 'thumb_up', cor: '#27a59a', rota: 'avaliacoes' },
+    { id: 'projetos', nome: 'Projetos', ico: 'wrench', cor: '#6d7b8a', rota: 'projetos' },
+    { id: 'redes', nome: 'Redes Sociais', ico: 'page_world', cor: '#1f6fb5', rota: 'redes' },
+    { id: 'pesquisar', nome: 'Pesquisar', ico: 'zoom', cor: '#4c8c2b', rota: 'busca' },
+    { id: 'arquivos', nome: 'Meus arquivos', ico: 'bin_recycle', cor: '#d98c2b', janela: 'lixeira' },
+    { id: 'minado', nome: 'Tekisminado', ico: 'mina', cor: '#7a8088', janela: 'minado' },
+    { id: 'jujuba', nome: 'Jujuba', img: 'imagens/assistente/agua-viva.png?v=2', cor: '#6a4fd8', jujuba: true },
+];
+const DOCK_CEL = ['contatos', 'zap', 'internet', 'paint'];
+const PAGINAS_CEL = [
+    ['recados', 'galeria', 'camera', 'musica', 'tv', 'diario', 'perfil', 'depoimentos', 'memo', 'calculadora', 'fazenda', 'config'],
+    ['sobre', 'comunidades', 'avaliacoes', 'projetos', 'redes', 'pesquisar', 'arquivos', 'minado', 'jujuba'],
+];
+
+// icones dos apps desenhados no estilo dos galaxy antigos (cores com brilho por cima)
+const DEGRADES_CEL = {
+    azul: ['#8fd3ff', '#1d6fd1'], verde: ['#9be86f', '#2b8f22'], laranja: ['#ffc77a', '#e0681a'], amarelo: ['#fff3a6', '#efb21c'],
+    cinza: ['#fbfbfb', '#9ba2aa'], escuro: ['#727a83', '#1f2226'], vermelho: ['#ff8b7c', '#c42419'], roxo: ['#cfa8ff', '#6236c0'],
+    rosa: ['#ffa4cc', '#cf2f77'], agua: ['#a4f2ff', '#1597c2'], papel: ['#ffffff', '#dedede'], marrom: ['#e2ae74', '#7a4719'],
+    azulescuro: ['#7ea2ff', '#1c3a96'], dourado: ['#ffe27a', '#d69400'], ceu: ['#69bdfc', '#d9f1ff'],
+};
+
+function defsCel() {
+    const lineares = Object.entries(DEGRADES_CEL).map(([nome, [a, b]]) =>
+        `<linearGradient id="gc-${nome}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient>`).join('');
+    return `<svg class="defs-cel" width="0" height="0" aria-hidden="true"><defs>${lineares}
+        <linearGradient id="gc-brilho" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".75"/><stop offset="1" stop-color="#fff" stop-opacity=".05"/></linearGradient>
+        <radialGradient id="ics-esfera" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#d4f4ff"/><stop offset=".4" stop-color="#33b5e5"/><stop offset="1" stop-color="#075a85"/></radialGradient>
+        <radialGradient id="ics-coracao" cx=".35" cy=".3" r=".85"><stop offset="0" stop-color="#ff8a80"/><stop offset=".5" stop-color="#e53935"/><stop offset="1" stop-color="#8e0f0b"/></radialGradient>
+        <linearGradient id="ics-madeira" x1="0" y1="0" x2=".3" y2="1"><stop offset="0" stop-color="#f0c68e"/><stop offset=".55" stop-color="#cf914f"/><stop offset="1" stop-color="#94561f"/></linearGradient>
+        <linearGradient id="ics-celeiro" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#e5463a"/><stop offset=".6" stop-color="#c62a1f"/><stop offset="1" stop-color="#93190f"/></linearGradient>
+        <linearGradient id="ics-telhado" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6d4c41"/><stop offset="1" stop-color="#3e2723"/></linearGradient>
+        <radialGradient id="ics-grama" cx=".5" cy=".35" r=".7"><stop offset="0" stop-color="#9ccc65"/><stop offset=".7" stop-color="#689f38"/><stop offset="1" stop-color="#33691e"/></radialGradient>
+        <linearGradient id="ics-papel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#dfe6ea"/></linearGradient>
+        <linearGradient id="ics-cabo" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff7a6b"/><stop offset="1" stop-color="#a81d12"/></linearGradient>
+        <linearGradient id="ics-metal" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fafafa"/><stop offset=".5" stop-color="#b0b6bb"/><stop offset="1" stop-color="#e3e6e8"/></linearGradient>
+        <filter id="ics-borrar" x="-30%" y="-100%" width="160%" height="300%"><feGaussianBlur stdDeviation="1.6"/></filter>
+        <radialGradient id="gc-lente" cx=".4" cy=".35" r=".7"><stop offset="0" stop-color="#7fc4ff"/><stop offset=".45" stop-color="#16467f"/><stop offset="1" stop-color="#02070f"/></radialGradient>
+    </defs></svg>`;
+}
+
+// quadradinho arredondado com brilho em cima
+function ladrilhoCel(cor, desenho) {
+    return `<rect x="4" y="4" width="52" height="52" rx="12" fill="url(#gc-${cor})"/>${desenho}
+        <path d="M4 16a12 12 0 0 1 12-12h28a12 12 0 0 1 12 12v8q-26 9-52 0z" fill="url(#gc-brilho)" opacity=".85"/>
+        <rect x="4.5" y="4.5" width="51" height="51" rx="11.5" fill="none" stroke="#000" stroke-opacity=".22"/>`;
+}
+
+function engrenagemCel() {
+    let d = '';
+    for (let i = 0; i < 16; i++) {
+        const a = (i / 16) * Math.PI * 2;
+        const r = i % 2 ? 19.5 : 25.5;
+        const a1 = a - 0.17, a2 = a + 0.17;
+        d += `${i ? 'L' : 'M'}${(30 + r * Math.cos(a1)).toFixed(1)} ${(30 + r * Math.sin(a1)).toFixed(1)}L${(30 + r * Math.cos(a2)).toFixed(1)} ${(30 + r * Math.sin(a2)).toFixed(1)}`;
+    }
+    return d + 'Z';
+}
+
+const ICONES_CEL = {
+    internet: () => `<circle cx="30" cy="30" r="25" fill="url(#gc-azul)"/>
+        <path d="M14 21q6-7 13-4 3 4-2 7-5 1-4 6-4 3-7-1-2-5 0-8zM34 13q8 0 13 7-3 2-7 1-2 3 1 6 4 2 3 7-3 6-8 5-2-6-5-8-1-6 4-9-2-4-1-9z" fill="#5fd14a" opacity=".9"/>
+        <ellipse cx="30" cy="30" rx="11" ry="25" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="1.4"/>
+        <path d="M5 30h50M8 18h44M8 42h44" stroke="#fff" stroke-opacity=".3" stroke-width="1.4"/>
+        <ellipse cx="26" cy="16" rx="17" ry="9" fill="url(#gc-brilho)"/>
+        <circle cx="30" cy="30" r="25" fill="none" stroke="#0b4386" stroke-width="1.5"/>`,
+    zap: () => ladrilhoCel('verde', `<path d="M14 15h32a6 6 0 0 1 6 6v14a6 6 0 0 1-6 6H28l-9 8v-8h-5a6 6 0 0 1-6-6V21a6 6 0 0 1 6-6z" fill="#fff"/>
+        <circle cx="21" cy="28" r="3.2" fill="#3a9a2a"/><circle cx="30" cy="28" r="3.2" fill="#3a9a2a"/><circle cx="39" cy="28" r="3.2" fill="#3a9a2a"/>`),
+    contatos: () => ladrilhoCel('laranja', `<circle cx="30" cy="23" r="8.5" fill="#fff"/><path d="M14 47q0-14 16-14t16 14z" fill="#fff"/>
+        <path d="M49 14v8M49 26v8M49 38v8" stroke="#fff" stroke-opacity=".7" stroke-width="3" stroke-linecap="round"/>`),
+    paint: () => ladrilhoCel('papel', `<path d="M30 12c-11 0-20 8-20 18 0 9 8 17 18 17 3 0 4-2 3-4-1-3 1-6 4-6h5c6 0 10-4 10-10 0-9-9-15-20-15z" fill="url(#gc-marrom)"/>
+        <circle cx="21" cy="25" r="3.4" fill="#e53935"/><circle cx="29" cy="19" r="3.4" fill="#fdd835"/><circle cx="38" cy="22" r="3.4" fill="#43a047"/><circle cx="19" cy="34" r="3.4" fill="#1e88e5"/>
+        <path d="M50 44 37 31" stroke="#5d4037" stroke-width="3" stroke-linecap="round"/><path d="M37 31l-4-3 2 5z" fill="#222"/>`),
+    recados: () => ladrilhoCel('papel', `<rect x="11" y="17" width="38" height="27" rx="3" fill="#fff" stroke="#2f7fd8" stroke-width="2.6"/>
+        <path d="M12.5 19.5 30 33l17.5-13.5" fill="none" stroke="#2f7fd8" stroke-width="2.6" stroke-linejoin="round"/>
+        <circle cx="45" cy="17" r="6" fill="#e53935"/><path d="M45 14v4" stroke="#fff" stroke-width="2" stroke-linecap="round"/><circle cx="45" cy="20.3" r="1.1" fill="#fff"/>`),
+    galeria: () => ladrilhoCel('papel', `<rect x="10" y="12" width="40" height="35" rx="2" fill="url(#gc-ceu)" stroke="#9aa" stroke-width="1"/>
+        <circle cx="41" cy="21" r="4.5" fill="#ffd23f"/><path d="M10 47v-9q9-9 17-3 9-8 23 1v11z" fill="url(#gc-verde)"/>
+        <path d="M21 40v-6" stroke="#2b8f22" stroke-width="1.6"/><circle cx="21" cy="32" r="3" fill="#ff5c9a"/><circle cx="21" cy="32" r="1.2" fill="#ffe14d"/>`),
+    camera: () => `<circle cx="30" cy="30" r="25" fill="url(#gc-cinza)"/><circle cx="30" cy="30" r="25" fill="none" stroke="#6b7178" stroke-width="1.4"/>
+        <circle cx="30" cy="30" r="19" fill="url(#gc-escuro)"/><circle cx="30" cy="30" r="13" fill="url(#gc-lente)"/>
+        <circle cx="30" cy="30" r="6" fill="#020509"/><circle cx="25" cy="25" r="3.6" fill="#fff" opacity=".75"/><circle cx="35" cy="35" r="1.6" fill="#fff" opacity=".4"/>
+        <ellipse cx="26" cy="15" rx="15" ry="7" fill="url(#gc-brilho)" opacity=".8"/>`,
+    musica: () => ladrilhoCel('roxo', `<path d="M24 42V18l19-5v25" fill="none" stroke="#fff" stroke-width="3.6" stroke-linejoin="round"/>
+        <ellipse cx="19.5" cy="42" rx="6.5" ry="5" fill="#fff"/><ellipse cx="38.5" cy="38" rx="6.5" ry="5" fill="#fff"/>`),
+    tv: () => ladrilhoCel('vermelho', `<path d="M24 19l-6-8M36 19l6-8" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>
+        <rect x="10" y="19" width="40" height="28" rx="6" fill="#fff"/><rect x="14" y="23" width="26" height="20" rx="4" fill="#2b2b2b"/>
+        <path d="M24 28v10l8-5z" fill="#fff"/><circle cx="45" cy="28" r="2" fill="#c42419"/><circle cx="45" cy="35" r="2" fill="#c42419"/>`),
+    diario: () => {
+        const hoje = new Date();
+        return `<rect x="8" y="8" width="44" height="45" rx="5" fill="url(#gc-papel)" stroke="#a9a9a9"/>
+        <path d="M8 13a5 5 0 0 1 5-5h34a5 5 0 0 1 5 5v8H8z" fill="url(#gc-vermelho)"/>
+        <text x="30" y="18.6" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif" font-size="8.5" font-weight="bold">${MESES_CEL[hoje.getMonth()].toUpperCase()}</text>
+        <text x="30" y="45" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="22" font-weight="bold">${hoje.getDate()}</text>
+        <circle cx="19" cy="9" r="2.2" fill="#555"/><circle cx="41" cy="9" r="2.2" fill="#555"/>`;
+    },
+    perfil: () => ladrilhoCel('azul', `<rect x="10" y="16" width="40" height="28" rx="3" fill="#fff"/><circle cx="21.5" cy="26.5" r="4.8" fill="#2f7fd8"/>
+        <path d="M14 39q0-7 7.5-7t7.5 7z" fill="#2f7fd8"/><path d="M33 25h12M33 30.5h12M33 36h8" stroke="#9aaabb" stroke-width="2.4" stroke-linecap="round"/>`),
+    depoimentos: () => ladrilhoCel('azulescuro', `<path d="M30 12l5.3 11 12 1.6-8.8 8.3 2.2 12L30 39.2 19.3 45l2.2-12-8.8-8.3 12-1.6z" fill="url(#gc-dourado)" stroke="#fff3b0" stroke-width="1.2"/>`),
+    memo: () => `<rect x="11" y="8" width="38" height="46" rx="3" fill="url(#gc-amarelo)" stroke="#c8961a"/>
+        <rect x="11" y="8" width="38" height="8" rx="3" fill="url(#gc-vermelho)"/>
+        <path d="M16 25h28M16 32h28M16 39h28M16 46h18" stroke="#d1a22c" stroke-width="1.6"/>
+        <path d="M44 50 54 30l3 1.5-10 20-4 2z" fill="#3b7dd8" stroke="#1d4f99" stroke-width=".8"/>`,
+    calculadora: () => ladrilhoCel('escuro', `<rect x="13" y="11" width="34" height="11" rx="2" fill="#bfe6c2"/><text x="44" y="20" text-anchor="end" font-family="Arial" font-size="8" fill="#26402a">123</text>
+        ${[0, 1, 2].map(l => [0, 1, 2].map(c => `<rect x="${13 + c * 9}" y="${26 + l * 8}" width="7" height="6" rx="1.2" fill="#e8eaed"/>`).join('')).join('')}
+        <rect x="40" y="26" width="7" height="22" rx="1.2" fill="#ff8f1f"/>`),
+    fazenda: () => ladrilhoCel('verde', `<path d="M15 47V30l15-13 15 13v17z" fill="#d23224"/><path d="M12 31 30 15l18 16" fill="none" stroke="#fff" stroke-width="2.6" stroke-linejoin="round"/>
+        <rect x="25" y="34" width="10" height="13" fill="#fff"/><path d="M25 34l10 13m0-13L25 47" stroke="#d23224" stroke-width="1.6"/><rect x="27" y="23" width="6" height="6" fill="#fff"/>`),
+    config: () => `<path d="${engrenagemCel()}" fill="url(#gc-cinza)" stroke="#5f666e" stroke-width="1.4" stroke-linejoin="round"/>
+        <circle cx="30" cy="30" r="9.5" fill="url(#gc-escuro)"/><circle cx="30" cy="30" r="13.5" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="1.2"/>
+        <ellipse cx="27" cy="18" rx="13" ry="6" fill="url(#gc-brilho)" opacity=".7"/>`,
+    sobre: () => ladrilhoCel('rosa', `<path d="M30 47C13 36 11 26 16 19.5c4-5 10.5-4.5 14 1 3.5-5.5 10-6 14-1 5 6.5 3 16.5-14 27.5z" fill="#fff"/>`),
+    comunidades: () => ladrilhoCel('agua', `<path d="M10 16h24a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4H20l-6 5v-5h-4a4 4 0 0 1-4-4V20a4 4 0 0 1 4-4z" fill="#fff" opacity=".7" transform="translate(2 0)"/>
+        <path d="M26 26h22a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4h-3v5l-6-5H26a4 4 0 0 1-4-4V30a4 4 0 0 1 4-4z" fill="#fff"/>
+        <circle cx="31" cy="35" r="2" fill="#1597c2"/><circle cx="37" cy="35" r="2" fill="#1597c2"/><circle cx="43" cy="35" r="2" fill="#1597c2"/>`),
+    avaliacoes: () => ladrilhoCel('dourado', `<path d="M21 45V28h5l7-13q5 0 4 6l-1 6h9q5 0 3.5 5l-3 10q-1 3-5 3z" fill="#fff"/><rect x="13" y="28" width="6" height="17" rx="1.6" fill="#fff"/>`),
+    projetos: () => ladrilhoCel('cinza', `<path d="M42 11a10 10 0 0 0-12 12L14 39a4 4 0 0 0 6 6l16-16a10 10 0 0 0 12-12l-7 6-5-1-1-5z" fill="#4a4f57"/><circle cx="17" cy="42" r="1.6" fill="#cfd3d8"/>`),
+    redes: () => ladrilhoCel('azul', `<circle cx="20" cy="24" r="5.5" fill="#fff" opacity=".75"/><path d="M10 42q0-11 10-11t10 11z" fill="#fff" opacity=".75"/>
+        <circle cx="40" cy="24" r="5.5" fill="#fff" opacity=".75"/><path d="M30 42q0-11 10-11t10 11z" fill="#fff" opacity=".75"/>
+        <circle cx="30" cy="21" r="7" fill="#fff"/><path d="M17 46q0-14 13-14t13 14z" fill="#fff"/>`),
+    pesquisar: () => ladrilhoCel('papel', `<circle cx="26" cy="26" r="11" fill="none" stroke="#2f7fd8" stroke-width="4.5"/>
+        <path d="M34 34l11 11" stroke="#e53935" stroke-width="6" stroke-linecap="round"/><path d="M20.5 22a7 7 0 0 1 6-4" stroke="#bfe0ff" stroke-width="2" fill="none" stroke-linecap="round"/>`),
+    arquivos: () => `<path d="M7 17a3 3 0 0 1 3-3h13l4 4h23a3 3 0 0 1 3 3v5H7z" fill="#d38f12"/>
+        <path d="M7 23h46v23a3 3 0 0 1-3 3H10a3 3 0 0 1-3-3z" fill="url(#gc-amarelo)" stroke="#c8961a"/>
+        <path d="M7 23h46v6q-23 6-46 0z" fill="url(#gc-brilho)" opacity=".7"/>`,
+};
+const DIAS_CEL = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+const MESES_CEL = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
+const cel = { ativo: false, montado: false, app: null, voltas: 0, voltando: false, bateria: 0.8, carregando: false, relogio: null, primeiraVez: true };
+
+// so oferece o modo celular em tela de toque (celular e tablet)
+function celularPossivel() {
+    return matchMedia('(pointer: coarse)').matches;
+}
+
+function appCel(id) {
+    return APPS_CEL.find(a => a.id === id);
+}
+
+// icones originais do android 4.0 ice cream sandwich (android open source project, licenca apache 2.0)
+const ICONES_ANDROID = new Set(['internet', 'zap', 'contatos', 'recados', 'galeria', 'camera', 'musica', 'tv', 'diario', 'perfil', 'depoimentos', 'calculadora', 'config', 'comunidades', 'projetos', 'pesquisar', 'arquivos', 'memo']);
+
+
+// os icones que o android nao tinha, desenhados no estilo do android 4.0 (objeto com volume, luz de cima e sombra embaixo)
+const SOMBRA_ICS = '<ellipse cx="30" cy="54.5" rx="21" ry="3" fill="#000" opacity=".4" filter="url(#ics-borrar)"/>';
+
+function estrelaFacetada() {
+    const ponto = (r, graus) => `${(30 + r * Math.cos(graus * Math.PI / 180)).toFixed(1)} ${(29 + r * Math.sin(graus * Math.PI / 180)).toFixed(1)}`;
+    let faces = '';
+    for (let i = 0; i < 5; i++) {
+        const a = -90 + i * 72;
+        faces += `<path d="M30 29L${ponto(10, a - 36)}L${ponto(24, a)}z" fill="#ffe27a"/><path d="M30 29L${ponto(24, a)}L${ponto(10, a + 36)}z" fill="#e09a00"/>`;
+    }
+    let contorno = '';
+    for (let i = 0; i < 10; i++) contorno += `${i ? 'L' : 'M'}${ponto(i % 2 ? 10 : 24, -90 + i * 36)}`;
+    return faces + `<path d="${contorno}z" fill="none" stroke="#a86b00" stroke-width="1" stroke-linejoin="round"/>`;
+}
+
+const ICONES_ICS = {
+    paint: () => `${SOMBRA_ICS}
+        <path d="M7 33C7 20 19 11 33 11c13 0 21 7 21 16 0 7-5 10-11 10h-4c-3 0-4 2-3 4 1 3-1 7-6 7C17 48 7 42 7 33z" fill="url(#ics-madeira)" stroke="#7a4519" stroke-width="1"/>
+        <path d="M11 31c1-9 10-16 22-16" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="2" stroke-linecap="round"/>
+        <ellipse cx="21" cy="38.5" rx="4" ry="3" fill="#6b3c12"/><ellipse cx="21" cy="39.3" rx="3" ry="2" fill="#3e2108"/>
+        ${[[18, 26, '#e53935'], [26, 19.5, '#fdd835'], [36, 18.5, '#43a047'], [45, 23, '#1e88e5']].map(([x, y, c]) => `<circle cx="${x}" cy="${y}" r="4" fill="${c}" stroke="rgba(0,0,0,.25)"/><circle cx="${x - 1.3}" cy="${y - 1.4}" r="1.3" fill="#fff" opacity=".8"/>`).join('')}
+        <g transform="rotate(-38 40 38)"><rect x="30" y="35.5" width="26" height="5" rx="2.5" fill="url(#ics-cabo)"/><rect x="24" y="35" width="7" height="6" rx="1" fill="url(#ics-metal)"/><path d="M24 35.3 15 38l9 2.7z" fill="#2b2b2b"/><path d="M17 37.6 15 38l2 .4z" fill="#1e88e5"/></g>`,
+    fazenda: () => `${SOMBRA_ICS}
+        <ellipse cx="30" cy="47" rx="25" ry="6.5" fill="url(#ics-grama)"/>
+        <path d="M15 27h30v19H15z" fill="url(#ics-celeiro)"/>
+        <path d="M20 27v19M25 27v19M35 27v19M40 27v19" stroke="#000" stroke-opacity=".12"/>
+        <path d="M12.5 28 18 17l12-6.5L42 17l5.5 11z" fill="url(#ics-telhado)"/>
+        <path d="M12.5 28 18 17l12-6.5L42 17l5.5 11" fill="none" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/>
+        <rect x="26" y="17.5" width="8" height="6.5" fill="#fff"/><rect x="27.3" y="18.8" width="5.4" height="3.9" fill="#4e2a12"/>
+        <rect x="23.5" y="32" width="13" height="14" fill="#fff"/><rect x="25" y="33.5" width="10" height="12.5" fill="#b3241a"/>
+        <path d="M25 33.5l10 12.5M35 33.5 25 46" stroke="#fff" stroke-width="1.6"/>
+        <path d="M15 27h30" stroke="#fff" stroke-width="1.2"/><path d="M15 27h4v19h-4z" fill="#fff" opacity=".12"/>`,
+    sobre: () => `${SOMBRA_ICS}
+        <rect x="13" y="8" width="38" height="41" rx="2" fill="#bfe3f2" stroke="#8fb9cc"/>
+        <rect x="8" y="12" width="38" height="42" rx="2" fill="url(#ics-papel)" stroke="#a9b8c2"/>
+        <rect x="8" y="12" width="38" height="8" rx="2" fill="#33b5e5"/><rect x="8" y="17" width="38" height="3" fill="#33b5e5"/>
+        <path d="M27 49C15 41 13 34.5 16.5 30c2.8-3.5 7.5-3 10.5.6 3-3.6 7.7-4.1 10.5-.6 3.5 4.5 1.5 11-10.5 19z" fill="url(#ics-coracao)" stroke="#8e0f0b" stroke-width=".8"/>
+        <ellipse cx="21.5" cy="33" rx="3.2" ry="2.2" fill="#fff" opacity=".6" transform="rotate(-25 21.5 33)"/>`,
+    avaliacoes: () => `${SOMBRA_ICS}${estrelaFacetada()}
+        <path d="M30 7.5 33 19" stroke="#fff" stroke-opacity=".7" stroke-width="1.2" stroke-linecap="round"/>`,
+    minado: () => `${SOMBRA_ICS}
+        <rect x="7" y="9" width="46" height="42" rx="3" fill="#c3c7cb" stroke="#6b7177"/>
+        <path d="M7 12a3 3 0 0 1 3-3h40a3 3 0 0 1 3 3v3H7z" fill="#e8eaec"/>
+        ${[0, 1, 2].map(l => [0, 1, 2].map(c => `<rect x="${11 + c * 13}" y="${15 + l * 11.5}" width="12" height="10.5" fill="${(l + c) % 2 ? '#dfe2e5' : '#b4b9be'}" stroke="#8a9096" stroke-width=".6"/>`).join('')).join('')}
+        <text x="17" y="24" text-anchor="middle" font-family="Arial" font-weight="bold" font-size="8" fill="#1e3cf0">1</text>
+        <text x="43" y="47.5" text-anchor="middle" font-family="Arial" font-weight="bold" font-size="8" fill="#0a8a0a">2</text>
+        <g transform="translate(30 32)">
+            ${[0, 45, 90, 135].map(a => `<rect x="-12" y="-1.4" width="24" height="2.8" rx="1.4" fill="#111" transform="rotate(${a})"/>`).join('')}
+            <circle r="8" fill="url(#gc-escuro)" stroke="#000" stroke-width=".6"/><circle cx="-3" cy="-3" r="2.2" fill="#fff" opacity=".85"/>
+        </g>
+        <path d="M44 8v13" stroke="#333" stroke-width="1.6"/><path d="M44 8l-8 3.5 8 3.5z" fill="#e53935"/>`,
+    redes: () => `${SOMBRA_ICS}
+        <path d="M17 37 41 20M17 37 44 44M41 20 44 44" stroke="#455a64" stroke-width="5" stroke-linecap="round"/>
+        <path d="M17 37 41 20M17 37 44 44M41 20 44 44" stroke="#eceff1" stroke-width="2.6" stroke-linecap="round"/>
+        ${[[17, 37, 10], [41, 19, 8.5], [44, 44, 8]].map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="url(#ics-esfera)" stroke="#05496b" stroke-width=".8"/>
+            <circle cx="${x}" cy="${y - r * .25}" r="${r * .28}" fill="#fff"/><path d="M${x - r * .5} ${y + r * .55}q0-${r * .55} ${r * .5}-${r * .55}t${r * .5} ${r * .55}z" fill="#fff"/>
+            <ellipse cx="${x - r * .3}" cy="${y - r * .5}" rx="${r * .35}" ry="${r * .2}" fill="#fff" opacity=".55"/>`).join('')}`,
+};
+
+function desenhoAppCel(app) {
+    if (ICONES_ICS[app.id]) return `<svg class="svg-app-cel ics-app-cel" viewBox="0 0 60 60" aria-hidden="true">${ICONES_ICS[app.id]()}</svg>`;
+    if (ICONES_ANDROID.has(app.id)) return `<img class="png-app-cel" src="imagens/celular/icones/${app.id}.png?v=2" alt="" draggable="false">`;
+    if (ICONES_CEL[app.id]) return `<svg class="svg-app-cel" viewBox="0 0 60 60" aria-hidden="true">${ICONES_CEL[app.id]()}</svg>`;
+    return `<span class="foto-app-cel" style="--cor:${app.cor}"><img src="${app.img || urlIcone(app.ico, 32)}" alt=""></span>`;
+}
+
+function iconeAppCel(app) {
+    const contador = app.id === 'zap' ? '<span class="contador-zap" hidden></span>' : '';
+    return `<button class="app-cel" type="button" data-app-cel="${app.id}">
+        <span class="icone-app-cel">${desenhoAppCel(app)}${contador}</span>
+        <span class="nome-app-cel">${esc(app.nome)}</span>
+    </button>`;
+}
+
+function montarCelular() {
+    const layout = cel.tablet ? 'tablet' : 'celular';
+    if (cel.montado === layout) return;
+    cel.montado = layout;
+    const seta = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M9 5 4 10l5 5M4 10h10a6 6 0 0 1 0 12h-3" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    const menu = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>';
+    const gaveta = `<button class="app-cel" type="button" data-cel="gaveta">
+        <span class="icone-app-cel icone-gaveta">${'<i></i>'.repeat(9)}</span><span class="nome-app-cel">Aplicativos</span>
+    </button>`;
+    // no tablet nao tem a fileira de baixo: esses apps vao pra primeira pagina
+    const paginasLista = cel.tablet ? [[...DOCK_CEL, ...PAGINAS_CEL[0]], PAGINAS_CEL[1]] : PAGINAS_CEL;
+    const voltar = '<svg viewBox="0 0 32 24" width="30" height="22" aria-hidden="true"><path d="M11 4 4 11l7 7M4 11h15a7 7 0 0 1 0 14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    const casa = '<svg viewBox="0 0 32 24" width="30" height="22" aria-hidden="true"><path d="M5 12 16 3l11 9M8 10v11h16V10" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/></svg>';
+    const recentes = '<svg viewBox="0 0 32 24" width="30" height="22" aria-hidden="true"><rect x="9" y="3" width="17" height="13" rx="1" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M6 7v13h17" fill="none" stroke="currentColor" stroke-width="2.2"/></svg>';
+    const statusIcones = `
+                <span class="wifi-cel" id="wifi-cel"><svg viewBox="0 0 24 18" width="16" height="12" aria-hidden="true"><path d="M12 17 1 5.5a16 16 0 0 1 22 0z" fill="#fff"/></svg></span>
+                <span class="rede-cel" id="rede-cel">3G</span>
+                <span class="sinal-cel" id="sinal-cel"><i></i><i></i><i></i><i></i></span>
+                <span class="bateria-cel" id="bateria-cel"><i></i></span>`;
+    const paginas = paginasLista.map((ids, i) => `<div class="pagina-cel">
+        ${i === 0 ? `<div class="widget-cel">
+            <b class="hora-cel-grande"></b>
+            <div class="linha-widget"><span class="ceu-widget" id="ceu-widget"></span><span><b id="saudacao-widget"></b><span class="data-cel"></span></span></div>
+            <span class="local-widget">Quarto do Lucas</span>
+        </div>` : ''}
+        ${ids.map(id => iconeAppCel(appCel(id))).join('')}
+    </div>`).join('');
+    const todos = [...APPS_CEL].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+    $('#celular').innerHTML = `${defsCel()}
+        ${cel.tablet ? '' : `<div class="status-cel" data-cel="cortina">
+            <span class="notif-cel" id="notif-cel"></span>
+            <span class="icones-status-cel">${statusIcones}
+                <b class="hora-cel"></b>
+            </span>
+        </div>`}
+        <div class="bloqueio-cel" id="bloqueio-cel" hidden>
+            <div class="relogio-bloqueio"><b class="hora-cel-grande"></b><span class="data-cel"></span></div>
+            <div class="aviso-bloqueio" id="aviso-bloqueio"></div>
+            <div class="cadeado-bloqueio" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26"><path d="M7 11V8a5 5 0 0 1 10 0v3" fill="none" stroke="#fff" stroke-width="2"/><rect x="5" y="11" width="14" height="10" rx="2" fill="#fff"/></svg></div>
+            ${cel.tablet ? '<div class="anel-bloqueio" aria-hidden="true"><i></i></div>' : ''}
+            <p class="dica-bloqueio">${cel.tablet ? 'Arraste pra fora do círculo pra desbloquear' : 'Deslize a tela para desbloquear'}</p>
+            <p class="operadora-bloqueio">Lucas Telecom</p>
+        </div>
+        <div class="inicio-cel" id="inicio-cel" hidden>
+            ${cel.tablet ? `<div class="topo-tablet">
+                <button type="button" class="busca-tablet" data-app-cel="pesquisar"><b>Pesquisar</b><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="10" cy="10" r="6" fill="none" stroke="#fff" stroke-width="2"/><path d="m15 15 6 6" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg></button>
+                <button type="button" class="apps-tablet" data-cel="gaveta" aria-label="Aplicativos">${'<i></i>'.repeat(9)}<span>APPS</span></button>
+            </div>` : ''}
+            <div class="paginas-cel" id="paginas-cel">${paginas}</div>
+            <div class="pontos-cel" id="pontos-cel">${paginasLista.map((_, i) => `<i class="${i ? '' : 'ativo casinha'}"></i>`).join('')}</div>
+            ${cel.tablet ? '' : `<div class="dock-cel">${DOCK_CEL.map(id => iconeAppCel(appCel(id))).join('')}${gaveta}</div>`}
+        </div>
+        <div class="recentes-tablet" id="recentes-tablet" hidden></div>
+        <div class="gaveta-cel" id="gaveta-cel" hidden>
+            <div class="topo-gaveta"><b class="aba-gaveta">APLICATIVOS</b><span>${todos.length} apps · A-Z</span></div>
+            <div class="grade-gaveta">${todos.map(iconeAppCel).join('')}</div>
+        </div>
+        <div class="barra-app-cel" id="barra-app-cel">
+            <button class="voltar-app-cel" type="button" data-cel="voltar" aria-label="Voltar"><span id="ico-app-cel"></span></button>
+            <b id="nome-app-cel"></b>
+            <button class="mais-app-cel" type="button" data-cel="menu" aria-label="Mais opções"><i></i><i></i><i></i></button>
+        </div>
+        <div class="config-cel" id="config-cel" hidden></div>
+        <div class="camera-cel" id="camera-cel" hidden></div>
+        <div class="energia-cel" id="energia-cel" hidden></div>
+        <div class="cortina-cel" id="cortina-cel" hidden></div>
+        <div class="opcoes-cel" id="opcoes-cel" hidden>
+            <button type="button" data-cel="config">Configurações</button>
+            <button type="button" data-cel="bloquear">Bloquear a tela</button>
+            <button type="button" data-cel="energia">Desligar</button>
+            <button type="button" data-cel="pc">Usar a interface de computador</button>
+        </div>
+        ${cel.tablet ? `<div class="sistema-tablet">
+            <div class="teclas-tablet">
+                <button type="button" data-cel="voltar" aria-label="Voltar">${voltar}</button>
+                <button type="button" data-cel="inicio" aria-label="Tela inicial">${casa}</button>
+                <button type="button" data-cel="recentes" aria-label="Apps recentes">${recentes}</button>
+                <button type="button" data-cel="menu" class="menu-tablet" aria-label="Menu">${menu}</button>
+            </div>
+            <button type="button" class="status-tablet" data-cel="cortina">
+                <span class="notif-cel" id="notif-cel"></span>
+                <b class="hora-cel"></b>
+                <span class="icones-status-cel">${statusIcones}</span>
+            </button>
+        </div>` : `<div class="teclas-cel">
+            <button type="button" data-cel="menu" aria-label="Menu">${menu}</button>
+            <button type="button" data-cel="inicio" class="tecla-home" aria-label="Tela inicial"></button>
+            <button type="button" data-cel="voltar" aria-label="Voltar">${seta}</button>
+        </div>`}`;
+
+    // bolinhas das paginas da tela inicial acompanham o arrastar
+    const lista = $('#paginas-cel');
+    lista.addEventListener('scroll', () => {
+        const i = Math.round(lista.scrollLeft / lista.clientWidth);
+        $$('#pontos-cel i').forEach((p, n) => p.classList.toggle('ativo', n === i));
+    }, { passive: true });
+
+    // deslizar a tela de bloqueio desbloqueia (com as ondinhas de agua do touchwiz)
+    const bloqueio = $('#bloqueio-cel');
+    let toque = null;
+    bloqueio.addEventListener('pointerdown', e => {
+        toque = { x: e.clientX, y: e.clientY, ultima: 0 };
+        ondaCel(e.clientX, e.clientY);
+        try { bloqueio.setPointerCapture(e.pointerId); } catch { /* alguns navegadores nao deixam */ }
+    });
+    bloqueio.addEventListener('pointermove', e => {
+        if (!toque) return;
+        if (Date.now() - toque.ultima > 70) {
+            toque.ultima = Date.now();
+            ondaCel(e.clientX, e.clientY);
+        }
+        if (Math.hypot(e.clientX - toque.x, e.clientY - toque.y) > 110) {
+            toque = null;
+            desbloquearCel();
+        }
+    });
+    bloqueio.addEventListener('pointerup', () => {
+        if (toque) bloqueio.querySelector('.dica-bloqueio').classList.add('pisca');
+        setTimeout(() => bloqueio.querySelector('.dica-bloqueio').classList.remove('pisca'), 700);
+        toque = null;
+    });
+
+    if (cel.ouvindo) return;
+    cel.ouvindo = true;
+    $('#celular').addEventListener('click', e => {
+        if (Date.now() < (cel.ignorarToqueAte || 0)) return;
+        const app = e.target.closest('[data-app-cel]');
+        if (app || e.target.closest('.teclas-cel button')) vibrar(12);
+        if (app) {
+            // o app abre "saindo" do icone tocado
+            const r = app.getBoundingClientRect();
+            document.body.style.setProperty('--ox', Math.round(r.left + r.width / 2) + 'px');
+            document.body.style.setProperty('--oy', Math.round(r.top + r.height / 2 - 70) + 'px');
+            return abrirAppCel(app.dataset.appCel);
+        }
+        const b = e.target.closest('[data-cel]');
+        if (!b) return;
+        const acao = b.dataset.cel;
+        if (acao !== 'menu') $('#opcoes-cel').hidden = true;
+        if (acao !== 'recentes' && $('#recentes-tablet')) $('#recentes-tablet').hidden = true;
+        if (acao === 'inicio') mostrarInicioCel();
+        if (acao === 'voltar') voltarCel();
+        if (acao === 'gaveta') {
+            $('#gaveta-cel').hidden = false;
+            document.body.classList.add('cel-gaveta');
+        }
+        if (acao === 'menu') $('#opcoes-cel').hidden = !$('#opcoes-cel').hidden;
+        if (acao === 'cortina') abrirCortinaCel();
+        if (acao === 'fechar-cortina') $('#cortina-cel').hidden = true;
+        if (acao === 'config') abrirAppCel('config');
+        if (acao === 'bloquear') bloquearCel();
+        if (acao === 'pc') sairModoCelular();
+        if (acao === 'wifi') {
+            alternarInternet();
+            atualizarCel();
+            if (!$('#cortina-cel').hidden) abrirCortinaCel();
+            if (!$('#config-cel').hidden) montarConfigCel();
+        }
+        if (acao === 'jujuba') {
+            if ($('#assistente').hidden) chamarAssistente();
+            else esconderAssistente();
+            if (!$('#cortina-cel').hidden) abrirCortinaCel();
+            if (!$('#config-cel').hidden) montarConfigCel();
+        }
+        if (acao === 'abrir-zap') abrirAppCel('zap');
+        if (acao === 'recentes') mostrarRecentesTablet();
+        if (acao === 'virar-tablet') trocarLayoutCel(true);
+        if (acao === 'virar-celular') trocarLayoutCel(false);
+        if (acao === 'energia') menuEnergiaCel();
+        if (acao === 'desligar') desligarCel(false);
+        if (acao === 'reiniciar') desligarCel(true);
+        if (acao === 'cancelar-energia') $('#energia-cel').hidden = true;
+    });
+
+    navigator.getBattery?.().then(b => {
+        const ler = () => { cel.bateria = b.level; cel.carregando = b.charging; atualizarCel(); };
+        ler();
+        b.addEventListener('levelchange', ler);
+        b.addEventListener('chargingchange', ler);
+    }).catch(() => {});
+}
+
+// vibradinha de celular (so depois que a pessoa ja tocou na pagina, senao o navegador reclama)
+function vibrar(ms) {
+    if (navigator.userActivation?.hasBeenActive) navigator.vibrate?.(ms);
+}
+
+function ondaCel(x, y) {
+    const onda = document.createElement('span');
+    onda.className = 'onda-cel';
+    onda.style.left = x + 'px';
+    onda.style.top = y + 'px';
+    $('#bloqueio-cel').append(onda);
+    setTimeout(() => onda.remove(), 800);
+}
+
+function dataCel(d = new Date()) {
+    return `${DIAS_CEL[d.getDay()]}, ${d.getDate()} ${MESES_CEL[d.getMonth()]}`;
+}
+
+// relogio, bateria, sinal e notificacoes da barrinha de cima
+function atualizarCel() {
+    if (!cel.montado) return;
+    const agora = new Date();
+    if (cel.dia !== agora.getDate()) {
+        cel.dia = agora.getDate();
+        $$('#celular [data-app-cel="diario"] .icone-app-cel').forEach(el => { el.innerHTML = desenhoAppCel(appCel('diario')); });
+    }
+    const hora = agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    $$('#celular .hora-cel, #celular .hora-cel-grande').forEach(el => { el.textContent = hora; });
+    $$('#celular .data-cel').forEach(el => { el.textContent = dataCel(agora); });
+    const bateria = $('#bateria-cel');
+    bateria.style.setProperty('--nivel', Math.round(cel.bateria * 100) + '%');
+    bateria.classList.toggle('carregando', cel.carregando);
+    bateria.classList.toggle('fraca', cel.bateria < 0.2);
+    const semNet = semInternet();
+    $('#rede-cel').textContent = semNet ? '' : '3G';
+    $('#wifi-cel').hidden = semNet;
+    // saudacao do widget muda com a hora (de noite aparece a lua)
+    const h = agora.getHours();
+    const saudacao = $('#saudacao-widget');
+    if (saudacao) {
+        saudacao.textContent = h < 5 ? 'Boa madrugada' : h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite';
+        const noite = h < 6 || h >= 18;
+        $('#ceu-widget').innerHTML = noite
+            ? '<svg viewBox="0 0 40 40" width="34" height="34"><path d="M26 6a15 15 0 1 0 8 26A13 13 0 0 1 26 6z" fill="#fff7c2"/></svg>'
+            : '<svg viewBox="0 0 40 40" width="34" height="34"><g stroke="#ffd54a" stroke-width="3" stroke-linecap="round"><path d="M20 2v5M20 33v5M2 20h5M33 20h5M7 7l3.5 3.5M29.5 29.5 33 33M7 33l3.5-3.5M29.5 10.5 33 7"/></g><circle cx="20" cy="20" r="9" fill="#ffd54a"/></svg>';
+    }
+    $('#sinal-cel').classList.toggle('sem-sinal', semNet);
+    const zap = avisoZap.naoLidas;
+    $('#notif-cel').innerHTML = zap ? `<img src="${urlIcone('msn_messenger')}" alt="" title="${zap} mensagens novas no Zap">` : '';
+    $('#aviso-bloqueio').innerHTML = zap
+        ? `<img src="${urlIcone('msn_messenger')}" alt=""> ${zap > 99 ? '99+' : zap} ${zap === 1 ? 'mensagem nova' : 'mensagens novas'} no Zap`
+        : '';
+}
+
+// tablet de verdade: tela de toque com o lado menor de 600px pra cima
+function ehTablet() {
+    return celularPossivel() && Math.min(screen.width, screen.height) >= 600;
+}
+
+function entrarModoCelular(comBloqueio = true, tablet = guardar.ler('modo', '') === 'tablet') {
+    cel.tablet = tablet;
+    document.body.classList.toggle('cel-tablet', tablet);
+    montarCelular();
+    cel.ativo = true;
+    guardar.salvar('modo', tablet ? 'tablet' : 'celular');
+    $('#menu-iniciar').hidden = true;
+    document.body.classList.add('modo-celular');
+    $('#celular').hidden = false;
+    atualizarCel();
+    if (!cel.relogio) cel.relogio = setInterval(atualizarCel, 10000);
+    if (comBloqueio) bloquearCel();
+    else mostrarInicioCel();
+}
+
+function sairModoCelular() {
+    fecharAppAtualCel();
+    cel.ativo = false;
+    guardar.salvar('modo', 'pc');
+    $('#celular').hidden = true;
+    document.body.classList.remove('cel-tablet');
+    document.body.classList.remove('modo-celular', 'cel-bloqueado', 'cel-inicio', 'cel-app', 'cel-app-site', 'cel-app-completo', 'cel-app-janela', 'cel-app-config', 'cel-app-camera', 'cel-gaveta', 'cel-desligado');
+    const nav = $('#navegador');
+    nav.hidden = false;
+    nav.classList.remove('minimizada');
+    atualizarTarefas();
+    // a pagina volta a ser a do site normal
+    mostrarPagina();
+    assistenteFalar('Voltamos pro computador! Se quiser o modo celular de novo, ele fica no menu Iniciar.');
+}
+
+function bloquearCel() {
+    fecharAppAtualCel();
+    document.body.classList.remove('cel-inicio', 'cel-app', 'cel-app-site', 'cel-app-completo', 'cel-app-janela', 'cel-app-config', 'cel-app-camera', 'cel-gaveta');
+    document.body.classList.add('cel-bloqueado');
+    $('#camera-cel').hidden = true;
+    const bloqueio = $('#bloqueio-cel');
+    bloqueio.classList.remove('saindo');
+    bloqueio.hidden = false;
+    $('#inicio-cel').hidden = true;
+    $('#gaveta-cel').hidden = true;
+    $('#config-cel').hidden = true;
+    atualizarCel();
+}
+
+function desbloquearCel() {
+    const bloqueio = $('#bloqueio-cel');
+    // o dedo que desbloqueou nao pode "clicar" no que aparece embaixo dele
+    cel.ignorarToqueAte = Date.now() + 600;
+    bloqueio.classList.add('saindo');
+    mostrarInicioCel();
+    document.body.classList.add('cel-bloqueado');
+    setTimeout(() => {
+        bloqueio.hidden = true;
+        document.body.classList.remove('cel-bloqueado');
+        // a jujuba pode ter ficado fora da tela enquanto tava escondida
+        const jujuba = $('#assistente');
+        if (jujuba.style.left) {
+            const r = jujuba.getBoundingClientRect();
+            colocarAssistente(r.left, r.top);
+        }
+        if (cel.primeiraVez) {
+            cel.primeiraVez = false;
+            assistenteFalar('Bem-vindo ao Quarto do Lucas Galaxy! Toque num aplicativo pra abrir. O botão do meio volta pra tela inicial e a setinha volta uma tela.');
+        }
+    }, 380);
+}
+
+// o app que tava aberto sai da frente (a fazenda fecha de vez pra musica parar)
+function fecharAppAtualCel() {
+    const app = cel.app;
+    cel.app = null;
+    if (app?.camera) desligarCameraCel();
+    // a tv para de tocar quando sai do app
+    if (app?.rota === 'tv') desligarTV();
+    if (!app?.janela) return;
+    const janela = document.getElementById(app.janela);
+    if (app.janela === 'fazenda') {
+        janela.classList.remove('maximizada');
+        acaoJanela(janela, 'fechar');
+    } else {
+        janela.hidden = true;
+    }
+    ajustarDeitados();
+}
+
+// botao de apps recentes do tablet (igual ao do android 4.0)
+function mostrarRecentesTablet() {
+    const painel = $('#recentes-tablet');
+    if (!painel) return;
+    if (!painel.hidden) return (painel.hidden = true);
+    const lista = (cel.recentes || []).map(appCel).filter(Boolean);
+    painel.innerHTML = lista.length
+        ? `<b>Apps recentes</b>${lista.map(a => `<button type="button" class="recente-tablet" data-app-cel="${a.id}"><span class="icone-app-cel">${desenhoAppCel(a)}</span><span>${esc(a.nome)}</span></button>`).join('')}`
+        : '<b>Apps recentes</b><p>Nenhum app aberto ainda.</p>';
+    painel.hidden = false;
+}
+
+function trocarLayoutCel(tablet) {
+    fecharAppAtualCel();
+    entrarModoCelular(false, tablet);
+    abrirAppCel('config');
+}
+
+function mostrarInicioCel() {
+    if (!cel.ativo) return;
+    fecharAppAtualCel();
+    document.body.classList.remove('cel-app', 'cel-app-site', 'cel-app-completo', 'cel-app-janela', 'cel-app-config', 'cel-app-camera', 'cel-gaveta');
+    document.body.classList.add('cel-inicio');
+    $('#camera-cel').hidden = true;
+    $('#inicio-cel').hidden = false;
+    $('#gaveta-cel').hidden = true;
+    $('#config-cel').hidden = true;
+    $('#cortina-cel').hidden = true;
+    $('#opcoes-cel').hidden = true;
+    window.scrollTo(0, 0);
+}
+
+function abrirAppCel(id) {
+    const app = appCel(id);
+    if (!app) return;
+    if (app.jujuba) {
+        if ($('#assistente').hidden) chamarAssistente();
+        else assistenteFalar(sorteio(FALAS_ASSISTENTE.soltas));
+        return;
+    }
+    fecharAppAtualCel();
+    cel.app = app;
+    cel.voltas = 0;
+    // guarda os ultimos apps abertos (pro botao de recentes do tablet)
+    cel.recentes = [app.id, ...(cel.recentes || []).filter(id => id !== app.id)].slice(0, 8);
+    const corpo = document.body;
+    corpo.classList.remove('cel-inicio', 'cel-gaveta', 'cel-app-site', 'cel-app-completo', 'cel-app-janela', 'cel-app-config', 'cel-app-camera');
+    $('#camera-cel').hidden = true;
+    corpo.classList.add('cel-app');
+    $('#inicio-cel').hidden = true;
+    $('#gaveta-cel').hidden = true;
+    $('#cortina-cel').hidden = true;
+    $('#config-cel').hidden = true;
+    $('#ico-app-cel').outerHTML = `<span id="ico-app-cel">${desenhoAppCel(app)}</span>`;
+    $('#nome-app-cel').textContent = app.nome;
+    $('#barra-app-cel').style.setProperty('--cor-app', app.cor);
+    // efeitinho de app abrindo
+    corpo.classList.remove('abrindo-app');
+    void corpo.offsetWidth;
+    corpo.classList.add('abrindo-app');
+    setTimeout(() => corpo.classList.remove('abrindo-app'), 400);
+
+    if (app.camera) {
+        corpo.classList.add('cel-app-camera');
+        abrirCameraCel();
+        return;
+    }
+    if (app.config) {
+        corpo.classList.add('cel-app-config');
+        montarConfigCel();
+        $('#config-cel').hidden = false;
+        return;
+    }
+    if (app.rota) {
+        corpo.classList.add('cel-app-site');
+        if (app.completo) corpo.classList.add('cel-app-completo');
+        const nav = $('#navegador');
+        nav.hidden = false;
+        nav.classList.remove('minimizada', 'maximizada');
+        nav.style.translate = '';
+        if (location.hash.slice(1) !== app.rota) {
+            cel.voltando = true;
+            location.hash = '#' + app.rota;
+        } else {
+            mostrarPagina();
+        }
+        window.scrollTo(0, 0);
+        return;
+    }
+    corpo.classList.add('cel-app-janela');
+    abrirJanela(app.janela);
+    const janela = document.getElementById(app.janela);
+    // a fazenda e jogo de tela deitada: abre em tela cheia
+    if (app.janela === 'fazenda') {
+        janela.classList.add('maximizada');
+        ajustarDeitados();
+    }
+}
+
+function voltarCel() {
+    if (!$('#energia-cel').hidden && !document.body.classList.contains('cel-desligado')) return ($('#energia-cel').hidden = true);
+    if (cel.app?.camera && voltarCameraCel()) return;
+    if (!$('#cortina-cel').hidden) return ($('#cortina-cel').hidden = true);
+    if (!$('#opcoes-cel').hidden) return ($('#opcoes-cel').hidden = true);
+    if (!$('#gaveta-cel').hidden) return mostrarInicioCel();
+    if (cel.app?.rota && cel.voltas > 0) {
+        cel.voltas--;
+        cel.voltando = true;
+        return history.back();
+    }
+    if (cel.app) mostrarInicioCel();
+}
+
+// navegando dentro de um app do site: conta as paginas pra setinha de voltar funcionar
+window.addEventListener('hashchange', () => {
+    if (!cel.ativo || !cel.app?.rota) return;
+    if (cel.voltando) cel.voltando = false;
+    else cel.voltas++;
+    if (cel.app.completo) return;
+    const nome = rotaAtual().nome;
+    const outro = APPS_CEL.find(a => a.rota === nome);
+    $('#nome-app-cel').textContent = outro ? outro.nome : (PAGINAS[nome]?.titulo || cel.app.nome);
+    if (outro) $('#ico-app-cel').innerHTML = desenhoAppCel(outro);
+});
+
+// o x da janela (fazenda deitada, por exemplo) volta pra tela inicial
+function celJanelaFechou(janela, acao) {
+    if (!cel.ativo || !cel.app?.janela || janela.id !== cel.app.janela) return;
+    if (acao === 'fechar' || acao === 'minimizar') mostrarInicioCel();
+}
+
+function abrirCortinaCel() {
+    const zap = avisoZap.naoLidas;
+    const jujubaLigada = !$('#assistente').hidden;
+    $('#cortina-cel').innerHTML = `
+        <div class="topo-cortina"><b class="hora-cel-grande"></b><span class="data-cel"></span></div>
+        <div class="atalhos-cortina">
+            <button type="button" data-cel="wifi" class="${semInternet() ? '' : 'ligado'}"><img src="${urlIcone('network_wireless', 32)}" alt=""><span>Wi-Fi</span></button>
+            <button type="button" data-cel="jujuba" class="${jujubaLigada ? 'ligado' : ''}"><img src="imagens/assistente/agua-viva.png?v=2" alt=""><span>Jujuba</span></button>
+            <button type="button" data-cel="bloquear"><img src="${urlIcone('lock', 32)}" alt=""><span>Bloquear</span></button>
+            <button type="button" data-cel="pc"><img src="${urlIcone('monitor', 32)}" alt=""><span>Modo PC</span></button>
+            <button type="button" data-cel="energia"><img src="${urlIcone('control_power', 32)}" alt=""><span>Desligar</span></button>
+        </div>
+        <div class="titulo-cortina">Notificações</div>
+        ${zap ? `<button type="button" class="notificacao-cel" data-cel="abrir-zap"><img src="${urlIcone('msn_messenger', 32)}" alt=""><span><b>Zap do Lucas</b>${zap} ${zap === 1 ? 'mensagem nova' : 'mensagens novas'}</span></button>` : '<p class="sem-notificacao">Sem notificações</p>'}
+        <button type="button" class="fechar-cortina" data-cel="fechar-cortina" aria-label="Fechar">▲</button>`;
+    $('#cortina-cel').hidden = false;
+    atualizarCel();
+}
+
+function montarConfigCel() {
+    const versao = (document.querySelector('script[src*="script.js"]')?.getAttribute('src').match(/v=(\d+)/) || [])[1] || '1';
+    const chave = (ligado, acao) => `<button type="button" class="chave-cel ${ligado ? 'ligado' : ''}" data-cel="${acao}">${ligado ? 'LIG' : 'DESL'}</button>`;
+    $('#config-cel').innerHTML = `
+        <div class="grupo-config">Conexões</div>
+        <div class="item-config"><img src="${urlIcone('network_wireless', 32)}" alt=""><span><b>Wi-Fi</b>${semInternet() ? 'Desligado (vai aparecer o jogo do dinossauro)' : 'Conectado à internet do Lucas'}</span>${chave(!semInternet(), 'wifi')}</div>
+        <div class="grupo-config">Meu dispositivo</div>
+        <div class="item-config"><img src="imagens/assistente/agua-viva.png?v=2" alt=""><span><b>Jujuba, a assistente</b>Dicas que ninguém pediu</span>${chave(!$('#assistente').hidden, 'jujuba')}</div>
+        <button type="button" class="item-config" data-cel="bloquear"><img src="${urlIcone('lock', 32)}" alt=""><span><b>Tela de bloqueio</b>Bloquear agora</span></button>
+        <div class="grupo-config">Exibição</div>
+        <div class="item-config"><img src="${urlIcone('phone_vintage', 32)}" alt=""><span><b>Estilo da interface</b>${cel.tablet ? 'Tablet (Android 4.0)' : 'Celular (Galaxy)'}</span>
+            <button type="button" class="chave-cel ${cel.tablet ? '' : 'ligado'}" data-cel="virar-celular">CEL</button>
+            <button type="button" class="chave-cel ${cel.tablet ? 'ligado' : ''}" data-cel="virar-tablet">TAB</button></div>
+        <button type="button" class="item-config" data-cel="pc"><img src="${urlIcone('monitor', 32)}" alt=""><span><b>Interface de computador</b>Voltar pro Windows XP do Lucas</span></button>
+        <button type="button" class="item-config" data-cel="energia"><img src="${urlIcone('control_power', 32)}" alt=""><span><b>Desligar o aparelho</b>Desligar ou reiniciar</span></button>
+        <div class="grupo-config">Sobre o dispositivo</div>
+        <div class="item-config"><img src="${urlIcone('information', 32)}" alt=""><span><b>Modelo</b>GT-L0CAS Galaxy Quarto Duos</span></div>
+        <div class="item-config"><img src="${urlIcone('information', 32)}" alt=""><span><b>Versão do Android</b>4.0.4 (Ice Cream Sandwich)</span></div>
+        <div class="item-config"><img src="${urlIcone('information', 32)}" alt=""><span><b>Versão do site</b>${esc(versao)}</span></div>
+        <div class="item-config"><img src="imagens/celular/icones/projetos.png" alt=""><span><b>Ícones</b>Android 4.0 · Android Open Source Project (licença Apache 2.0)</span></div>`;
+}
+
+
+// --- apps do celular por dentro: cada pagina ganha uma tela de aplicativo de android ---
+// (os formularios e botoes usam os mesmos data-form/data-apagar do site, entao tudo continua funcionando)
+
+const ENVIAR_CEL = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M3 20.5 21 12 3 3.5v6.6l12 1.9-12 1.9z" fill="currentColor"/></svg>';
+const SETA_CEL = '<svg class="seta-item-cel" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2"/></svg>';
+
+function secaoCel(titulo, extra = '') {
+    return `<div class="secao-cel"><span>${titulo}</span>${extra}</div>`;
+}
+
+function vazioCel(dados, texto) {
+    return `<p class="vazio-cel">${dados?.pronto === false ? 'carregando...' : esc(texto)}</p>`;
+}
+
+// mensagem estilo lista de sms (foto, nome, hora e texto)
+function mensagensCel(itens, comBotao, nomeLista = 'recados') {
+    let anterior = 0;
+    return itens.map(r => {
+        anterior = numeroBoneco(r.autor, anterior);
+        return `<div class="msg-cel">
+            ${avatar(r.autor, '', anterior)}
+            <div class="corpo-msg-cel">
+                <div class="topo-msg-cel"><b>${esc(r.autor)}${amigoPeloNome(r.autor) ? ` ${icone('heart')}` : ''}</b><span>${esc(r.data)}</span></div>
+                <div class="texto-msg-cel">${formatar(r.texto)}</div>
+                ${comBotao && podeApagar() ? `<button class="apagar-cel" data-apagar="${r.id}" data-lista="${nomeLista}">Apagar</button>` : ''}
+            </div>
+        </div>`;
+    }).join('');
+}
+
+// barra de escrever presa embaixo (igual ao app de mensagens)
+function comporCel({ form, id, nome = true, placeholder, maximo = 500, botao = 'Enviar' }) {
+    return `<form class="form compor-cel" data-form="${form}">
+        ${nome ? `<input name="autor" class="nome-compor-cel" placeholder="Seu nome" maxlength="30" value="${esc(souDono && form === 'recado' ? DADOS.nome : meuNome())}" required>` : ''}
+        <div class="linha-compor-cel">
+            <button type="button" class="carinhas-cel" data-cel-emoticons aria-label="Emoticons">${icone('emotion_smile')}</button>
+            <textarea name="texto" id="${id}" rows="1" placeholder="${esc(placeholder)}" maxlength="${maximo}" required></textarea>
+            <button type="submit" class="enviar-cel" aria-label="${botao}">${ENVIAR_CEL}</button>
+        </div>
+        <div class="painel-emoticons-cel" hidden>${emoticonsHTML(id)}</div>
+    </form>`;
+}
+
+function fotoQuadradaCel(f, i, album) {
+    return `<button class="foto-grade-cel" data-foto="${i}" data-album="${album}" aria-label="${esc(f.legenda || 'foto')}">${fotoHTML(f)}</button>`;
+}
+
+const TELAS_CEL = {
+    recados() {
+        const itens = recados.todos();
+        return `<div class="app-nativo com-compor">
+            ${secaoCel(`Conversas`, `<small>${itens.length} recados</small>`)}
+            <div class="lista-cel">${mensagensCel(itens, true) || vazioCel(recados, 'nenhum recado ainda. manda o primeiro!')}</div>
+            ${desenhosPublicos().length ? `${secaoCel('Mural de desenhos', `<small>${desenhosPublicos().length}</small>`)}<div class="cartao-cel">${desenhosHTML('mural')}</div>` : ''}
+            ${souDono ? `${secaoCel('Desenhos recebidos', `<small>só você vê</small>`)}<div class="cartao-cel">${desenhosHTML()}</div>` : ''}
+            ${comporCel({ form: 'recado', id: 'texto-recado', placeholder: `Recado pro ${DADOS.nome}` })}
+        </div>`;
+    },
+
+    depoimentos() {
+        const itens = depoimentos.todos();
+        return `<div class="app-nativo com-compor">
+            ${souDono
+                ? `${secaoCel('Depoimentos', `<small>${itens.length} · só você vê</small>`)}<div class="lista-cel">${mensagensCel(itens, true, 'depoimentos') || vazioCel(depoimentos, 'nenhum depoimento ainda')}</div>`
+                : `<div class="cartao-cel destaque-cel">${gif('coracao')}<p>Escreva um depoimento sobre o ${esc(DADOS.nome)}. Ele vai direto pra ele, só ele lê. ${textoRico('(L)')}</p></div>`}
+            ${comporCel({ form: 'depoimento', id: 'texto-depoimento', placeholder: 'Escreva seu depoimento...', maximo: 1000 })}
+        </div>`;
+    },
+
+    perfil() {
+        const n = DADOS.notas;
+        return `<div class="app-nativo">
+            <div class="capa-perfil-cel">
+                <div class="foto-perfil-cel">${fotoPerfil()}</div>
+                <h1>${esc(DADOS.nome)}</h1>
+                <p>${textoRico(DADOS.status)}</p>
+            </div>
+            <div class="contadores-cel">
+                <a href="#recados"><b>${recados.todos().length}</b>recados</a>
+                <a href="#photodump"><b>${todasAsFotos().length}</b>fotos</a>
+                <a href="#amigos"><b>${amigos.todos().length}</b>amigos</a>
+            </div>
+            ${secaoCel('Informações')}
+            <div class="lista-cel">${DADOS.perfil.map(([campo, valor]) => `<div class="item-cel duas-linhas"><span class="rotulo-cel">${esc(campo)}</span><span>${textoRico(valor)}</span></div>`).join('')}</div>
+            ${secaoCel('Notas')}
+            <div class="lista-cel">
+                <div class="item-cel"><span class="cresce-cel">Confiável</span>${coracoes(n.confiavel, 'emotion_smile')}</div>
+                <div class="item-cel"><span class="cresce-cel">Legal</span>${coracoes(n.legal, 'ice_cube')}</div>
+                <div class="item-cel"><span class="cresce-cel">Sexy</span>${coracoes(n.sexy, 'heart')}</div>
+            </div>
+            ${secaoCel('Mais')}
+            <div class="lista-cel">
+                <a class="item-cel" href="#sobre">${icone('heart', 32)}<span class="cresce-cel">Sobre mim</span>${SETA_CEL}</a>
+                <a class="item-cel" href="#depoimentos">${icone('award_star_gold_1', 32)}<span class="cresce-cel">${souDono ? 'Ver depoimentos' : 'Escrever um depoimento'}</span>${SETA_CEL}</a>
+                <a class="item-cel" href="#redes">${icone('world', 32)}<span class="cresce-cel">Redes sociais</span>${SETA_CEL}</a>
+            </div>
+        </div>`;
+    },
+
+    sobre() {
+        const interesses = (DADOS.perfil.find(p => p[0] === 'Interesses')?.[1] || '').split(',').filter(x => x.trim());
+        return `<div class="app-nativo">
+            <div class="cartao-cel texto-cel">${DADOS.sobre.map(p => `<p>${textoRico(p)}</p>`).join('')}</div>
+            ${interesses.length ? `${secaoCel('Interesses')}<div class="fichas-cel">${interesses.map(x => `<span>${esc(x.trim())}</span>`).join('')}</div>` : ''}
+            ${secaoCel(`${icone('heart')} Eu gosto de`)}
+            <div class="lista-cel">${DADOS.gosto.map(g => `<div class="item-cel">${esc(g)}</div>`).join('')}</div>
+            ${secaoCel(`${icone('heart_break')} Eu não gosto de`)}
+            <div class="lista-cel">${DADOS.naoGosto.map(g => `<div class="item-cel">${esc(g)}</div>`).join('')}</div>
+        </div>`;
+    },
+
+    albuns() {
+        const lista = albuns();
+        const fotos = todasAsFotos();
+        return `<div class="app-nativo galeria-cel">
+            ${lista.length ? `<div class="grade-pastas-cel">
+                ${fotos.length ? `<a class="pasta-cel" href="#photodump">${fotoHTML(fotos[0])}<span><b>Photodump</b><small>${fotos.length}</small></span></a>` : ''}
+                ${lista.map(a => `<a class="pasta-cel" href="#album/${a.id}">${fotoHTML(a.fotos[0])}<span><b>${esc(a.nome)}</b><small>${a.fotos.length}</small></span></a>`).join('')}
+            </div>` : vazioCel(fotosPostadas, 'nenhum álbum ainda')}
+        </div>`;
+    },
+
+    album(id) {
+        const album = albuns().find(a => a.id === id);
+        if (!album) return `<div class="app-nativo">${vazioCel(null, 'álbum não encontrado')}</div>`;
+        return `<div class="app-nativo galeria-cel">
+            ${secaoCel(esc(album.nome), `<small>${album.fotos.length} fotos</small>`)}
+            <div class="grade-fotos-cel">${album.fotos.map((f, i) => fotoQuadradaCel(f, i, album.id)).join('')}</div>
+        </div>`;
+    },
+
+    photodump() {
+        const fotos = todasAsFotos();
+        return `<div class="app-nativo galeria-cel">
+            ${secaoCel('Rolo da câmera', `<small>${fotos.length} fotos</small>`)}
+            ${fotos.length ? `<div class="grade-fotos-cel">${fotos.map((f, i) => fotoQuadradaCel(f, i, '*')).join('')}</div>` : vazioCel(fotosPostadas, 'nenhuma foto ainda')}
+        </div>`;
+    },
+
+    redes() {
+        return `<div class="app-nativo">
+            ${secaoCel('Contas')}
+            <div class="lista-cel">${redes().map(r => r.link
+                ? `<a class="item-cel" href="${esc(linkSeguro(r.link))}" target="_blank" rel="noopener">${icone(r.icone, 32)}<span class="cresce-cel"><b>${esc(r.nome)}</b><small>${usuarioRede(r)}</small></span>${SETA_CEL}</a>`
+                : `<div class="item-cel apagado-cel">${icone(r.icone, 32)}<span class="cresce-cel"><b>${esc(r.nome)}</b><small>${usuarioRede(r)} · em breve</small></span></div>`).join('')}</div>
+            ${secaoCel('Falar comigo')}
+            <div class="lista-cel">
+                <a class="item-cel" href="#recados">${icone('email', 32)}<span class="cresce-cel"><b>Deixar um recado</b></span>${SETA_CEL}</a>
+                <button class="item-cel" type="button" data-abrir="msn">${icone('msn_messenger', 32)}<span class="cresce-cel"><b>Chamar no Zap</b></span>${SETA_CEL}</button>
+            </div>
+        </div>`;
+    },
+
+    diario() {
+        if (!diarioAberto()) {
+            return `<div class="app-nativo trancado-cel">
+                <svg viewBox="0 0 24 24" width="64" height="64" aria-hidden="true"><path d="M7 11V8a5 5 0 0 1 10 0v3" fill="none" stroke="#0099cc" stroke-width="1.8"/><rect x="5" y="11" width="14" height="10" rx="2" fill="#0099cc"/><circle cx="12" cy="16" r="1.6" fill="#fff"/></svg>
+                <h2>Diário bloqueado</h2>
+                <p>Só o ${esc(DADOS.nome)} abre. Digite o e-mail e a senha.</p>
+                <div class="cartao-cel">${formSenha()}</div>
+            </div>`;
+        }
+        const entradas = diario.todos();
+        return `<div class="app-nativo">
+            <div class="cartao-cel">
+                <form class="form form-diario-cel" data-form="diario">
+                    <input name="titulo" placeholder="Título de hoje" maxlength="60" required>
+                    <textarea name="texto" id="texto-diario" placeholder="Hoje aconteceu..." maxlength="3000" rows="4" required></textarea>
+                    <div class="linha-cel"><button class="botao-cel azul" type="submit">Salvar</button><button class="botao-cel" type="button" data-comando="trancar-diario">${icone('lock')} Trancar</button></div>
+                </form>
+            </div>
+            ${secaoCel('Páginas', `<small>${entradas.length}</small>`)}
+            <div class="lista-cel">${entradas.map(e => `
+                <div class="item-cel duas-linhas entrada-cel">
+                    <div class="topo-msg-cel"><b>${esc(e.titulo)}</b><span>${esc(e.data)}</span></div>
+                    <p>${esc(e.texto)}</p>
+                    <button class="apagar-cel" data-apagar="${e.id}" data-lista="diario">Apagar</button>
+                </div>`).join('') || vazioCel(diario, 'nenhuma página escrita ainda')}</div>
+        </div>`;
+    },
+
+    projetos() {
+        const todos = projetos.todos();
+        return `<div class="app-nativo">
+            ${DADOS.github ? `<a class="cartao-cel item-cel" href="${esc(linkSeguro(DADOS.github))}" target="_blank" rel="noopener">${icone('world', 32)}<span class="cresce-cel"><b>Meu GitHub</b><small>ver todos os códigos</small></span>${SETA_CEL}</a>` : ''}
+            ${secaoCel('Em andamento', `<small>${todos.length}</small>`)}
+            <div class="lista-cel">${todos.map(p => {
+                const pct = Number(p.progresso) || 0;
+                return `<div class="item-cel duas-linhas projeto-cel">
+                    <div class="topo-msg-cel"><b>${esc(p.nome)}</b><span>${pct}%</span></div>
+                    ${p.descricao ? `<p>${textoRico(p.descricao)}</p>` : ''}
+                    <div class="progresso-cel"><span style="width:${pct}%"></span></div>
+                    ${p.link ? `<a href="${esc(linkSeguro(p.link))}" target="_blank" rel="noopener">Abrir projeto</a>` : ''}
+                </div>`;
+            }).join('') || vazioCel(projetos, 'nenhum projeto postado ainda')}</div>
+        </div>`;
+    },
+
+    playlist() {
+        const lista = musicas();
+        const atual = lista[player.indice];
+        return `<div class="app-nativo musica-cel">
+            <div class="abas-cel"><span class="ativa">Faixas</span>${DADOS.lastfm.usuario ? '<a href="#ouvidas-cel" data-rolar-cel>Tocadas</a>' : ''}</div>
+            <div class="lista-cel">${lista.map((m, i) => `
+                <button class="item-cel faixa-cel ${i === player.indice && player.comecou ? 'tocando-cel' : ''}" type="button" data-tocar="${i}">
+                    <span class="capa-faixa-cel">${i === player.indice && player.tocando ? '<i></i><i></i><i></i>' : '<svg viewBox="0 0 24 24" width="24" height="24"><path d="M9 18V6l10-2v12" fill="none" stroke="#fff" stroke-width="2"/><circle cx="7" cy="18" r="2.6" fill="#fff"/><circle cx="17" cy="16" r="2.6" fill="#fff"/></svg>'}</span>
+                    <span class="cresce-cel"><b>${esc(m.titulo)}</b><small>${esc(m.artista)}</small></span>
+                    <span class="tempo-cel">${duracao(m.duracao)}</span>
+                </button>`).join('') || vazioCel(null, 'nenhuma música ainda')}</div>
+            ${DADOS.lastfm.usuario ? `${secaoCel('Tocadas recentemente', '<small>Spotify</small>')}<div class="cartao-cel" id="ouvidas-cel"><div id="ouvindo-pagina">${blocoMaisOuvida()}${listaOuvindo(7)}</div></div>` : ''}
+            ${spotify.playlist?.link ? `<a class="cartao-cel item-cel" href="${esc(linkSeguro(spotify.playlist.link))}" target="_blank" rel="noopener">${icone('headphone', 32)}<span class="cresce-cel"><b>Ouvir no Spotify</b><small>${esc(spotify.playlist?.nome || 'minha playlist')}</small></span>${SETA_CEL}</a>` : ''}
+            ${atual ? `<div class="mini-player-cel">
+                <span class="cresce-cel"><b>${player.comecou ? esc(atual.titulo) : 'Toque numa música'}</b><small>${player.comecou ? esc(atual.artista) : esc(DADOS.nome)}</small></span>
+                <button type="button" data-player="anterior" aria-label="Anterior"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M6 5h2v14H6zM20 5v14L9 12z" fill="#fff"/></svg></button>
+                <button type="button" data-player="tocar" class="play-cel" aria-label="${player.tocando ? 'Pausar' : 'Tocar'}"><svg viewBox="0 0 24 24" width="24" height="24">${player.tocando ? '<path d="M7 5h4v14H7zM13 5h4v14h-4z" fill="#fff"/>' : '<path d="M8 5v14l11-7z" fill="#fff"/>'}</svg></button>
+                <button type="button" data-player="proxima" aria-label="Próxima"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M16 5h2v14h-2zM4 5v14l11-7z" fill="#fff"/></svg></button>
+            </div>` : ''}
+        </div>`;
+    },
+
+    amigos() {
+        const todos = [...amigos.todos()].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+        let letra = '';
+        const linhas = todos.map(a => {
+            const inicial = semAcento(a.nome.trim()[0] || '#').toUpperCase();
+            const titulo = inicial !== letra ? `<div class="letra-cel">${esc(inicial)}</div>` : '';
+            letra = inicial;
+            return `${titulo}<div class="item-cel contato-cel">${fotoAmigo(a)}<span class="cresce-cel"><b>${esc(a.nome)}</b><small>amigo do ${esc(DADOS.nome)}</small></span>
+                ${souDono ? `<button class="apagar-cel" data-apagar="${a.id}" data-lista="amigos">Apagar</button>` : icone('heart')}</div>`;
+        }).join('');
+        return `<div class="app-nativo">
+            ${nuvem ? `<details class="cartao-cel novo-contato-cel">
+                <summary>${icone('user_add', 32)}<span><b>Criar contato</b><small>entra pros amigos do ${esc(DADOS.nome)}</small></span></summary>
+                <form class="form" data-form="amigo">
+                    <label class="soltar-foto">
+                        <input type="file" name="foto" accept="image/*" class="so-leitor" required>
+                        <span class="previa-arquivo">${icone('user_add', 32)}<br>escolha sua foto</span>
+                    </label>
+                    <input name="nome" placeholder="Seu nome ou apelido" maxlength="30" value="${esc(meuNome())}" required>
+                    <button class="botao-cel azul" type="submit">Salvar contato</button>
+                    <span class="dica">seu nome e sua foto ficam públicos aqui.</span>
+                </form>
+            </details>` : ''}
+            ${secaoCel('Contatos', `<small>${todos.length}</small>`)}
+            <div class="lista-cel">${linhas || vazioCel(amigos, 'nenhum contato ainda... seja o primeiro!')}</div>
+        </div>`;
+    },
+
+    comunidades() {
+        return `<div class="app-nativo">
+            ${secaoCel('Minhas comunidades', `<small>${DADOS.comunidades.length}</small>`)}
+            <div class="lista-cel">${DADOS.comunidades.map(c => `<div class="item-cel">${icone(c.icone, 32)}<span class="cresce-cel"><b>${esc(c.nome)}</b><small>${numero(c.membros)} membros</small></span></div>`).join('')}</div>
+        </div>`;
+    },
+
+    avaliacoes(filtro = '') {
+        const todas = avaliacoes.todos().filter(a => !filtro || a.tipo === filtro);
+        return `<div class="app-nativo">
+            <div class="abas-cel">
+                <a href="#avaliacoes" class="${!filtro ? 'ativa' : ''}">Todos</a>
+                ${Object.entries(TIPOS_AVALIACAO).map(([tipo, [nome]]) => `<a href="#avaliacoes/${tipo}" class="${filtro === tipo ? 'ativa' : ''}">${nome}</a>`).join('')}
+            </div>
+            <div class="lista-cel">${todas.map(a => `
+                <div class="item-cel avaliacao-cel">
+                    ${capaAvaliacao(a)}
+                    <span class="cresce-cel"><b>${esc(a.titulo)}</b>${estrelas(a.nota)}${a.comentario ? `<small>${textoRico(a.comentario)}</small>` : ''}<small>${esc(a.data)}</small></span>
+                </div>`).join('') || vazioCel(avaliacoes, 'nada avaliado ainda')}</div>
+        </div>`;
+    },
+
+    busca(termo = '') {
+        const q = semAcento(termo.trim());
+        const achados = q ? indiceBusca().filter(item => semAcento(item.titulo).includes(q)) : [];
+        return `<div class="app-nativo">
+            <form class="busca-cel" data-busca>
+                ${icone('zoom')}<input type="search" value="${esc(termo)}" placeholder="Pesquisar no Quarto do Lucas" aria-label="Pesquisar">
+            </form>
+            ${q ? secaoCel('Resultados', `<small>${achados.length}</small>`) : ''}
+            <div class="lista-cel">${achados.map(a => `<a class="item-cel" href="${a.link}"><span class="cresce-cel"><b>${esc(a.titulo)}</b><small>${esc(a.tipo)}</small></span>${SETA_CEL}</a>`).join('')
+                || (q ? vazioCel(null, 'nada encontrado. tenta outra palavra!') : '<p class="vazio-cel">Pesquise recados, fotos, músicas, amigos...</p>')}</div>
+        </div>`;
+    },
+};
+
+// carinhas da barra de escrever abrem e fecham
+document.addEventListener('click', e => {
+    const botao = e.target.closest('[data-cel-emoticons]');
+    if (botao) {
+        const painel = botao.closest('form').querySelector('.painel-emoticons-cel');
+        painel.hidden = !painel.hidden;
+        return;
+    }
+    const rolar = e.target.closest('[data-rolar-cel]');
+    if (rolar) {
+        e.preventDefault();
+        $(rolar.getAttribute('href'))?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+});
+
+// --- desligar e ligar o celular (igual um galaxy de verdade) ---
+
+function menuEnergiaCel() {
+    $('#opcoes-cel').hidden = true;
+    $('#cortina-cel').hidden = true;
+    const tela = $('#energia-cel');
+    tela.className = 'energia-cel';
+    tela.innerHTML = `<div class="dialogo-energia-cel" role="dialog" aria-label="Opções do aparelho">
+        <b>Opções do aparelho</b>
+        <button type="button" data-cel="desligar"><img src="${urlIcone('control_power', 32)}" alt="">Desligar</button>
+        <button type="button" data-cel="reiniciar"><img src="${urlIcone('arrow_refresh', 32)}" alt="">Reiniciar</button>
+        <button type="button" data-cel="cancelar-energia" class="cancelar-energia">Cancelar</button>
+    </div>`;
+    tela.hidden = false;
+}
+
+function desligarCel(reiniciar) {
+    const tela = $('#energia-cel');
+    fecharAppAtualCel();
+    if (player.tocando) pararMusica();
+    tela.className = 'energia-cel desligando';
+    tela.innerHTML = `<div class="dialogo-energia-cel desligando-cel"><span class="girando-cel"></span>${reiniciar ? 'Reiniciando...' : 'Desligando...'}</div>`;
+    vibrar(60);
+    setTimeout(() => {
+        // a tela apaga igual tv de tubo: vira uma linha e some
+        tela.className = 'energia-cel apagando';
+        tela.innerHTML = '<div class="linha-apagando-cel"></div>';
+        setTimeout(() => {
+            document.body.classList.add('cel-desligado');
+            tela.className = 'energia-cel apagado';
+            tela.innerHTML = '<p class="dica-ligar-cel">toque e segure pra ligar</p>';
+            if (reiniciar) setTimeout(ligarCel, 1200);
+            else ativarLigarCel(tela);
+        }, 650);
+    }, 1900);
+}
+
+// celular desligado: segurar o dedo um pouquinho liga (igual o botao de ligar)
+function ativarLigarCel(tela) {
+    let segurando = null;
+    const soltar = () => clearTimeout(segurando);
+    tela.onpointerdown = () => {
+        tela.classList.add('mostra-dica');
+        segurando = setTimeout(() => {
+            tela.onpointerdown = null;
+            vibrar(80);
+            ligarCel();
+        }, 700);
+    };
+    tela.onpointerup = soltar;
+    tela.onpointerleave = soltar;
+}
+
+function ligarCel() {
+    const tela = $('#energia-cel');
+    tela.className = 'energia-cel ligando';
+    tela.innerHTML = `<div class="logo-boot-cel"><b>SAMSUNG</b><span>GALAXY</span><small>Quarto do Lucas</small></div>`;
+    setTimeout(() => {
+        tela.classList.add('sumindo');
+        document.body.classList.remove('cel-desligado');
+        bloquearCel();
+        setTimeout(() => { tela.hidden = true; tela.className = 'energia-cel'; }, 500);
+    }, 2600);
+}
+
+
+// --- app de camera: camera digital antiga com efeitos (as fotos nao vao pro site, so dao pra baixar) ---
+
+const EFEITOS_CAMERA = [
+    { id: 'normal', nome: 'Normal', css: 'none' },
+    { id: 'sepia', nome: 'Sépia', css: 'sepia(1) contrast(1.05)' },
+    { id: 'pb', nome: 'P&B', css: 'grayscale(1) contrast(1.25)' },
+    { id: 'polaroid', nome: 'Polaroid', css: 'sepia(.35) saturate(1.3) brightness(1.08) contrast(.88)' },
+    { id: 'lomo', nome: 'Lomo', css: 'saturate(1.7) contrast(1.3)', vinheta: true },
+    { id: 'vga', nome: 'VGA 2006', css: 'contrast(1.25) saturate(.85) brightness(1.05)', linhas: true },
+    { id: 'filme', nome: 'Filme velho', css: 'sepia(.5) contrast(1.15) brightness(.95)', vinheta: true, grao: true },
+    { id: 'noturna', nome: 'Visão noturna', css: 'grayscale(1) sepia(1) hue-rotate(65deg) saturate(4) brightness(1.15)', linhas: true },
+    { id: 'negativo', nome: 'Negativo', css: 'invert(1)' },
+];
+
+const camera = { fluxo: null, efeito: 'normal', frente: false, data: true, timer: false, fotos: [], vendo: -1 };
+
+function abrirCameraCel() {
+    const tela = $('#camera-cel');
+    camera.vendo = -1;
+    tela.hidden = false;
+    tela.innerHTML = `
+        <div class="visor-camera-cel" id="visor-camera-cel">
+            <video id="video-camera-cel" playsinline muted autoplay></video>
+            <div class="vinheta-camera-cel"></div><div class="linhas-camera-cel"></div><div class="grao-camera-cel"></div>
+            <div class="cantos-camera-cel"><i></i><i></i><i></i><i></i></div>
+            <span class="data-camera-cel" id="data-camera-cel"></span>
+            <span class="contagem-camera-cel" id="contagem-camera-cel"></span>
+            <div class="flash-camera-cel" id="flash-camera-cel"></div>
+            <div class="pedido-camera-cel" id="pedido-camera-cel">
+                <svg viewBox="0 0 24 24" width="54" height="54" aria-hidden="true"><path d="M4 7h3l2-2h6l2 2h3v12H4z" fill="none" stroke="#fff" stroke-width="1.6"/><circle cx="12" cy="13" r="3.6" fill="none" stroke="#fff" stroke-width="1.6"/></svg>
+                <b>Câmera do Quarto do Lucas</b>
+                <p>Pra tirar foto o site precisa da permissão da câmera do seu aparelho.</p>
+                <p class="aviso-privado-cel">As fotos <b>não vão pro site</b> e ninguém mais vê: elas ficam só aqui no seu aparelho até você baixar ou apagar (e somem se fechar a página).</p>
+                <button type="button" class="botao-cel azul" data-camera="ligar">Ligar a câmera</button>
+            </div>
+        </div>
+        <div class="topo-camera-cel">
+            <button type="button" data-camera="data" class="${camera.data ? 'ligado' : ''}" aria-label="Data na foto">DATA</button>
+            <button type="button" data-camera="timer" class="${camera.timer ? 'ligado' : ''}" aria-label="Timer de 3 segundos">3s</button>
+            <span class="resolucao-camera-cel">0.3M</span>
+            <button type="button" data-camera="virar" aria-label="Trocar câmera"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M4 8h3l2-2h6l2 2h3v11H4z" fill="none" stroke="#fff" stroke-width="1.6"/><path d="M9 12a3 3 0 0 1 5.5-1.5M15 14a3 3 0 0 1-5.5 1.5" fill="none" stroke="#fff" stroke-width="1.6"/><path d="M14 9v2h-2M10 17v-2h2" fill="none" stroke="#fff" stroke-width="1.6"/></svg></button>
+        </div>
+        <div class="efeitos-camera-cel" id="efeitos-camera-cel">${EFEITOS_CAMERA.map(e => `<button type="button" data-efeito="${e.id}" class="${e.id === camera.efeito ? 'ativo' : ''}"><span class="amostra-efeito-cel" style="filter:${e.css}"></span>${esc(e.nome)}</button>`).join('')}</div>
+        <div class="base-camera-cel">
+            <button type="button" class="miniatura-camera-cel" id="miniatura-camera-cel" data-camera="ver" aria-label="Ver fotos tiradas"></button>
+            <button type="button" class="disparo-camera-cel" data-camera="foto" aria-label="Tirar foto"><i></i></button>
+            <span class="contador-fotos-cel" id="contador-fotos-cel"></span>
+        </div>
+        <div class="revisao-camera-cel" id="revisao-camera-cel" hidden></div>`;
+    aplicarEfeitoCamera();
+    atualizarMiniaturaCamera();
+    $('#data-camera-cel').textContent = dataCamera();
+    if (camera.fluxo) ligarCameraCel();
+}
+
+function dataCamera(d = new Date()) {
+    const dois = n => String(n).padStart(2, '0');
+    return `${dois(d.getDate())} ${dois(d.getMonth() + 1)} '${String(d.getFullYear()).slice(2)}`;
+}
+
+async function ligarCameraCel() {
+    const pedido = $('#pedido-camera-cel');
+    try {
+        if (!navigator.mediaDevices?.getUserMedia) throw new Error('sem suporte');
+        desligarCameraCel(false);
+        camera.fluxo = await navigator.mediaDevices.getUserMedia({ video: { facingMode: camera.frente ? 'user' : 'environment', width: { ideal: 1280 } }, audio: false });
+        const video = $('#video-camera-cel');
+        if (!video) return desligarCameraCel();
+        video.srcObject = camera.fluxo;
+        video.classList.toggle('espelhado', camera.frente);
+        pedido.hidden = true;
+    } catch (erro) {
+        pedido.hidden = false;
+        pedido.querySelector('p').textContent = erro?.name === 'NotAllowedError'
+            ? 'Você não deixou o site usar a câmera. Dá pra liberar nas permissões do navegador e tentar de novo.'
+            : 'Não achei nenhuma câmera nesse aparelho (ou o navegador não deixa usar).';
+    }
+}
+
+// desliga a luzinha da camera (sempre que sai do app)
+function desligarCameraCel(limpar = true) {
+    camera.fluxo?.getTracks().forEach(f => f.stop());
+    camera.fluxo = null;
+    const video = $('#video-camera-cel');
+    if (video) video.srcObject = null;
+    if (limpar) $('#camera-cel').hidden = true;
+}
+
+function aplicarEfeitoCamera() {
+    const efeito = EFEITOS_CAMERA.find(e => e.id === camera.efeito);
+    const visor = $('#visor-camera-cel');
+    if (!visor) return;
+    $('#video-camera-cel').style.filter = efeito.css;
+    visor.classList.toggle('com-vinheta', !!efeito.vinheta);
+    visor.classList.toggle('com-linhas', !!efeito.linhas);
+    visor.classList.toggle('com-grao', !!efeito.grao);
+    visor.classList.toggle('com-data', camera.data);
+    $$('#efeitos-camera-cel [data-efeito]').forEach(b => b.classList.toggle('ativo', b.dataset.efeito === camera.efeito));
+}
+
+// os efeitos na foto de verdade (pixel por pixel, igual as cameras antigas faziam)
+function efeitoNaFoto(ctx, w, h, efeito) {
+    if (efeito.id === 'vga') {
+        // pouca resolucao: desenha pequeno e estica sem suavizar
+        const pequeno = document.createElement('canvas');
+        pequeno.width = 160; pequeno.height = Math.round(160 * h / w);
+        pequeno.getContext('2d').drawImage(ctx.canvas, 0, 0, pequeno.width, pequeno.height);
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(pequeno, 0, 0, w, h);
+    }
+    const img = ctx.getImageData(0, 0, w, h);
+    const d = img.data;
+    const cx = w / 2, cy = h / 2, raio = Math.hypot(cx, cy);
+    for (let i = 0; i < d.length; i += 4) {
+        let r = d[i], g = d[i + 1], b = d[i + 2];
+        const cinza = 0.299 * r + 0.587 * g + 0.114 * b;
+        switch (efeito.id) {
+            case 'sepia': [r, g, b] = [cinza * 1.07 + 25, cinza * 0.95 + 12, cinza * 0.75]; break;
+            case 'pb': r = g = b = (cinza - 128) * 1.25 + 128; break;
+            case 'polaroid': r = r * 0.86 + 40; g = g * 0.86 + 30; b = b * 0.8 + 22; break;
+            case 'lomo': { const m = (r + g + b) / 3; r = (r - m) * 1.6 + (m - 128) * 1.3 + 128; g = (g - m) * 1.6 + (m - 128) * 1.3 + 128; b = (b - m) * 1.6 + (m - 128) * 1.3 + 128; break; }
+            case 'vga': r = Math.round(r / 51) * 51; g = Math.round(g / 51) * 51; b = Math.round(b / 51) * 51; break;
+            case 'filme': [r, g, b] = [cinza * 0.6 + r * 0.4 + 18, cinza * 0.6 + g * 0.4 + 8, cinza * 0.6 + b * 0.4 - 6]; break;
+            case 'noturna': r = cinza * 0.25; g = Math.min(255, cinza * 1.35 + 20); b = cinza * 0.25; break;
+            case 'negativo': r = 255 - r; g = 255 - g; b = 255 - b; break;
+        }
+        if (efeito.grao || efeito.id === 'noturna' || efeito.id === 'vga') {
+            const ruido = (Math.random() - 0.5) * (efeito.id === 'vga' ? 22 : 34);
+            r += ruido; g += ruido; b += ruido;
+        }
+        if (efeito.vinheta) {
+            const p = i / 4, x = p % w, y = (p / w) | 0;
+            const escuro = 1 - Math.pow(Math.hypot(x - cx, y - cy) / raio, 2.2) * 0.75;
+            r *= escuro; g *= escuro; b *= escuro;
+        }
+        if (efeito.linhas && ((i / 4 / w) | 0) % 3 === 0) { r *= 0.82; g *= 0.82; b *= 0.82; }
+        d[i] = r; d[i + 1] = g; d[i + 2] = b;
+    }
+    ctx.putImageData(img, 0, 0);
+}
+
+// barulhinho de obturador (feito na hora, sem arquivo de som)
+function somObturador() {
+    try {
+        const audio = new (window.AudioContext || window.webkitAudioContext)();
+        const duracao = 0.12;
+        const buffer = audio.createBuffer(1, audio.sampleRate * duracao, audio.sampleRate);
+        const dados = buffer.getChannelData(0);
+        for (let i = 0; i < dados.length; i++) dados[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / dados.length, 3);
+        const fonte = audio.createBufferSource();
+        fonte.buffer = buffer;
+        fonte.connect(audio.destination);
+        fonte.start();
+        fonte.onended = () => audio.close();
+    } catch { /* sem som, tudo bem */ }
+}
+
+async function tirarFotoCel() {
+    const video = $('#video-camera-cel');
+    if (!camera.fluxo || !video?.videoWidth) return;
+    if (camera.timer) {
+        const contagem = $('#contagem-camera-cel');
+        for (let n = 3; n > 0; n--) {
+            contagem.textContent = n;
+            await new Promise(r => setTimeout(r, 1000));
+            if (!camera.fluxo) return;
+        }
+        contagem.textContent = '';
+    }
+    const efeito = EFEITOS_CAMERA.find(e => e.id === camera.efeito);
+    // 640x480 igual camera de 0.3 megapixel (ou em pe, se o video for em pe)
+    const deitada = video.videoWidth >= video.videoHeight;
+    const w = deitada ? 640 : 480, h = deitada ? 480 : 640;
+    const tela = document.createElement('canvas');
+    tela.width = w; tela.height = h;
+    const ctx = tela.getContext('2d');
+    // corta o video pro tamanho da foto (igual o visor)
+    const escala = Math.max(w / video.videoWidth, h / video.videoHeight);
+    const vw = video.videoWidth * escala, vh = video.videoHeight * escala;
+    if (camera.frente) { ctx.translate(w, 0); ctx.scale(-1, 1); }
+    ctx.drawImage(video, (w - vw) / 2, (h - vh) / 2, vw, vh);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    if (efeito.id !== 'normal') efeitoNaFoto(ctx, w, h, efeito);
+    if (camera.data) {
+        // a data laranja no canto, igual as cameras digitais de 2000 e pouco
+        ctx.font = `bold ${Math.round(h / 17)}px "Courier New", monospace`;
+        ctx.textAlign = 'right';
+        ctx.shadowColor = 'rgba(255, 120, 0, .9)';
+        ctx.shadowBlur = 6;
+        ctx.fillStyle = '#ffa31a';
+        ctx.fillText(dataCamera(), w - 18, h - 18);
+    }
+    somObturador();
+    vibrar(30);
+    const flash = $('#flash-camera-cel');
+    flash.classList.remove('pisca');
+    void flash.offsetWidth;
+    flash.classList.add('pisca');
+    const blob = await new Promise(r => tela.toBlob(r, 'image/jpeg', 0.88));
+    if (!blob) return;
+    // a foto fica so na memoria do aparelho: nao manda pra lugar nenhum
+    camera.fotos.unshift({ url: URL.createObjectURL(blob), quando: new Date() });
+    atualizarMiniaturaCamera();
+}
+
+function atualizarMiniaturaCamera() {
+    const mini = $('#miniatura-camera-cel');
+    if (!mini) return;
+    const ultima = camera.fotos[0];
+    mini.innerHTML = ultima ? `<img src="${ultima.url}" alt="">` : '';
+    mini.disabled = !ultima;
+    $('#contador-fotos-cel').textContent = camera.fotos.length ? `${camera.fotos.length} foto${camera.fotos.length > 1 ? 's' : ''}` : '';
+}
+
+function nomeArquivoFoto(f) {
+    const d = f.quando, dois = n => String(n).padStart(2, '0');
+    return `quarto-do-lucas-${d.getFullYear()}${dois(d.getMonth() + 1)}${dois(d.getDate())}-${dois(d.getHours())}${dois(d.getMinutes())}${dois(d.getSeconds())}.jpg`;
+}
+
+function verFotoCamera(n) {
+    const revisao = $('#revisao-camera-cel');
+    const f = camera.fotos[n];
+    if (!f) {
+        camera.vendo = -1;
+        revisao.hidden = true;
+        return;
+    }
+    camera.vendo = n;
+    revisao.hidden = false;
+    revisao.innerHTML = `
+        <div class="foto-revisao-cel"><img src="${f.url}" alt="foto tirada"></div>
+        <p class="aviso-revisao-cel">Essa foto não foi pro site: só fica aqui até você baixar ou apagar.</p>
+        <div class="acoes-revisao-cel">
+            <button type="button" data-camera="anterior" ${n >= camera.fotos.length - 1 ? 'disabled' : ''} aria-label="Foto anterior">‹</button>
+            <a class="botao-cel azul" href="${f.url}" download="${nomeArquivoFoto(f)}">Baixar</a>
+            <button type="button" class="botao-cel" data-camera="apagar">Apagar</button>
+            <button type="button" data-camera="proxima" ${n <= 0 ? 'disabled' : ''} aria-label="Próxima foto">›</button>
+        </div>
+        <p class="numero-revisao-cel">${n + 1} de ${camera.fotos.length}</p>`;
+}
+
+function voltarCameraCel() {
+    if (camera.vendo < 0) return false;
+    verFotoCamera(-1);
+    return true;
+}
+
+document.addEventListener('click', e => {
+    const efeito = e.target.closest('[data-efeito]');
+    if (efeito) {
+        camera.efeito = efeito.dataset.efeito;
+        return aplicarEfeitoCamera();
+    }
+    const b = e.target.closest('[data-camera]');
+    if (!b) return;
+    const acao = b.dataset.camera;
+    if (acao === 'ligar') ligarCameraCel();
+    if (acao === 'foto') tirarFotoCel();
+    if (acao === 'virar') {
+        camera.frente = !camera.frente;
+        if (camera.fluxo) ligarCameraCel();
+    }
+    if (acao === 'data') {
+        camera.data = !camera.data;
+        b.classList.toggle('ligado', camera.data);
+        aplicarEfeitoCamera();
+    }
+    if (acao === 'timer') {
+        camera.timer = !camera.timer;
+        b.classList.toggle('ligado', camera.timer);
+    }
+    if (acao === 'ver') verFotoCamera(0);
+    if (acao === 'anterior') verFotoCamera(camera.vendo + 1);
+    if (acao === 'proxima') verFotoCamera(camera.vendo - 1);
+    if (acao === 'apagar') {
+        // apagou, sumiu de vez (a memoria da foto e liberada)
+        const [foto] = camera.fotos.splice(camera.vendo, 1);
+        if (foto) URL.revokeObjectURL(foto.url);
+        atualizarMiniaturaCamera();
+        verFotoCamera(Math.min(camera.vendo, camera.fotos.length - 1));
+    }
+});
+
+// trocou de aba ou bloqueou a tela: a camera desliga
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden && camera.fluxo) {
+        desligarCameraCel(false);
+        const pedido = $('#pedido-camera-cel');
+        if (pedido) pedido.hidden = false;
+    }
+});
+
 function iniciar() {
     preencherIcones();
     $$('.emoticons[data-preencher]').forEach(el => { el.innerHTML = botoesEmoticons(); });
@@ -7317,6 +9732,13 @@ function iniciar() {
     relogio();
     setInterval(relogio, 10000);
     decorarDatas();
+    if (liberado('celular') && celularPossivel() && ['celular', 'tablet'].includes(guardar.ler('modo', ''))) entrarModoCelular(true);
+    if (liberado('jujuba')) {
+        assistente.tentou = true;
+        iniciarAssistente();
+    }
+    aplicarLancamentos();
+    setInterval(aplicarLancamentos, 60000);
     conectar();
     carregarDaNuvem();
     preencherOuvindo();

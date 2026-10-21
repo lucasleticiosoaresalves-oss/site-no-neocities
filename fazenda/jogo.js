@@ -1,5 +1,5 @@
 'use strict';
-/* Fazenda do Lucas — logica das fases, desenho da tela e interface */
+/* Fazenda do Lucas: as fases, o desenho da tela e os botoes */
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
@@ -27,7 +27,7 @@ const GARAGEM = { x: 196, y: 590 };
 const HANGAR = { x: 542, y: 590 };
 const ALVO_MOEDAS = { x: 520, y: 25 };
 
-// ================= som =================
+// --- som ---
 const midi = m => 440 * Math.pow(2, (m - 69) / 12);
 const Som = {
     ac: null, sfx: null, mus: null, ruidoBuf: null,
@@ -132,7 +132,7 @@ const Musica = {
     },
 };
 
-// ================= progresso salvo =================
+// --- progresso salvo ---
 const CHAVE = 'fazenda-do-lucas-v2';
 const upgZerado = () => Object.fromEntries(Object.keys(MELHORIAS).map(k => [k, 0]));
 let E = { v: 2, medalhas: {}, estrelas: 0, upg: upgZerado(), dicas: {}, som: true, musica: true, qualidade: 'media' };
@@ -158,7 +158,7 @@ const FASE_EXTRA = FASES.findIndex(f => f.extra);
 const FASE_INF = FASES.findIndex(f => f.infinito);
 const faseNormal = F => !F.extra && !F.infinito;
 
-// ================= estado da fase =================
+// --- estado da fase ---
 let J = null;
 let efeitos = [], textos = [], voos = [];
 let tempo = 0, mouse = { x: -1, y: -1 };
@@ -234,7 +234,7 @@ function iniciarFase(n, continuar = false) {
     abrirBriefing();
 }
 
-// ================= grama =================
+// --- grama ---
 function plantarEm(x, y) {
     const c0 = (x - PASTO.x0) / CEL, r0 = (y - PASTO.y0) / CEL;
     for (let r = Math.floor(r0 - 3); r <= r0 + 3; r++) for (let c = Math.floor(c0 - 3); c <= c0 + 3; c++) {
@@ -258,9 +258,27 @@ function gramaPerto(x, y) {
     }
     return melhor;
 }
+// 1a mordida: o tufo inteiro fica baixinho (pela metade); 2a mordida: o tufo some
+function morderGrama(c, x, y) {
+    const tufo = [], visto = new Set([c]), fila = [c];
+    while (fila.length) {
+        const v = fila.pop();
+        tufo.push(v);
+        const col = v % COLS, lin = Math.floor(v / COLS);
+        for (const [dc, dl] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+            const nc = col + dc, nl = lin + dl, n = nl * COLS + nc;
+            if (nc < 0 || nl < 0 || nc >= COLS || nl >= ROWS || visto.has(n) || !J.grama[n]) continue;
+            visto.add(n);
+            fila.push(n);
+        }
+    }
+    const inteiro = tufo.some(v => J.grama[v] > 1);
+    tufo.forEach(v => { J.grama[v] = inteiro ? 1 : 0; });
+    if (!inteiro) poeira(x, y, 6);
+}
 const noPasto = (x, y) => x > PASTO.x0 - 6 && x < PASTO.x1 + 6 && y > PASTO.y0 - 6 && y < PASTO.y1 + 6;
 
-// ================= armazem e produtos =================
+// --- armazem e produtos ---
 const usoArmazem = () => Object.entries(J.armazem).reduce((s, [k, q]) => s + q * ITENS[k].tam, 0);
 const livreArmazem = () => capArmazem() - usoArmazem();
 const tamDe = obj => Object.entries(obj).reduce((s, [k, q]) => s + q * ITENS[k].tam, 0);
@@ -282,7 +300,7 @@ function pegarProduto(p) {
     J.produtos.splice(J.produtos.indexOf(p), 1);
 }
 
-// ================= compras e cliques =================
+// --- compras e cliques ---
 function ganhar(v, x, y) { J.moedas += v; if (x !== undefined) flutuar(x, y, '+' + fmtN(v), '#ffe14d', 'moeda'); hud(); }
 function gastar(v, x, y) { J.moedas -= v; if (x !== undefined) flutuar(x, y, '-' + fmtN(v), '#ffb0a0', 'moeda'); hud(); }
 function semMoedas() { Som.tocar('erro'); aviso('Moedas insuficientes!', true); }
@@ -392,7 +410,7 @@ function clique(x, y) {
     }
 }
 
-// ================= atualizacao =================
+// --- atualizacao ---
 function moverPara(a, alvo, vel, dt) {
     const dx = alvo.x - a.x, dy = alvo.y - a.y, d = Math.hypot(dx, dy);
     if (Math.abs(dx) > .5) a.dir = dx > 0 ? 1 : -1;
@@ -424,9 +442,9 @@ function atualizarAnimal(a, dt) {
         if (a.comendo <= 0) {
             const c = celula(a.x, a.y);
             if (c >= 0 && J.grama[c] > 0 && a.fome < .98) {
-                // cada mordida arranca um pouco da grama; quando zera, o tufo some
-                J.grama[c]--; a.fome = Math.min(1, a.fome + .15); a.comendo = .35;
-                if (!J.grama[c]) poeira(a.x, a.y, 3);
+                // o tufo acaba em 2 mordidas (cada uma enche metade da barriga)
+                morderGrama(c, a.x, a.y);
+                a.fome = Math.min(1, a.fome + .5); a.comendo = .35;
             } else if (a.fome < .98) {
                 // ainda com fome: vai pra grama do lado ate encher a barriga
                 const g = gramaPerto(a.x, a.y);
@@ -584,7 +602,7 @@ function atualizarFase(dt) {
     }
 }
 
-// ================= metas =================
+// --- metas ---
 function progressoMeta(m) {
     if (m.t === 'item') return { v: Math.min(m.q, J.coletados[m.i] || 0), q: m.q };
     if (m.t === 'animal') return { v: Math.min(m.q, J.animais.filter(a => a.tipo === m.a && !a.cai).length), q: m.q };
@@ -616,7 +634,7 @@ function checarVitoria() {
     setTimeout(() => popupVitoria(m, premio), 700);
 }
 
-// ================= efeitos =================
+// --- efeitos ---
 function flutuar(x, y, txt, cor = '#fff', icone = null) { textos.push({ x, y, txt, cor, ic: icone, vida: 1.5, max: 1.5 }); }
 function poeira(x, y, n = 12) {
     for (let i = 0; i < n; i++) efeitos.push({ t: 'fumo', x: x + rnd(-16, 16), y: y + rnd(-6, 4), vx: rnd(-40, 40), vy: rnd(-50, -10), g: -10, vida: rnd(.4, .8), r: rnd(5, 10), cor: '#e8dcc0' });
@@ -633,7 +651,7 @@ function atualizarEfeitos(dt) {
     voos = voos.filter(v => v.t < 1);
 }
 
-// ================= desenho =================
+// --- desenho ---
 const cacheSpr = new Map();
 function spr(chave, ox, oy, w, h, fn, luzes = false) {
     let s = cacheSpr.get(chave);
@@ -1116,7 +1134,7 @@ function desenhar() {
     else pintar(spr('inicio', 0, 0, LARG, ALT, fundoInicio), 0, 0);
 }
 
-// ================= hud =================
+// --- hud ---
 function montarHud() {
     $('#animais').innerHTML = J.F.animais.map(t => `<button class="bt-animal" data-comprar="${t}" title="${ANIMAIS[t].nome}${ANIMAIS[t].desc ? ': ' + ANIMAIS[t].desc : ''}">
         <span class="disco">${ic('obj:animal:' + t)}</span><span class="preco">${ic('moeda')}${fmtN(ANIMAIS[t].preco)}</span></button>`).join('');
@@ -1217,7 +1235,7 @@ function aviso(t, erro) {
     clearTimeout(tAviso); tAviso = setTimeout(() => a.classList.remove('mostrar'), 2600);
 }
 
-// ================= janelas =================
+// --- janelas ---
 const camada = $('#camada');
 let janelaAtual = null;
 function abrir(op) {
@@ -1622,7 +1640,7 @@ function abrirOpcoes() {
     });
 }
 
-// ================= telas =================
+// --- telas ---
 function trocarTela(t) { palco.dataset.tela = t; }
 function irMapa() { filaDicas.length = 0; dicaAtual = null; $('#dica-tut').hidden = true; J = null; trocarTela('mapa'); atualizarMapa(); }
 function atualizarMapa() {
@@ -1636,7 +1654,7 @@ function atualizarMapa() {
     }).join('');
 }
 
-// ================= carregando =================
+// --- carregando ---
 function telaCarregando() {
     $('#carga-dica').textContent = DICAS[ri(0, DICAS.length - 1)];
     let p = 0;
@@ -1657,7 +1675,7 @@ function telaCarregando() {
     };
 }
 
-// ================= eventos =================
+// --- eventos ---
 // em celular ou tablet na vertical o palco gira 90 graus pra ocupar a tela deitado (como jogo de celular)
 let deitado = false, origemPalco = { x: 0, y: 0 };
 function ajustar() {
@@ -1745,7 +1763,7 @@ addEventListener('orientationchange', () => setTimeout(ajustar, 150));
 addEventListener('pagehide', () => { salvarFase(); });
 document.addEventListener('visibilitychange', () => { if (document.hidden && J && J.comecou && !J.ganhou && !janelaAtual) abrirPausa(); });
 
-// ================= laco principal =================
+// --- laco principal ---
 let ultimo = performance.now(), relogio = 0;
 function laco(agora) {
     const dt = Math.min(.25, Math.max(0, (agora - ultimo) / 1000));
@@ -1759,7 +1777,7 @@ function laco(agora) {
     requestAnimationFrame(laco);
 }
 
-// ================= comeco =================
+// --- comeco ---
 $$('img[data-i]').forEach(img => { img.src = iconeURL(img.dataset.i); });
 ajustar();
 telaCarregando();

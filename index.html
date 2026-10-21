@@ -8,7 +8,7 @@
     <title>QUARTO DO LUCAS</title>
     <meta name="description" content="O quarto do Lucas na internet: recados, álbuns, diário e playlists no estilo orkut.">
     <link rel="icon" href="imagens/icones/16/internet_explorer.png">
-    <link rel="stylesheet" href="style.css?v=152">
+    <link rel="stylesheet" href="style.css?v=185">
 </head>
 <body>
 
@@ -20,10 +20,11 @@
         <button class="icone-desktop" data-abrir="msn"><span class="com-contador"><img class="ico ico32" data-ico="msn_messenger" data-tam="32" alt=""><span class="contador-zap" hidden></span></span>Zap do Lucas</button>
         <button class="icone-desktop" data-abrir="paint"><img class="ico ico32" data-ico="palette" data-tam="32" alt="">Paint</button>
         <button class="icone-desktop" data-abrir="notas"><img class="ico ico32" data-ico="note" data-tam="32" alt="">Bloco de notas</button>
-        <button class="icone-desktop" data-abrir="fazenda" hidden><img class="ico ico32" data-ico="celeiro" data-tam="32" alt="">Fazenda do Lucas</button>
+        <button class="icone-desktop" data-abrir="fazenda" data-recurso="fazenda" hidden><img class="ico ico32" data-ico="celeiro" data-tam="32" alt="">Fazenda do Lucas</button>
         <button class="icone-desktop" data-abrir="lixeira"><img class="ico ico32" data-ico="bin_recycle" data-tam="32" alt="">Lixeira</button>
         <button class="icone-desktop" data-abrir="fundos"><img class="ico ico32" data-ico="monitor_wallpaper" data-tam="32" alt="">Papel de parede</button>
-        <button class="icone-desktop" data-abrir="calculadora" hidden><img class="ico ico32" data-ico="calculator" data-tam="32" alt="">Calculadora</button>
+        <button class="icone-desktop" data-abrir="minado" data-recurso="minado" hidden><img class="ico ico32" data-ico="mina" data-tam="32" alt="">Campo Tekisminado</button>
+        <button class="icone-desktop" data-abrir="calculadora" data-recurso="calculadora" hidden><img class="ico ico32" data-ico="calculator" data-tam="32" alt="">Calculadora</button>
     </div>
 
     
@@ -129,7 +130,6 @@
             <!-- quando a internet cai -->
             <div class="sem-internet" id="sem-internet" hidden>
                 <canvas id="dino" width="1200" height="300" aria-label="jogo do dinossauro de óculos"></canvas>
-                <button class="expandir-dino" type="button" data-comando="expandir-dino" title="Jogar deitado em tela cheia">□ expandir o jogo</button>
                 <div class="texto-sem-internet">
                     <h2>Sem internet</h2>
                     <p>Tente:</p>
@@ -139,7 +139,7 @@
                         <li>Jogar com o dinossauro enquanto isso</li>
                     </ul>
                     <p class="codigo-erro">ERR_INTERNET_DISCONNECTED</p>
-                    <p class="dica">espaço ou ↑ pula (segura pra pular mais alto) · ↓ abaixa · no celular é só tocar</p>
+                    <p class="dica">espaço ou ↑ pula (segura pra pular mais alto) · ↓ abaixa · no celular é só tocar (o □ lá em cima deixa o jogo deitado)</p>
                     <button class="btn" data-comando="internet"><img class="ico" data-ico="network_wireless" alt=""> reconectar</button>
                 </div>
             </div>
@@ -183,7 +183,7 @@
                             <a href="#amigos" data-rota="amigos"><img class="ico" data-ico="group" alt=""> Amigos.</a>
                             <a href="#comunidades" data-rota="comunidades"><img class="ico" data-ico="comments" alt=""> Comunidades.</a>
                             <a href="#depoimentos" data-rota="depoimentos"><img class="ico" data-ico="award_star_gold_1" alt=""> Depoimentos.</a>
-                            <a href="#tv" data-rota="tv" hidden><img class="ico" data-ico="film" alt=""> Sessão da TV.</a>
+                            <a href="#tv" data-rota="tv" data-recurso="tv" hidden><img class="ico" data-ico="film" alt=""> Sessão da TV.</a>
                             <a href="#admin" data-rota="admin" data-so-dono hidden><img class="ico" data-ico="key" alt=""> Admin.</a>
                         </nav>
 
@@ -192,6 +192,7 @@
                             <button data-abrir="msn"><span class="com-contador"><img class="ico" data-ico="msn_messenger" alt=""><span class="contador-zap" hidden></span></span> Zap do Lucas <img class="novo-gif" src="imagens/gifs/novo.gif" alt="NOVO!" width="40" height="20"></button>
                             <button data-abrir="paint"><img class="ico" data-ico="palette" alt=""> Paint <img class="novo-gif" src="imagens/gifs/novo.gif" alt="NOVO!" width="40" height="20"></button>
                             <button data-abrir="notas"><img class="ico" data-ico="note" alt=""> Bloco de notas</button>
+                            <button data-abrir="minado" data-recurso="minado" hidden><img class="ico" data-ico="mina" alt=""> Campo Tekisminado</button>
                             <button data-abrir="lixeira"><img class="ico" data-ico="bin_recycle" alt=""> Lixeira</button>
                         </div>
 
@@ -362,15 +363,15 @@
                 <div class="paint-opcoes">
                     <label title="Tamanho do traço">tamanho
                         <select id="paint-tamanho">
-                            <option value="1">1</option>
-                            <option value="2">2</option>
-                            <option value="5" selected>5</option>
-                            <option value="10">10</option>
-                            <option value="20">20</option>
-                            <option value="40">40</option>
+                            <option value="1">fininho</option>
+                            <option value="2">fino</option>
+                            <option value="5" selected>médio</option>
+                            <option value="10">grosso</option>
+                            <option value="20">enorme</option>
+                            <option value="40">gigante</option>
                         </select>
                     </label>
-                    <label title="Deixa o pincel, o spray e as formas transparentes">opacidade <input type="range" id="paint-opacidade" min="10" max="100" step="10" value="100"></label>
+                    <label title="Deixa o lápis, o pincel, o spray e as formas transparentes">opacidade <input type="range" id="paint-opacidade" min="10" max="100" step="10" value="100"> <span id="paint-opacidade-valor">100%</span></label>
                     <label title="Formas pintadas por dentro"><input type="checkbox" id="paint-preencher"> cheio</label>
                     <label title="Tudo que você desenha aparece espelhado do outro lado"><input type="checkbox" id="paint-espelho"> espelho</label>
                     <span id="paint-zoom">zoom 100%</span>
@@ -463,6 +464,33 @@
     </div>
 </div>
 
+<div class="janela janela-app" id="minado" data-titulo="Campo Tekisminado" data-icone="mina" hidden style="left:240px; top:70px;">
+    <div class="barra-titulo">
+        <span><img class="ico" data-ico="mina" alt=""> Campo Tekisminado</span>
+        <div class="botoes">
+            <button data-ajuda="minado" title="Ajuda">?</button>
+            <button data-janela="minimizar" title="Minimizar">_</button>
+            <button data-janela="fechar" class="fechar" title="Fechar">✕</button>
+        </div>
+    </div>
+    <div class="menu-minado">
+        <button type="button" data-minado="novo" title="Novo jogo (F2)"><u>N</u>ovo</button>
+        <button type="button" data-minado="iniciante"><u>I</u>niciante</button>
+        <button type="button" data-minado="intermediario">I<u>n</u>termediário</button>
+        <button type="button" data-minado="especialista"><u>E</u>specialista</button>
+        <button type="button" data-minado="recordes"><u>R</u>ecordes</button>
+        <button type="button" data-minado="bandeira" class="botao-bandeira" title="No celular: liga pra cada toque virar bandeira">bandeira: <b>não</b></button>
+    </div>
+    <div class="corpo-minado">
+        <div class="placar-minado">
+            <span class="led-minado" id="minas-minado" title="Minas que faltam">010</span>
+            <button type="button" class="carinha-minado" id="carinha-minado" data-minado="novo" title="Novo jogo"><img alt="" id="cara-minado"></button>
+            <span class="led-minado" id="tempo-minado" title="Tempo">000</span>
+        </div>
+        <div class="campo-minado" id="campo-minado" role="grid" aria-label="Campo Tekisminado"></div>
+    </div>
+</div>
+
 <div class="janela janela-app" id="notas" data-titulo="Escreva algo - Bloco de notas" data-icone="note" hidden style="left:220px; top:120px;">
     <div class="barra-titulo">
         <span><img class="ico" data-ico="note" alt=""> ESCREVA ALGO - Bloco de notas</span>
@@ -492,7 +520,7 @@
             <button data-janela="fechar" class="fechar" title="Fechar">✕</button>
         </div>
     </div>
-    <iframe id="fazenda-frame" title="Fazenda do Lucas" data-src="fazenda/index.html?v=32" allow="fullscreen"></iframe>
+    <iframe id="fazenda-frame" title="Fazenda do Lucas" data-src="fazenda/index.html?v=34" allow="fullscreen"></iframe>
 </div>
 
 
@@ -583,17 +611,42 @@
         <button data-abrir="msn"><span class="com-contador"><img class="ico ico32" data-ico="msn_messenger" data-tam="32" alt=""><span class="contador-zap" hidden></span></span>Zap do Lucas</button>
         <button data-abrir="paint"><img class="ico ico32" data-ico="palette" data-tam="32" alt="">Paint</button>
         <button data-abrir="notas"><img class="ico ico32" data-ico="note" data-tam="32" alt="">Bloco de notas</button>
-        <button data-abrir="calculadora" hidden><img class="ico ico32" data-ico="calculator" data-tam="32" alt="">Calculadora</button>
-        <button data-abrir="fazenda" hidden><img class="ico ico32" data-ico="celeiro" data-tam="32" alt="">Fazenda do Lucas</button>
+        <button data-abrir="calculadora" data-recurso="calculadora" hidden><img class="ico ico32" data-ico="calculator" data-tam="32" alt="">Calculadora</button>
+        <button data-abrir="minado" data-recurso="minado" hidden><img class="ico ico32" data-ico="mina" data-tam="32" alt="">Campo Tekisminado</button>
+        <button data-abrir="fazenda" data-recurso="fazenda" hidden><img class="ico ico32" data-ico="celeiro" data-tam="32" alt="">Fazenda do Lucas</button>
         <button data-abrir="lixeira"><img class="ico ico32" data-ico="bin_recycle" data-tam="32" alt="">Lixeira</button>
         <hr>
         <button data-comando="papel-parede"><img class="ico ico32" data-ico="monitor_wallpaper" data-tam="32" alt="">Papel de parede</button>
+        <button data-comando="modo-celular" class="so-toque" data-recurso="celular" hidden><img class="ico ico32" data-ico="phone_vintage" data-tam="32" alt="">Modo celular</button>
+        <button data-comando="modo-tablet" class="so-toque" data-recurso="celular" hidden><img class="ico ico32" data-ico="monitor" data-tam="32" alt="">Modo tablet</button>
+        <button data-comando="assistente" data-recurso="jujuba" hidden><img class="ico ico32 ico-jujuba" src="imagens/assistente/agua-viva.png?v=2" alt="">Jujuba (assistente)</button>
         <button data-comando="ajuda"><img class="ico ico32" data-ico="help" data-tam="32" alt="">Ajuda e suporte</button>
     </div>
     <div class="pe">
         <button data-comando="logoff"><img class="ico" data-ico="key" alt=""> Fazer logoff</button>
         <button data-comando="desligar"><img class="ico" data-ico="control_power" alt=""> Desligar</button>
     </div>
+</div>
+
+<!-- modo celular (montado pelo script) -->
+<div class="celular" id="celular" hidden></div>
+
+<!-- jujuba, a agua-viva assistente -->
+<div class="assistente" id="assistente" hidden>
+    <div class="balao-assistente" id="balao-assistente" hidden>
+        <button class="calar-assistente" type="button" data-assistente="calar" title="Fechar">✕</button>
+        <b class="nome-assistente">Jujuba diz:</b>
+        <p id="fala-assistente"></p>
+        <div class="botoes-assistente" id="botoes-assistente"></div>
+    </div>
+    <span class="corpo-assistente">
+        <span class="flutua-assistente">
+            <img class="boneco-assistente" id="boneco-assistente" src="imagens/assistente/agua-viva.png?v=2" alt="Jujuba, a água-viva assistente" title="Jujuba (clique pra pedir ajuda, dois cliques pra ela dançar, arraste pra mudar de lugar)" draggable="false">
+            <span class="palpebra-assistente esquerda" aria-hidden="true"></span>
+            <span class="palpebra-assistente direita" aria-hidden="true"></span>
+        </span>
+        <span class="efeitos-assistente" id="efeitos-assistente" aria-hidden="true"></span>
+    </span>
 </div>
 
 <div class="barra-tarefas">
@@ -673,6 +726,6 @@
 
 <script src="js/supabase.js"></script>
 
-<script src="script.js?v=320"></script>
+<script src="script.js?v=352"></script>
 </body>
 </html>

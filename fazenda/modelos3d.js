@@ -1,5 +1,5 @@
 'use strict';
-/* Fazenda do Lucas — mini motor 3d "low poly" com sombreamento chapado (cara de jogo pre-renderizado de 2008)
+/* Fazenda do Lucas: desenha os bichos e as casas em 3d simples, com cara de jogo de 2008
    e todos os modelos: bichos, construcoes, veiculos, arvores e produtos. Tudo montado com caixas, cilindros e esferas. */
 
 // cameras (yaw gira em volta do eixo y, pitch inclina pra baixo). luz: x direita, y pra baixo, z pra camera
@@ -28,7 +28,7 @@ const m3esc = (x, y = x, z = x) => m3ap([x, 0, 0, 0, 0, y, 0, 0, 0, 0, z, 0]);
 function m3pt(x, y, z) { const m = m3mat; return [m[0] * x + m[1] * y + m[2] * z + m[3], m[4] * x + m[5] * y + m[6] * z + m[7], m[8] * x + m[9] * y + m[10] * z + m[11]]; }
 function m3face(pts, cor, extra) { m3faces.push(Object.assign({ p: pts.map(q => m3pt(q[0], q[1], q[2])), cor }, extra)); }
 
-// ---------- primitivas ----------
+// ---------- desenhos basicos ----------
 // caixa centrada em x/z, de y0 ate y0+h
 function m3caixa(w, h, d, cor, y0 = 0, chao = false) {
     const x0 = -w / 2, x1 = w / 2, z0 = -d / 2, z1 = d / 2, y1 = y0 + h, e = chao ? { chao: 1 } : null;
@@ -285,7 +285,7 @@ const MODELOS_BICHO = {
     },
 };
 const ANIMAL_ALT = { cavalo: 54, galinha: 25, vaca: 42, porco: 25, avestruz: 64, gato: 22, cachorro: 30, urso: 46 };
-// mesma assinatura de antes: (c, fase, andando, t) — t pode ser booleano (galinha bicando)
+// recebe as mesmas coisas de antes (c, fase, andando, t); o t pode ser true/false (galinha bicando)
 const ANIMAL_DES = Object.fromEntries(Object.entries(MODELOS_BICHO).map(([k, fn]) => [k, (c, f, andando, t) => {
     const bica = typeof t === 'boolean' ? t : (!andando && Math.sin(t * 2.3 + f) > .7);
     sombra(c, 0, 0, { cavalo: 22, galinha: 11, vaca: 24, porco: 17, avestruz: 15, gato: 12, cachorro: 15, urso: 28 }[k], 5, .32);

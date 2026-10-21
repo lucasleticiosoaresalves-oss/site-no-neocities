@@ -1,5 +1,5 @@
 'use strict';
-/* Fazenda do Lucas — tabelas do jogo (tempos em segundos) */
+/* Fazenda do Lucas: tabelas do jogo (tempos em segundos) */
 
 // tam = quanto espaco ocupa no armazem/caminhao
 const ITENS = {

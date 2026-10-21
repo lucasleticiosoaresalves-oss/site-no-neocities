@@ -1,0 +1,10 @@
+Icones dos apps do modo celular
+
+Estes icones sao os icones originais do Android 4.0 (Ice Cream Sandwich), do
+Android Open Source Project (https://source.android.com), tag android-4.0.4_r2.1.
+
+Copyright (C) The Android Open Source Project
+Licenca Apache 2.0: http://www.apache.org/licenses/LICENSE-2.0
+
+Usados sem alteracao. Os icones do S Paint, Fazenda, Sobre mim, Avaliacoes,
+Redes Sociais e Jujuba foram desenhados para o site.
