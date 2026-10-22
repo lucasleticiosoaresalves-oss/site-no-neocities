@@ -7072,7 +7072,8 @@ const DATAS_TEMA = [
     { tema: 'rock', quando: (h) => h.getMonth() === 6 && h.getDate() === 13 },
     { tema: 'copa', quando: (h) => FINAIS_COPA.some(d => soDia(h) === soDia(new Date(d + 'T12:00'))) },
     { tema: 'independencia', quando: (h) => h.getMonth() === 8 && h.getDate() === 7 },
-    { tema: 'halloween', quando: (h) => h.getMonth() === 9 && h.getDate() === 31 },
+    // o halloween entra junto com a atualizacao de sexta (dia 23) e fica ate o dia 31
+    { tema: 'halloween', quando: (h) => h.getMonth() === 9 && h.getDate() >= 23 },
     { tema: 'muertos', quando: (h) => h.getMonth() === 10 && h.getDate() === 2 },
     { tema: 'consciencia', quando: (h) => h.getMonth() === 10 && h.getDate() === 20 },
     { tema: 'natal', quando: (h) => h.getMonth() === 11 && h.getDate() === 25 },
