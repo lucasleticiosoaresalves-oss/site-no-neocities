@@ -188,6 +188,6 @@ Deno.serve(async req => {
         }
     } catch (erro) {
         console.error(erro);
-        return json({ erro: erro instanceof Error ? erro.message : String(erro) }, 500);
+        return json({ erro: 'deu erro no servidor' }, 500);
     }
 });

@@ -618,6 +618,11 @@ function estrelasDa(m, n) {
     const e = ESTRELAS(n);
     return e.completar + (m === 3 ? e.ouro : m === 2 ? e.prata : 0);
 }
+// manda a pontuacao pro placar do arcade do site (so quando a fazenda esta aberta dentro dele)
+function avisarPlacar(jogo, pontos) {
+    if (window.parent === window || !(pontos > 0)) return;
+    window.parent.postMessage({ placar: jogo, pontos: Math.floor(pontos) }, location.origin);
+}
 function checarVitoria() {
     if (!J || J.ganhou || !J.comecou || J.F.infinito) return;
     if (!J.F.metas.every(metaFeita)) return;
@@ -632,6 +637,7 @@ function checarVitoria() {
     salvar();
     Som.tocar('vitoria');
     setTimeout(() => popupVitoria(m, premio), 700);
+    if (premio) setTimeout(() => avisarPlacar('fazenda-estrelas', E.estrelas), 2500);
 }
 
 // --- efeitos ---
@@ -1498,6 +1504,7 @@ function encerrarInfinito() {
     if (E.salvo && E.salvo.n === J.n) delete E.salvo;
     J.ganhou = true;
     salvar();
+    setTimeout(() => avisarPlacar('fazenda-infinita', vendido), 2500);
     Som.tocar('vitoria');
     abrir({
         titulo: 'Fazenda Infinita', largura: 440, semFechar: true, render: el => {

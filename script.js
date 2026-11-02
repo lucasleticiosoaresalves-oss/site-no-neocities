@@ -175,7 +175,7 @@ const GIFS = {
     construcao: [323, 118],
     novo: [40, 20],
     email: [90, 90],
-    bemvindo: [296, 76],
+    bemvindo: [261, 49],
     livro: [160, 120],
     estrelinhas: [382, 12],
     arcoiris: [432, 14],
@@ -419,8 +419,52 @@ function erroNuvem(erro) {
     dialogo({ titulo: 'Erro', icone: 'error', texto: codigo ? `${texto}\n\n[erro: ${codigo}]` : texto });
 }
 
-function lista(chave, inicial, tabela) {
+// chave secreta deste navegador: assina recados, depoimentos, zap e o cadastro de amigo
+// (o banco so guarda o hash, entao ninguem consegue escrever no nome de outro amigo)
+function chaveVisitante() {
+    let chave = guardar.ler('chave', '');
+    if (!/^[0-9a-f]{48}$/.test(chave)) {
+        chave = Array.from(crypto.getRandomValues(new Uint8Array(24)), b => b.toString(16).padStart(2, '0')).join('');
+        guardar.salvar('chave', chave);
+    }
+    return chave;
+}
+
+// banco ainda sem a coluna da chave: manda sem ela
+function faltaColunaChave(error) {
+    return error && (error.code === 'PGRST204' || /chave/i.test(error.message || ''));
+}
+
+async function inserirAssinado(tabela, item) {
+    let { error } = await nuvem.from(tabela).insert({ ...item, chave: chaveVisitante() });
+    if (faltaColunaChave(error)) ({ error } = await nuvem.from(tabela).insert(item));
+    return error;
+}
+
+// o mesmo hash que o banco calcula, pra saber qual amigo e este navegador
+let hashDaChave = '';
+if (crypto.subtle) {
+    crypto.subtle.digest('SHA-256', new TextEncoder().encode(chaveVisitante()))
+        .then(b => { hashDaChave = Array.from(new Uint8Array(b), x => x.toString(16).padStart(2, '0')).join(''); })
+        .catch(() => {});
+}
+
+// amigo cadastrado neste navegador (pela chave, ou pelo ultimo nome usado)
+function meuAmigo() {
+    return (hashDaChave && amigos.todos().find(a => a.chave_hash === hashDaChave)) || amigoPeloNome(meuNome());
+}
+
+// comentario assinado por quem depois virou amigo: aparece com o nome (e a foto) do cadastro
+function trocarPeloAmigo(linha) {
+    if (!linha.autor_hash) return linha;
+    const amigo = amigos.todos().find(a => a.chave_hash === linha.autor_hash);
+    if (!amigo) return linha;
+    return { ...linha, ['autor' in linha ? 'autor' : 'nome']: amigo.nome };
+}
+
+function lista(chave, inicial, tabela, assinada = false) {
     let cache = [];
+    let bruto = [];
     return {
         pronto: !nuvem,
         todos() {
@@ -432,15 +476,21 @@ function lista(chave, inicial, tabela) {
             const { data, error } = await nuvem.from(tabela).select('*')
                 .order('criado_em', { ascending: false }).order('id', { ascending: false }).limit(300);
             if (error) throw error;
-            cache = data.map(linha => ({ ...linha, data: new Date(linha.criado_em).toLocaleDateString('pt-BR') }));
+            bruto = data.map(linha => ({ ...linha, data: new Date(linha.criado_em).toLocaleDateString('pt-BR') }));
+            this.reaplicar();
             this.pronto = true;
+        },
+        // roda de novo quando a lista de amigos muda
+        reaplicar() {
+            cache = assinada ? bruto.map(trocarPeloAmigo) : bruto;
         },
         limpar() {
             cache = [];
+            bruto = [];
         },
         async adicionar(item) {
             if (nuvem) {
-                const { error } = await nuvem.from(tabela).insert(item);
+                const error = assinada ? await inserirAssinado(tabela, item) : (await nuvem.from(tabela).insert(item)).error;
                 if (error) throw error;
                 return this.carregar();
             }
@@ -467,8 +517,8 @@ function lista(chave, inicial, tabela) {
     };
 }
 
-const recados = lista('recados', DADOS.recadosIniciais, 'recados');
-const depoimentos = lista('depoimentos', DADOS.depoimentosIniciais, 'depoimentos');
+const recados = lista('recados', DADOS.recadosIniciais, 'recados', true);
+const depoimentos = lista('depoimentos', DADOS.depoimentosIniciais, 'depoimentos', true);
 const diario = lista('diario', DADOS.diarioInicial, 'diario');
 const registros = lista('registros', DADOS.registros, 'registros');
 const fotosPostadas = lista('fotos', [], 'fotos');
@@ -476,8 +526,14 @@ const desenhos = lista('desenhos', [], 'desenhos');
 const noticias = lista('noticias', [], 'noticias');
 const projetos = lista('projetos', DADOS.projetos, 'projetos');
 const avaliacoes = lista('avaliacoes', [], 'avaliacoes');
-const amigos = lista('amigos', [], 'amigos');
-const zap = lista('zap', [], 'zap');
+const amigos = lista('amigos', [], 'amigos', true);
+const zap = lista('zap', [], 'zap', true);
+
+// amigos novos ou carregados: os comentarios assinados trocam de nome
+function reaplicarAmigos() {
+    [recados, depoimentos, zap].forEach(l => l.reaplicar());
+    caixaArcade();
+}
 
 const LISTAS = { recados, depoimentos, diario, registros, desenhos, noticias, projetos, avaliacoes, amigos, zap };
 
@@ -537,6 +593,7 @@ function aplicarLancamentos() {
     $$('[data-recurso]').forEach(el => {
         el.hidden = !liberado(el.dataset.recurso) || (el.classList.contains('so-toque') && !celularPossivel());
     });
+    caixaArcade();
     // a jujuba chega no dia dela mesmo com o site aberto
     if (liberado('jujuba') && !assistente.iniciado && !assistente.tentou) {
         assistente.tentou = true;
@@ -545,21 +602,28 @@ function aplicarLancamentos() {
 }
 
 async function atualizarDono(sessao) {
-    const dono = Boolean(sessao);
+    // so vale login da conta do dono (quem o banco reconhece)
+    let dono = Boolean(sessao);
+    if (dono) {
+        const { data, error } = await nuvem.rpc('eh_dono');
+        if (error) throw error;
+        dono = data === true;
+        if (!dono) nuvem.auth.signOut().catch(console.error);
+    }
     if (dono === souDono) return;
     souDono = dono;
     edicao = null;
     if (souDono) {
-        await Promise.all([diario.carregar(), desenhos.carregar(), depoimentos.carregar()]);
+        await Promise.all([diario.carregar(), desenhos.carregar(), depoimentos.carregar(), carregarSecreto().catch(console.error)]);
     } else {
         diario.limpar();
         depoimentos.limpar();
+        DADOS.secreto = [];
         await desenhos.carregar(); // sem login so vem os aprovados
     }
     $$('[data-so-dono]').forEach(el => { el.hidden = !souDono; });
     aplicarLancamentos();
     if (!$('#msn').hidden) abrirZap();
-    caixaDiario();
     mostrarPagina();
 }
 
@@ -583,8 +647,20 @@ function aplicarConfig(chave, valor) {
     }
     if (chave === 'comunidades') DADOS.comunidades = valor;
     if (chave === 'lixeira') DADOS.lixeira = valor;
-    if (chave === 'secreto') DADOS.secreto = valor;
     if (chave === 'mp3') DADOS.mp3 = valor;
+}
+
+// a area secreta fica numa tabela separada que so o dono le
+async function carregarSecreto() {
+    const { data, error } = await nuvem.from('segredo').select('itens').maybeSingle();
+    if (error) throw error;
+    DADOS.secreto = data?.itens || [];
+}
+
+async function salvarSecreto(lista) {
+    const { error } = await nuvem.from('segredo').update({ itens: lista, atualizado: new Date().toISOString() }).eq('id', 1);
+    if (error) throw error;
+    DADOS.secreto = lista;
 }
 
 async function salvarConfig(chave, valor) {
@@ -670,7 +746,7 @@ function listaRecados(itens, comBotao, nomeLista) {
 
 function formRecado(id, compacto) {
     return `
-        <form class="form" data-form="recado">
+        <form class="form" data-form="recado"><input class="isca-robo" name="site" tabindex="-1" autocomplete="off" aria-hidden="true">
             <input name="autor" placeholder="seu nome" maxlength="30" value="${esc(souDono ? DADOS.nome : meuNome())}" required>
             <textarea name="texto" id="${id}" placeholder="Escrever recado para ${esc(DADOS.nome)}..." maxlength="500" required ${compacto ? 'rows="2"' : 'rows="3"'}></textarea>
             <div class="linha">
@@ -707,7 +783,7 @@ function paginaInicio() {
         </div>
 
         <div class="caixa">
-            <h2>Área do perfil &amp; diário</h2>
+            <h2>Área do perfil</h2>
             <div class="grade-perfil">
                 <div class="sub-caixa">
                     <div class="caixa-titulo"><h3>Recados <small>(${total})</small></h3><a class="mini-link" href="#recados">ver todos</a></div>
@@ -843,7 +919,7 @@ function paginaDepoimentos() {
             <h2>Depoimentos ${souDono ? `<small>(${itens.length}) · só você vê</small>` : ''}</h2>
             <div class="centro">${gif('coracao')}</div>
             <div class="sub-caixa">
-                <form class="form" data-form="depoimento">
+                <form class="form" data-form="depoimento"><input class="isca-robo" name="site" tabindex="-1" autocomplete="off" aria-hidden="true">
                     <input name="autor" placeholder="seu nome" maxlength="30" value="${esc(meuNome())}" required>
                     <textarea name="texto" id="texto-depoimento" placeholder="Escreva um depoimento sobre o ${esc(DADOS.nome)}..." maxlength="1000" required></textarea>
                     <div class="linha"><button class="btn rosa" type="submit">Enviar depoimento</button>${emoticonsHTML('texto-depoimento')}</div>
@@ -891,40 +967,91 @@ function paginaAlbum(id) {
 
 // cada canal: nome, videos do youtube e a duracao do primeiro (pra parecer que ta passando ao vivo)
 const CANAIS_TV = [
-    { nome: 'Nilba e os Desastronautas', tipo: 'desenho', segundos: 1491, videos: ['nKRqOBfMZOw', 'iVhto8dfLW4', 'EN6vqgtDk_M', 'LLIaNa1_zTw', 'GyIn9nhOlgc', 'gFXqyh3PkyM', 'DXSgLzIEz6Y', 'NXCOBnvKHiU'] },
-    { nome: 'Castelo Rá-Tim-Bum', tipo: 'série', segundos: 3287, videos: ['lJEAhhRsRIM'] },
-    { nome: 'Mundo da Lua', tipo: 'série', segundos: 3609, videos: ['ZZOFYw-fvmE'] },
-    { nome: 'Pica-Pau', tipo: 'desenho', segundos: 9212, videos: ['LVE17tSApHI', 'mgA7d1gtFQ4'] },
-    { nome: 'A Pantera Cor-de-Rosa', tipo: 'desenho', segundos: 19613, videos: ['OMbY_OHYrf0', 'kEycsvvyv6I'] },
-    { nome: 'Turma da Mônica', tipo: 'desenho', segundos: 2660, videos: ['7rDZg6_7sWY', 'oGFeypkYpu0'] },
-    { nome: 'Popeye', tipo: 'desenho', segundos: 13346, videos: ['YvM9myyWGRw'] },
-    { nome: 'Betty Boop', tipo: 'desenho', segundos: 9160, videos: ['gaWN1tVZdqw', 'JOQhlCaT40s'] },
-    { nome: 'Superman (1941)', tipo: 'desenho', segundos: 7258, videos: ['u92t2pNOoqM'] },
-    { nome: 'Gasparzinho (1945)', tipo: 'desenho', segundos: 536, videos: ['rpKNy9a2IHA', '1gwchhoPW1s'] },
-    { nome: 'Charlie Chaplin', tipo: 'filme', segundos: 1539, videos: ['tXNTVJ_YZn0', '4-rOPwnHjLQ'] },
+    { nome: 'Nilba e os Desastronautas', tipo: 'desenho', segundos: 1491, videos: ['nKRqOBfMZOw', 'iVhto8dfLW4', 'EN6vqgtDk_M', 'LLIaNa1_zTw', 'GyIn9nhOlgc', 'gFXqyh3PkyM', 'DXSgLzIEz6Y', 'NXCOBnvKHiU', 'b1Ql7P3DoGg', 'teSK1MOXYBk', 'aEyruwHMVME', 'TjMjDSnBCro'] },
+    { nome: 'Castelo Rá-Tim-Bum', tipo: 'série', segundos: 3287, videos: ['lJEAhhRsRIM', 'JP85DEMVqLE', 'SeIX3lADF9s', 'tx5NCYvW4yE', '4-4mo7Eenz4', 'ScDn71U8h2w'] },
+    { nome: 'Mundo da Lua', tipo: 'série', segundos: 3609, videos: ['ZZOFYw-fvmE', 'gb_hUjJm-w0', 'nGrl-LlLEOg', 'BV1KG2ZIKgY', 'Pt7kosEjfoU', 'GRSFSd-lWmw', 'mO6PXpRAV7I', 'q5p4ng84Zv8', '9aKo5DY8aWI', 'jigrs1XcbDw', 'qzzr7NN1EKU', 'UH7FAQNOQKo', 'r5Rv1l9t7h0', 'AC34z8No7T0', 'GrA_IbJFLu4', 's1hNCWKmsF4'] },
+    { nome: 'Pica-Pau', tipo: 'desenho', segundos: 9212, videos: ['LVE17tSApHI', 'mgA7d1gtFQ4', '8prmkJPDY0w', 'bpNZqCK8qn4', 'TFcTQFRKG54', 'niLmXUAgZm4', 'Xoibc3uQ-8M', 'CSvw6RI2jvI', 'dgyykiB8O30', 'luyZVVAFeq4', 'ML5NbVeJuLA', 'kI6Sonj01QE', 'e4KHgr2izxg', 'FWgM_5M3fFg', 'vzKFPzh89bU', '9cKd5Ef57-Q', 'jdnoCmHsfIs', 'n_i62C5ETPk'] },
+    { nome: 'A Pantera Cor-de-Rosa', tipo: 'desenho', segundos: 19613, videos: ['OMbY_OHYrf0', 'kEycsvvyv6I', '0bPLeqhNrzk', 'NqTaCUKg-b4', 'qO2WGFBcqsM', 'Y6N-HNkJ7fY', 'KSvC-opt1pE', 'A5seB8j9npQ', '76RNpYSmf8Q', '2rye4u-cCNk', 'LZawF9zpoNc', 'E__Qk3h18SY'] },
+    { nome: 'Turma da Mônica', tipo: 'desenho', segundos: 2660, videos: ['7rDZg6_7sWY', 'oGFeypkYpu0', '--YUflTyaJI', 'GXQKjoryQRI', 'pH8A7SQsYXY', 'DiH-OeEB0DA', 'UYeFDbgrETE', 'ehc7MR-WK4s', 'M5Mof0JAUI0', 'ddSsRVXBtZk', 'dirZ-28qnXg', 'MEmU-VGM62M', '-3Rl-Z-pf7c', 'B85hSb_ppPU', 'vskAXw6EbZQ'] },
+    { nome: 'Popeye', tipo: 'desenho', segundos: 13346, videos: ['YvM9myyWGRw', 'WNVfSz8u85w', '-yBYxSOzCJw', 'iaDFR27plpk', 'Sd-cs_EqWQk', '6UVX2E6pj2Q', 'jznD_dZ7Zls', 'qDHieJq5Cjk', 'Hmfqa-PbYJU'] },
+    { nome: 'Betty Boop', tipo: 'desenho', segundos: 9160, videos: ['gaWN1tVZdqw', 'JOQhlCaT40s', 'mtR4QnOtB-M', 'rZklTuolddU', 'G2aTzV9wmFs', 'E6lpDkI5sdY', 'bAVpWvRbLBs', 'SI702KkWrD8'] },
+    { nome: 'Superman (1941)', tipo: 'desenho', segundos: 7258, videos: ['u92t2pNOoqM', 'uEavKJI780c', 'fjnupJIo0JQ', 'tspAlEhcz38', 'rx2xvk7fjwQ', 'eOff-Q_jJtw', 'wR--n7hrJ78', 'S2xh6qICcFM', 'CxRlysOSX28', '8STN62SS9Ak', 'uAYY9pCoGOM', 'D35reRMjkFI', 'AWfHY2QIMro', 'GHDWH7O94K0', '0odBuN3hWKE', 'AD_JC6yAZFM', '8Lj2Hf_8jdA', '5BnzdJmr6hU', '6H-x87vwy6A'] },
+    { nome: 'Gasparzinho (1945)', tipo: 'desenho', segundos: 536, videos: ['rpKNy9a2IHA', '1gwchhoPW1s', 'RsntoM9jsQ8', 'IYJS38FELvc', '4RZ0cDCzrTA', 'NB2cJDq9rOY', 'RH7ZDt8LftA', '3L3wEytRQx0', 'c5T-AIqWZMw'] },
+    { nome: 'Charlie Chaplin', tipo: 'filme', segundos: 1539, videos: ['tXNTVJ_YZn0', '4-rOPwnHjLQ', 'i15UCTIdfwI', 'GnWAQ5wYWvk', 'Yw88YvUt818', 'UbH_bTLNr4k', 'f4ZTg0hA78U', 'tGs7yUfbvW8', 'tcnHLeiMDyY', 'Mv1sExF2-Ug', '36v8vXM3RXE'] },
     { nome: 'Cavalo de Fogo', tipo: 'desenho', segundos: 18134, videos: ['rfz1YpPsQa0', 'DHfypI5gO0w', 'tVSo4KTXM0I', 'Qq-xwVO1Lh8', 'Gix8Xt6U6Dg', 'jl5JjDxxO2o', 'ewTYQqFI9is'] },
-    { nome: 'Filmes da Barbie', tipo: 'filme', segundos: 4803, videos: ['-eCEAeDGDTg', 'lBpitQv-kTI', 'dbJDXswQYBM', 'x27iPHXvJk0', 'P2eo828nhlw', 'Xwr5_gKDxMU'] },
-    { nome: 'Moranguinho (anos 80)', tipo: 'desenho', segundos: 2758, videos: ['2GaNHPudtAA', '3-cf3jkfq9E', 'iy5aMov-1rw', 'SRD9OUx2d0c'] },
+    { nome: 'Filmes da Barbie', tipo: 'filme', segundos: 4803, videos: ['-eCEAeDGDTg', 'lBpitQv-kTI', 'dbJDXswQYBM', 'x27iPHXvJk0', 'P2eo828nhlw', 'Xwr5_gKDxMU', 'IUhbjILWSPA', 'Gw9UrQweDJk', '6DQKW_sUvU8', 'eDXGONkSNWw', '3oUMf4Y-H54', '1UJH8hs_7hQ', 'm3_TtoXVMz8', 'MqTNRCgqa3A', '1QzbHr_2kYM', '3d3UGeStr2E', 'MVh-mEHGv-s', 'o7KKKN4pR58', 'EO0E4dpIeqA', 'nMBI82jIyOg', 'QkV64UP4TJw', 'dj5ddpnO2CY', '7P9STGwJIi0', 'mbLruQq2i2Y', 'F81iziByDoQ', 'OnS6dVc4UK8', 'anJvK5Mozxs', 'i7tWKm572gw'] },
+    { nome: 'Moranguinho (anos 80)', tipo: 'desenho', segundos: 2758, videos: ['2GaNHPudtAA', '3-cf3jkfq9E', 'iy5aMov-1rw', 'SRD9OUx2d0c', 'yjTNixHM5ks', 'KVoWGzKz6nI', '5QicfQefD64', 'W2R-diGVoIo', 'WObvMJQnWik', 'cDkt6YOmAMY', 'Ee-7SZQfqs8'] },
     { nome: 'Moranguinho em Tutti Frutti', tipo: 'desenho', segundos: 1338, videos: ['3ohZ3E5fiII', 'GXiHxMfuzZw', 'pAZ2-aMbmmA', 'YM5PrmGo4Hs', '-eVKBAgOFzs', 'Ikr-Ep3UVjE', 'fKAv2_ETGB4', 'iPkkfsNRISI', 'grSoi8i3v_Q', 'bxafz6njMbs', 'cnPE_ESEd5g', 'hWKa4HSsf2A', 'Q-6_uXX3KZM', '2ujp54G4OW4', '8UQDTO4j_3A', 'e9ZS7v9wBFQ', 'znGCyJgZKu8', 'cpofcMwFt_Y', 'RXb-dloLVcs', 'IvoIKvGOeuE', 'OnamQo70dnU', 'zfahZpGMNe0', 'GPgU9lfBfXU', 'a2Hrami9Lag', 'AAfgyJwMtt0'] },
-    { nome: 'Zica e os Camaleões', tipo: 'desenho', segundos: 676, videos: ['0DV053nX0a8', 'pcmnjDdydsk', 't5nQ0O4_qjE', 'GMPX2wPNzzM'] },
-    { nome: 'Scooby-Doo', tipo: 'desenho', segundos: 3627, videos: ['iAXCN57j7NY', 'pvwh5YwmxEE', 'J1Fsfq57wdM', 'ZydHnUTqArQ', 'he0Y7tvFNTM', '3zyNEt6uH6I', 'C-upU-cb8CY'] },
-    { nome: 'Irmão do Jorel', tipo: 'desenho', segundos: 3608, videos: ['1kDGtRuPGx4', 'Iywamsi11tQ', 'RPf8cYrA9wQ', '2i2xfBEmYZc'] },
-    { nome: 'Historietas Assombradas', tipo: 'desenho', segundos: 715, videos: ['9HGK9Q7Aq6M', 'ljvKUIpNhAU', 'cSqhb1ER3J8', 'hRiYYNZq-u0', '8uMwKygw4RA'] },
-    { nome: 'Oswaldo', tipo: 'desenho', segundos: 9129, videos: ['l5mZ6itKZoQ', 'HHS0ADKeS48', 'EJBLgaJwDcE'] },
-    { nome: 'Sítio do Picapau Amarelo', tipo: 'desenho', segundos: 629, videos: ['lx9vXwDSoeE', 'svrLBdxEacU', 'PucpR2VtCCc', 'mQj_PiJe-ns'] },
-    { nome: 'Os Backyardigans', tipo: 'desenho', segundos: 4276, videos: ['ykFDE0MHG38', 'ojO2QcVPUfU', 'oH_ZYUHvB2c', 'M_Jewy187NQ', 'vXUj3hCnpu0', '5QCLDrlt-ig', 'fhwpqyneBo0'] },
-    { nome: 'Pingu', tipo: 'desenho', segundos: 2838, videos: ['vmsA4Usj8H4', 'Y0bOPRSi-9A', '8ZVaE1v1PEE', 'XnObkBRKoMs', '4bNgsSwXWVs'] },
-    { nome: 'Bakugan', tipo: 'desenho', segundos: 1417, videos: ['95uVEgpnYfY', '0GhsAZMQtUk', 'UgFI2yBWyi8', '56S_Ei_AQEA', '8uYcrQ_CeUU', 'ASg5GPIuLqI', 'U8ZzXyvOWvQ', '2wLcdKyAkew', 'lX8TdVBOI8g', 'AdjzXHoijg0', '4_GTtNnqKXc', '-5YCRNREA78', 'E9Q2DNx2qDs', 'H2T0ohPtEhk'] },
-    { nome: 'Mecanimais', tipo: 'desenho', segundos: 4092, videos: ['tigjnO2KnKg', 'kN_Eh7UL-_E', '6OfOfl3n9D0', '_lfp-7gSNf8', 'eujPax9g7lI', 'EYkX7XtoWdE'] },
-    { nome: 'Os Flintstones', tipo: 'desenho', segundos: 1903, videos: ['GM0Yumrt2Go', 'Qs4KDer6oME', 'qy4QW5AjLgM', 'pgkLdRxM7W0'] },
+    { nome: 'Zica e os Camaleões', tipo: 'desenho', segundos: 676, videos: ['0DV053nX0a8', 'pcmnjDdydsk', 't5nQ0O4_qjE', 'GMPX2wPNzzM', 'IqTei1GBW8o'] },
+    { nome: 'Scooby-Doo', tipo: 'desenho', segundos: 3627, videos: ['iAXCN57j7NY', 'pvwh5YwmxEE', 'J1Fsfq57wdM', 'ZydHnUTqArQ', 'he0Y7tvFNTM', '3zyNEt6uH6I', 'C-upU-cb8CY', 'nUUO-1io5pw', '0ZU5NafgZpQ', 'K5OaMRiMcQk', 'u8H7ExCFqM8', 'OnMC30iDR3s', 'NeS5RzlggnQ', 'n5mwarF-dek', 'kvoPHbt4F6s'] },
+    { nome: 'Irmão do Jorel', tipo: 'desenho', segundos: 3608, videos: ['1kDGtRuPGx4', 'Iywamsi11tQ', 'RPf8cYrA9wQ', '2i2xfBEmYZc', 'tVZiwfVOkGw', 'cReHy_vzXXQ', 'MaKF-pDn2wc', 'BhF6mkQtObw'] },
+    { nome: 'Historietas Assombradas', tipo: 'desenho', segundos: 715, videos: ['9HGK9Q7Aq6M', 'ljvKUIpNhAU', 'cSqhb1ER3J8', 'hRiYYNZq-u0', '8uMwKygw4RA', '9XYk01N8Xbk', 'NXMGgUs-tIw', 'Z_UyIoF0uyk', 'zF65VvQN8Ok', 'G6TwXrA2c_Y', 'jL8pnL4Vpyc', '00YsUnKiWl8', 'MxFmPqHNLlA', '1I3W73yWdBI', 'U5EndQ-M2qE', 'EoLTzTD_b7Y', 'Wwvekestvyc', 'kMlvUr5L-ag', '9QEDp9O8TuI', '9WdLOsH0mVY', '51n0LUnZBws', 'HJ6cgb3XRc4', '8pAGH4UE4Vw', 'sunTC0B5cps'] },
+    { nome: 'Oswaldo', tipo: 'desenho', segundos: 9129, videos: ['l5mZ6itKZoQ', 'HHS0ADKeS48', 'EJBLgaJwDcE', 'LtJkykxMI0Y', '9ogzjr30fNU', 'WF_LloQ7dSg', 'kzWY2g2U6rM', 'DygCnbOcZu0', 'CD6QSAhKJfo', 'Wc1ujvyMCxo', 'M8lZhQmQ0lg', 'Anu0h2kvzzY', '42XeXOYDgjE', 'EEgvH7ddWYo', 'q2JqEarol3U', 'p9b3JPUU8GA'] },
+    { nome: 'Sítio do Picapau Amarelo', tipo: 'desenho', segundos: 629, videos: ['lx9vXwDSoeE', 'svrLBdxEacU', 'PucpR2VtCCc', 'mQj_PiJe-ns', '5AcZXKJHJ24', 'Z2UoYMXW0HM', 'MBvlKEHoFKQ', 'f99x6q65JiM', 'nYFmRj4qmHs', 'jtA-MXnjfiU', 'ndd3izBaSII', 'KxEgVgT_NoA', 'vnDwdf8-Dxk', 'yUmUcj4TnUY', 'sKz7XyChwww', 'SDJ_vY0Tovc', 'Zyc9hTQLkA0', '-2xEANDyXMM'] },
+    { nome: 'Os Backyardigans', tipo: 'desenho', segundos: 4276, videos: ['ykFDE0MHG38', 'ojO2QcVPUfU', 'oH_ZYUHvB2c', 'M_Jewy187NQ', 'vXUj3hCnpu0', '5QCLDrlt-ig', 'fhwpqyneBo0', 'AxGJxX_c7Y4', '5eoVjmquvGs', 'VDv3QbJNmdg', 'fueMMrnyBFY', '8t0JY8Ry94I', 'R9HVH_asEJI', 'BDtjra6I2ZE', '1-m4gvsHWGg', 'HJS7VZzg4S4', 'uhDIWkRhyPQ', '5jLYGo7VxeE', 'glJu9gEk3eA', '6PUkqKf9Quw', 'cjo9tgZXC18', 'uX87--cpaD8', 'aaf1izHpoCQ', 'sRVAa_Hvvos', 'e_ho88JJ0HU', 'kVepsVtF4t0', 'QaNvPH9niO0', 'RiEUw-hdLNs', 'pHd8qISpHoQ', 'C3GPmn6u2K0'] },
+    { nome: 'Pingu', tipo: 'desenho', segundos: 2838, videos: ['vmsA4Usj8H4', 'Y0bOPRSi-9A', '8ZVaE1v1PEE', 'XnObkBRKoMs', '4bNgsSwXWVs', 'Z5G03rgd0Hw', 'tkHH3StbELU', 'sXLQgPgzTao', 'hF2B_Xy7rSA', '6EeccAG1TpM', 'qFr7FpS9jVM', 'Ke3hDOb7f3k', 'qbQXBaV4RA4', 'HhczvukU0ws', 'L0vOfoXjeu0', 'PpwYRAWTD8c', 'KWBTH7nR2JE', 'tySqNP-AiA4', 'HEJqMQRiwmQ', 'EYqSX8HQLKM'] },
+    { nome: 'Bakugan', tipo: 'desenho', segundos: 1417, videos: ['SXZu09YSlck', 'b4mW0c2Cxsw', 'zLzoQMon8-A', 'oQRjO15S3QU', '95uVEgpnYfY', 'LzPiaHl2Nd8', '0GhsAZMQtUk', 'UgFI2yBWyi8', '56S_Ei_AQEA', '8uYcrQ_CeUU', 'mnVp08qJmgQ', 'FmZvjdBUWy8', 'wBCZK7s98lo', 'BCqj-RCjwHU', 'Oqdw087yc2s', 'ASg5GPIuLqI', 'sx4MIcJZZcE', 'Ahbc26XkR24', '3jwL4PPd58k', 'U8ZzXyvOWvQ', 'Csjk6npHPsY', 'ic9LHdEuW5A', 'qEehNZ0Cvjw', 'L7B8FvKz5cc', 'qvulyico4Xo', 'AHoA2QmdvqE', 'lX8TdVBOI8g', 'AdjzXHoijg0', 'a6Pq2UrcUkQ', 'bIjgPJ_9H5I', '4_GTtNnqKXc', 'MZ_3HKP1B4o', '-5YCRNREA78', '2s7LLo-4Y-M', 'wz-SWdysQMU', 'E9Q2DNx2qDs', 'GILLyjd1_C4', 'YAIBZpIWsv0', '9894Kg5OIyw', '-DIDbEqJuXQ', 'ubtie1W9Seo', 'OhzZzy37j4s', 'YrA3D5PNjU8', 'LRS0ICHE3O8', 'oOjoqcTbpSw', 'WXLsXhGJ88s', 'H2T0ohPtEhk', 'xvRaxNwyHI0', 'oKTe-AQXU4w', 'uRow5f94o7U', 'q5Wmxc4qyMY', 'cbGEiNIJc2Y'] },
+    { nome: 'Mecanimais', tipo: 'desenho', segundos: 4092, videos: ['tigjnO2KnKg', 'kN_Eh7UL-_E', '6OfOfl3n9D0', '_lfp-7gSNf8', 'eujPax9g7lI', 'EYkX7XtoWdE', 'H_YYJItwiwc', '16owTKJOt2I', '3xomUXgtmZo', 'V-8cESiI33U', 'I4Hy_XShkEs', 'o4h23fspUP8', 'RM4pDcjY7ms', 'EEgJRo8K6XA', 'CvqkfazaClk', 'Oa6qHwSC_x8'] },
+    { nome: 'Os Flintstones', tipo: 'desenho', segundos: 1903, videos: ['GM0Yumrt2Go', 'Qs4KDer6oME', 'qy4QW5AjLgM', 'pgkLdRxM7W0', '44nVuEkn2TQ', 'Y2W0lEMXlcQ', 'OGyYxN_fZH0', 'aMF316UF1dY', 'zEKJDWSdSPk', 'vcQo3TVh-DI'] },
     { nome: 'Detetives do Prédio Azul (1ª temporada, 2012)', tipo: 'série', segundos: 777, videos: ['Kc_vqdo-bzo', '9_zLpvK0tGY', 'Tu5gcvQyRW0', 'PaH0zTyPmjA', '-JXtIPS5iWE', 'LBrERf5cqkA', 'pgvK7SrwOG4', 'sDVpNE9JrPM', 'HxidbsO0vNM', '-3bmoEsUPf8'] },
+    { nome: 'Três Espiãs Demais', tipo: 'desenho', segundos: 2498, videos: ['mebEoNfr1mc', '9iM1mFjKgf0', '1932vfzjZVk', 'y7nd4w69XwQ', 'VZT1uaXe3cI', 'WYMfaJuqF0g', 'CwexP17QMpw', 'KKQ4njpY8bA', '3teS_VHgBds', 'uOpVEmFUQOA', 'zs5jyUM1LME', 'xk24g3iAPkA', 'oAPMR6bPOkU', 'oQsuaLcU6m0', 'MzvjdQ2MCog', 'X_9tJOclhCs', 'JhVMX3DPsOY', 'OpNM1VG1rpM', '8tAvlzOTNTw', 'CZEYGHQ_G_A', 'dqE8D7GsZUk', 'mGspeZT6hWc', 'landtBmAmdU', 'x4L49IoOKD4', 'rHV-WC5eRxk', 'JD00CR-RcgI', 'HvdWmeGVMEI', 'iaC8Ys8DK7k', 'tzKX_9lFLWs', 'LthhDjOJQ2s', 'BfGjRcRrxs0', 'K02kLbl6FRU', 'zj3f0uvaLEU'] },
+    { nome: 'As Meninas Superpoderosas', tipo: 'desenho', segundos: 3707, videos: ['7j3XuoVQ_ug', 'Gx_ZfzB3FNo', '7e5FSLosx04', 'LxEEAlg9sKw', '3wK7Wuk6Tgw', 'IBOgfY99uog', 'SggFKXI_aeo', 'ewuhIkUC8pA'] },
+    { nome: 'Gravity Falls', tipo: 'desenho', segundos: 1270, videos: ['JLU-KbpLSVU', '_ZovsWIPv7c', 'AK3oayU9KMA', 'hL6DFd2hm5Y', 'L9eW2ADgbSk', '1ncC1jIwiZk', 'XbAbSw9nIkU', '7mNywP7D9lY', '46wKGL80cLE', 'nqJeVqofyo8'] },
+    { nome: 'Phineas e Ferb', tipo: 'desenho', segundos: 1354, videos: ['cB2x7GfQWDg', 't6B4kKsAhIE', 'bJb_hHA5B9o', 'O4X-os5w2nM', 'KbNh10BUZGM'] },
+    { nome: 'Hannah Montana', tipo: 'série', segundos: 1432, videos: ['Hu7KgU4-YQ0', 'laGg4pYjmYk', 'fA_moXqPfTc', 'I8eHSo6C5gM'] },
+    { nome: 'O Incrível Mundo de Gumball', tipo: 'desenho', segundos: 3706, videos: ['IwSHq4MlMwY', '4js1Hsuu6B8', 'uOOZjqiq1Ok', '0mWovVQo3kM', 'bY-YUmowMfM', 'tg2O_2ACZLU', '2UsgczM2bP0', 'Trk6RykFjCo', 'Li0pjBf33vA', 'RsPbGHSSsNs', 'smWjvMFxwJ0', 'hFydLUneex8', '3nVcxWNBPZY', '31JXNwhQUsg'] },
+    { nome: 'O Mundo Maravilhosamente Estranho de Gumball', tipo: 'desenho', segundos: 1459, videos: ['yP7Pu2qRWVA', '_tP4Vloas0Y', 'hEvaZbkD0oo', 'aL4cOsMIegM'] },
+    { nome: 'Hora de Aventura', tipo: 'desenho', segundos: 3796, videos: ['obuUfLr7pAE', 'as_2XnRudB8', 'zLLQcpjx7V8', 'OMDm1UTjWxk', 'iu8sCOOP6Fk', '0T4aqrERRow', 'dns-yQ1ucLA', 'R7KVdM8O-GA', 'hMdPvc8b1Po', 'Kj2W0ziCwEk', 'U_jERvtAVMg', 'yneQxX9912w', 'GGfOgJRXP3U', 'yFqFANWi9h4', '1c7gONs0NHU', 'JMqLT2somJI'] },
+    { nome: 'Naruto Clássico', tipo: 'desenho', segundos: 1399, videos: ['ogcXkCCpARU', 'zOPuoXUAzdE', 'T41ERmLV2JE', 'MU7EKfb9dw4', 'm3YY88Wiqok', '7RUtlq5pUU8', 'LFginvuPiKY', 'MuPNntVLcDY', 'jdQDgai4kkY', '-6WAftyTTEM', 'SuP5tJ4fOWQ'] },
+    { nome: 'Kick Buttowski', tipo: 'desenho', segundos: 6288, videos: ['oH2H3bEMKJA', 'hjntfG3R6zc', 'AThHA8anjR0', 'wjtkylK-Dzo', 'KmOwTz2IJnQ', 'Q3yDWudyTLE', 'YxTLpKtiTDY', 'jTRsrkz_agw', 'VqlCCN19rE0', 'j0SRZNKD4cQ', 'MK7W3MCU1vA', 'GHFAgWJn1R8', 'iukrrS4E2hE', 'zl-GNMA05nA', 'N6vMBJAaCC4', 'S7T3Z60Insw', 'uCTonqc42mE', 'OJ7NRYHmGNk', '8J8UROr7uRA', '-TLC6JBo-NE', 'tXLsoCNHmAY', '-5EEwggolgM', 'iFOy0xv-mpE'] },
+    { nome: 'Ben 10', tipo: 'desenho', segundos: 3620, videos: ['S-zTlyWfw2w', '-kZOHsE6wsg', 'TcCZ1JNn8OY', 'lsomL_DBRVY', 'kZYfG7j6FF4', '2nfT4hRYX5M', 'UGhmFcFSsyU', 'XD4yFTN6Rgo', 'WQ6cIWtkTSM', 'kuwinY7kEks', 'vaSLHgsB6uw', 'k-iktdARMIM'] },
+    { nome: 'A Vida e Aventuras de Juniper Lee', tipo: 'desenho', segundos: 1371, videos: ['VKe8L-099O8', 'qK-BoYe2U-M', 'ql1SD3Z1HSM', 'P2uQ5N83zJ8', 'adSdBhUbdec', 'Rq5w6pbDogw', 'QUtyZuzF6Ng', 'XPGjr8bim1E', 'ocqdXRCLqLM', 'RCviFzJUwmw', '9OCmh3SwoTc', 'HZ8YnKfz9ec', 'xhHUfcrkaBA', 'kpGR8-6A8ss', 'DdKMS9gfsO4', '606C-1TxrWo', 'lFQZua8Be4M', 'j9vihMx4zps', '2WIpB6qVgdo', 'JnWnEKIlHHU', 'O8cP7S2brVQ', 'PyChjyrfkHI', '1ATluRm2uo8', 'wD_cubrARHc', '2NWGMEMh_To', 'LYx8Vxisf20', 'YL7ydhQ8iA8', 'f7McrYYeCjA', 'JuzxiAJyZH4', 'A75v3lhWAAw', 'cphZR1BAptY', 'xjSE9BjB1EY', 'e_4cWOGbPZM', '-QOBdd5NhB0', 'Ysnlj3TGmUA', 'R2ljcidlRB4', 'W_s-2MQHi1U', '2ntAlw2BTUU', 'BIbQXYLOgZM', 'VHt48ELknyc'] },
+    { nome: 'Super Choque', tipo: 'desenho', segundos: 1139, videos: ['HW9tiuMe5Gs', 'y6ws5xe6CQk', 'PK69St1JVyc', 'VexBf0NEd18', 'jY3KuABh0eo', 'Tx-nT01RFck', 'qFR6iFRX85I'] },
+    { nome: 'Chaves', tipo: 'série', segundos: 646, videos: ['E7bVh65W07M', 'kquIvYP6yig', 'ti-eqsvttDc', 'tVX9tfxq-Kc', 'vWHFSOm0BKI', 'GlwATTPW5Qk', 'KfRLIjR07d4', '1hO437nYhJU', '3hMBY7CoM6A', '9PUJ1okD3PM', 'aT1vcVu9yQs', 'r3UdZbydIYM', 'aZL853m7bm0', 'fhcnqMyHay0', '-jOp2v8boSk', 'tdRJJqjt73Q', '-n-fcuJ0ysM', 'EUJ8dkvgFro', '0jBLV8oU73Y', 'XSjmXrxsuVQ', '1U9j3RIhT-Q', 'k5IJOwmeBTA', '2p7iaHU0pjI', 'THWNqc_WGqU', '3pIptJsCjpo', '-LdgB4pGFcM', '52SIgh4BHqw', 'GfCY9Ldq6_g', '57XR_OPoXIA', 'LLk-E2YMEic', '5MO5D_qM4v4', 'uhU23PrsUBA', '6LP5mDuc8Ys', 'UvZjqtCXXZ0', '6blFDca4aUI', 'MhKcvJJ6Xa8', '7wR-NMgyq5s', 'ao_cKfKWHW0', 'AXL45K0rdYc', 'gyawhqRRINg', 'AXZaVUv1w0k', 'jGv6KxyS2bk', 'AoHSFELFLBg', 'nstUv5GEFbk', 'DUPQce35Gjk', 'zObgzgTEh7I', 'GHWanb7wZPo', 'IE3xnaTNJ7s', 'Hqfk0bgaXm8', '7_qFzl4AnY0', 'IzJzZWzMTF4', 'VHqT0TiB10M', 'LVWxknmLm7c', 'CnnQQqQdeQc', 'MVVi92the0A', 'W73Zdd61X3k', 'NAEJBOKiXYs', 'fr_6oSg7wY0', 'PnQaWnqjO_E', 'YMZcbneBR1k', 'RLwEkiTiljo', 'Mf1eoEkH6Xw', 'RdgHqR2gQIE', 'ZYVcdBHV3xc', 'SAajf3bTjqU', 'E6unCeEuudg', 'W1qox0RHq60', 'Y1WIxn7HGJs', 'Z2HHr5GU_co', 'jPH8TZt7Wvo', 'ZDKUGCX2-9A', 'MxoVn-TEB1M', 'ZashKSnFMnw', '3_PpwrIyois', 'ZsTyc26f6gU', 'PIi0V2GyRP8', 'a9eRiDdvQ9w', 'FzMrI-CXLPw', 'fb6pf0214ms', 'mYlyB6qILAk', 'g55YWEsgTLk', 'phYN6VUeTiA', 'g5XqmEGm37s', 'pUN2mUFNoD4', 'h62nNf0UQBY', 'AqIuvAtwxxU', 'i5aq-VLHuys', 'qEGRLf2Ww3s', 'kARp9bbeuxk', 'x4XHO1OqPFI', 'kOE8EHfGq-8', 'ipvsfbI-_Ng', 'm-phpqMNR8o', 'k2YnAmlD3eQ', 'nYKslDedXa0', 'cQzP9MCfMQk', 'nbyk90RYlOo', '6wjv11BnAHA', 'npit7rcs6V8', 'xBy8DV5Yxbk', 'oNBLamguxHo', '-vUpuV2QZk4', 'oQBEqlxWhM0', 'QdKJGOhy6Vg', 'o_bO18exYSM', 'ZSuXntJXJsU', 'ozzcwTfX_wM', 'hLYIQJDliEY', 'pyiPrX7jdDY', 'lk95pZX0lRU', 'qcaT31CjcVM', 'xya5DHhneKk', 'tQ9hBo2Nejg', 'mYLXhOpS99k', 'tiy_nPDSb74', 'EnZW_SfEOFk', 'vAgIKgyDBuc', '0Mh8WXZXB78', 'vdIUhse8C8M', 'u0BUopREfVE', 'x3Epe72EW6E', '_wvfik9NyHw', 'x996aQt3dWM', 'wWkmtgL6xqY', 'xFxCkMoLqHc', 'W8dKzrghkfI', 'xMCh67IQi_4', 'Gqu_5MZwtmE', 'yVeDurBpg_s', 'TII0sM60Mvw', 'ykt-NgDFgBQ', 'LYla76n6Ky0', 'zv_kyd85GO4', 'Xv4UKFXDDU8'] },
+    { nome: 'Tartarugas Ninja', tipo: 'desenho', segundos: 7814, videos: ['uWx8R6HJwWQ', 'rUK45dE0pjY', '_SPclBk_lZ4', 'iN00HEzPkmI', 'q5tDCwUFSgM', 'TUxrpDISsOw', 'umOSyAIGQSs', 'yLh4TeklDQo', '4UXF7sYHtjo', 'js1po1wR4fc', 'Zv17Et4vuJk', 'ZRxyywiIrqI'] },
+    { nome: 'Power Rangers Mighty Morphin', tipo: 'série', segundos: 1244, videos: ['4KvSW6q6dSI', 'j_NpDW2egWM', 'cq-fm63BUnk', 'JBCCWkgqdzc', 'nrFUHKsjgH8', '21vDX7247lY', 'g_yg94boh2I', 'gZJ84aBLPLk', 'pRaUAxjkOOs', 'gpQMcPUdTyQ', 'GkKbb3Axfz4', 'PyjL6MlB230', 'zlwTla1BKkE', 'KkmvlOrzFck', 'GMvzSsjFabc', '3VPkhs28O7w', 'g3aF90zohIE', '1XcqYUqLYl0', 'oRSfA8aBPnU', 'DWP2S9jE71I', '6kxIty03spQ', 'mFuDXrF_Cwg', 'PnQ8Aqhszb8', 'HZWrZLbhpeA', 'gXh7WA_ko6M', '9uXinbAHHD0', 'fg5GuLRw4RM', 'u6CaaeYW_C4', 'cld7HfuAeFo', 'dwZEYAGDReE', '07lL49ziw_k', 'QBakBGsNU5M', 'j1xtDusvTlI', 'SSnxzr8TwhM', 'fUuERhL9Dlg', 'LxXVIVPsAnE', 'UbmKAeUEl24', 'PviYYrw8Qv4', 'eJDPESXfp2E', 'y8DI8X1SNnA', 'Hidm-XYtQw8', 'LXqHECcIrXc', 'T4AEJ5orbIk', 't-iyjiQEdQY', 'LqwJMXkmZkE', '7NNhvbdJWXg', 'I3LCtKnSeWc', 'ygWC_4XeScI', 'AH2BFpDBry8'] },
+    { nome: 'Os Padrinhos Mágicos', tipo: 'desenho', segundos: 1431, videos: ['X4kY7v5RboQ', 'cK9HqBTMdag', 'k-c-mPf3i50', 'J3walt_-DHo', '3LcCFCz1-Qg', 'ZPc_vd_a02k', '5pVS56BsFz0', 'BfhkoI26qpQ', 'oN1PdRkdfCI', '1wnA5uMXxeU', 'unPQ9J-RJ1U', 'D3Ekg_r27dc', 'EX3DlmrTZ5k', 'fko12cHChVg', 'aXi8OWNhBmU', 'lWjv0ZX9jwk', 'Zsv2s3LKlEc', 'CagY5draoA4', 'LpWbsnVTBVQ', '2GjwUmAziQ0', '3XGwTaR-Vqw', 'gZ4sXVpc7_o', 'e5RlOxKxtbE', 'NYAUlfzshC0', 'RBSIeDRIHtQ', 'zMI7XL29m14', 'JZ379heTN9E', 'bfge6VwZ7-4', 'Hcpzfr1g4-E', 'q2VUtS-ymHg', 'eA3x2Deld3o', 'X3ksQ5eQ01g', 'HkhHRT0CPhs', 'VPXV8aWcGY0', 'VswQpQgzY1o', 'WGkgEMk8398'] },
+    { nome: 'Hot Wheels: Corrida Mundial e AcceleRacers', tipo: 'desenho', segundos: 289, videos: ['MIf3jsr6uEc', 'imtsBZqK1a8', 'QTBp8xcRwPE', '0oV68MFjkGk', 'leXJrwjuSjo', '8hxDKIxsQbQ', '0y3sJ4bAbrg', 's27w1qWdqTs', 'wcg8phAwqSE', '5iMHextMj4Q', 'Lhpy_pva4Po', 'z3f_dfqAAAI', 'ej9OJLBCF-o', '04sgVGdeUsM', 'PRdI8f_Z0hk', 'eqd7m_YxvN0', '8D8K-by9xi4', 'Cm5btejJ42w', 'qKs-nZ27Ibg', 'iwZjP8joPYM', 't-ZVNk9MB9o', 'WWdzqL8kixk', '1rziJOEerPU', 'sFaCbiNCbhM', '7YNV_DPlBhI', 'ia6hD0cPn98', '5QDKdSEiCEM', 'rB79PKcBlxU', 'BbYRRQ9keaQ', 'NdpNZHb-3OQ', 'N_GIBuwkhlA', 'KlxYalQzKzM', 'Pm8woTgjOFc', '1Ke5gFZr4wI', '_-4Vt0yurOc', 'xgU1_sg_ajA', 'yBS1d0h9Rzs', '8wY7DhGx4OM', 'gbIHBd3T50A', 'h5gVwPvy1i8', '2n7FDpMAFG4', 'vvokMBwT_bA', 'soWL4uvJE9o', 'XuDiiMMMcxc', 'SfEFTFvp3yA', 'hji1juBa6ao', 'pULRz3jZW6s', 'NwqMqBcIj3c', 'n_o9GqyOgWM', 'qT2ZnZROhoY', '1UB8ac8VjNw', '9y_5k9tD6cU', 'rkgxvYyEIA4', 'lCwvQm_-_OQ', 'Ljj4Qny0KqY', 'PLmhpZLDPgE', 'DhFYMf3Pgk0', '3pcL_FHPGDY', 'xtuYWz69HXg', 'b_TzOpVikbI', 'i-o8BM6dXdE', 'bmCohu3ULNw', 'xEocnT79UWk', 'j0lBSYrS8Ac', '9SgJKzNfrvI', '1mmu9JxwBPA', '2qK9F1eMqeU', 'aSPDatJRuPg', '1IHaFNuxnFU', 'uw75QPpavZo', 'vZwbxD_yrJY', 'UInnH0L-WMM', 'lgzcv_pNg58', 'QcgpAn4M3R0', 'com5REQEVQ8'] },
+    { nome: 'Kung Fu Panda: Lendas do Dragão Guerreiro', tipo: 'desenho', segundos: 1467, videos: ['6lVTAyG6jq8', '11kO6O279Y0', 'uqf6JeXvGoI', 'gfJlfMTqgv0', 'oL38oqCz-do', 'xFLaqcsRP40', 'dQmQxZyosSQ', 'Yl3lzPAhFKM', 'h_S5NUNcaBg', 'Vnb7aFzr2sQ', 'sd57gk8ZKFI', 'VP8VXR-aqlw', 'tAd_3tMAVCk', 'oT8IWCozw9I', '6HynZmR-gvg', 'XQcZ-U8TXBc', '4xiK457qYM0'] },
+    { nome: 'O Máskara (desenho)', tipo: 'desenho', segundos: 1146, videos: ['a6xL0r9SyG0', 'jmZ4cS9UXL0', 'sov7CY3LRGo', '6kHInV46W10', 'jVi54HkstR8', 'T8SK0YatXcM', 'xJdC_7_c7JY', 'OU5gsV71wlQ', 'faM7LvtBw4E', 'J7-r0orx0qI', '89UlpEPkKgQ', 'KHo4Zqr-msw', 'ePcZeAqVbTE', 'L9ZjCGOYTTI', '2Zta7oRx8-U', 'A9AEpKh4gDY', 'v-5HBse2-b8', 'G8YDtgxliEc', 'D5w2Xu2AEaE', 'Su-FmnWnZSU', 'LiXbXCY7U-s', 'kyI2dzaIMHw', 'Qx4pmvyqkXA', 'qDZ-NIn8Bco', '6PcXUWg9H08', '7V4adnuy6cw', 'IRLIeCpZBBg', 'gpUUBqTZSls', 'LZ3Xdw6PbkI', '3vNnlSdxzgQ', 'Tn-4_eFsncI', '--yWt4S5RGo', 'dXunx9lDq9g', 'vi7x8UvZ-Hk', 'OlpS1TddSYg', '5XUMWTpkm78', 'xd2OQOTbYgQ', 'NCn6UH--B_E', 'iwJzB93RcHM', 'jMvt0p69Fg8'] },
+    { nome: 'Kenan e Kel', tipo: 'série', segundos: 4729, videos: ['kViCQD1RRf0', 'f6axqhLMMBM', 'moRKa_oR0go', 'w8Te2I1g808', 'n__5-aLwfjQ', 'Tc65YZ8Mbwc', '2mPo89jyEXU', 'O5kLz0eLg6c', 'vxrQqL7MJG8'] },
+    { nome: 'Um Maluco no Pedaço', tipo: 'série', segundos: 1294, videos: ['zJ9n1FZK1IM', '0fhTftwarqk', 'eywDkLqsV5Q', 'Xy9Eh2pRMK4'] },
+    { nome: 'Batman: A Série Animada', tipo: 'desenho', segundos: 1387, videos: ['uh4jisanQmM', 'sg8mfC0ZbuA', 'wt37e6Y5R8M', 'kPGuXqccves', 'jyd48ZAjS9g', 'IxsK2DKfVUA', 'd3u72ZkNIig', '8STo869UwEg', '1hLAgHu2rXo', '4a-9kTR2Klc'] },
+    { nome: 'As Aventuras de Piggley Winks', tipo: 'desenho', segundos: 1267, videos: ['O7pjTDKvTTw', 'K-CMKSUaVfA', 'RTwIQ6AKTd0', 'dwc9bT29qI8', '35sHMzKiQIo', 'hLhVPhbwK9A', 'tNZxAJf-tSI', 'tL04HVDowEU', 'VgM6lcRE5Z0', 'sMBEbnwGEQY', 'i6_ez45U6Sw', 'M8KD4YTfP00', 'Op_SSnBYx1A', 'DvUVyezDvQ8', 'eqcjJ0cn5Rg', 'nWYVGIE7uQw', 'Vaj51-eOzUw', '5Mld5rbVU1U', 'ej9dU32DIhs', 'G-cm0RAXt2w', 'uOHRZuo-IcY', 'kkbwGQL9lMY', 'mpc9NPr1G-c', 'CkAhZI5FTmk', 'PhtJJzu1sPA', 'w7h_z8EkU6E', 'f8lwZ87Glrs', 'h_kIZXsGjfs', 'xHetjDGD4r8', '8nknbvL-gI8', 'LjrfDi168EA', 'zb0eyerDFa4', '_3yxoTM8r24', 'R2DfhSnY5nY'] },
+    { nome: 'As Visões da Raven', tipo: 'série', segundos: 1364, videos: ['V93sMunppWc', 'lAn8agLYeA4', 'Tr7FcIvjVc4'] },
+    { nome: 'As Terríveis Aventuras de Billy e Mandy', tipo: 'desenho', segundos: 1434, videos: ['Tu8Q5l7jF0s', '8xG1ZWjxYwk', 'qbmDQW7WiU4', 'ze88dmjh-ew', 'AdRqiSte4VM', 'Ou_o7MksoRE', 'iqMsOWXMVls', 'YSeDm7A2VSU', 'DMqhTzVnmSg', 'xG0ZXE3qy2M', 'iVmgdohG4kI', 'MLLSs9Wl8Ag', 'ovkHs0h_4Is', 'zjmUwt7xLHc', 'VwZq3aaqwf4', 'iYfHt5exXJo'] },
+    { nome: 'Pokémon (1ª temporada)', tipo: 'desenho', segundos: 1343, videos: ['z3hMX65Khtg', 'h6LFdBPjbf4', 'ObtS79k2NM4', 'PEUL-1_zGWI', 'COr4zRFX0Gw', 'iaxkOJZxzQM', 'RcBw50wD9_o', 'rcA8dMGOMCw', 'dJgDmrra3kM', 'nfpsYGAGzF0', 'JhhupHQlal8', '1TlOcjJodHw', '3l1lSNQxJA0', 'Cd-3_QOIjgU', '9wAKxOavTnw', 'R-GNznqs7cI', 'boY4QaYhBeM', 'T23nJU-KwZo', 'TYhdezzyqPo', 'hrANeOomxRw', '9IymXcXl4fk', 'rrQmjrZedac', 'XwpbJK-WE8Q', 'lKggkmrv7q4', '_LhB0LIQlQ0', 'f8mWMqLO88A', 'mRR7mbV0u4U', 'XpwNBGB6Fuo', 'RYdXQlBjjPI', '1PfJMmwI6b4', 'DhRYzCfjysY', 'dHuwaW3Vlh4', 'lSZ172BJoaE', 'xTmgJ8-HCtI', 'tuTr_cRGKds', 'XXuhIoEBB_M', 'pBXQbh0mtCE', 'J2MF6t_N8vo', 'Ss13Pnq6XII', 'pCCsYuiAIQ8', 'XTaSlC_OmV4', 'LzSRkzuKJM8', 'SpYyPHhvCFQ', '6ipxURw5U9w'] },
+    { nome: 'As Aventuras de Tintim', tipo: 'desenho', segundos: 1374, videos: ['0g_BLThgoU0', 'Ayd4MMcl7Z4', 'Yha4ipJGNs0', 'fFtDL7ClXXw', 'PPcyRQZMi6w', 'Zy2R7QZSeYs', 'rjApxluAIK8', 'DiNLTel-O3s', 'WTKGktmeY2c', 'jysXNsKMuOI', 'dEyIaoAKYT0', '133uZp0wrgA', '8_21CK-gKDs', '1jSJE06wfVQ', 'YY1LMG4lkSE', 'GJmT_zwVRts', 'SfS57cE9CNY', '4ZtMoPoHLd0', '0GSigojplVU', 'ELsUawnFHRY', 'HLeMgquyU_U', 'w1n9CEUrtLE', '7hWxCGblymo', 'sm3M12vjhX4'] },
+    { nome: 'Aventuras com os Kratts', tipo: 'desenho', segundos: 1309, videos: ['RdILTtkbdmE', 'JHepsBYatmI', '6Zz0lXOQZ-8', '25G7jl-wH2w', 'RhS_UcD4dzw', '6RdpCoeLLHA', 'zezoXpVTrCo', 'URZlSaP0zzg', 'Ye5K5jEv2I0', 'nuxFuHzdh4c', 'm6tFRbmMh2A', '-11NJ_yMY0c', 'uvIgXeytbkQ', 'ce9o03VfvzU', 'hIWS9Whl7gk'] },
+    { nome: 'Polly World (filme, em inglês)', tipo: 'filme', segundos: 3973, videos: ['nxCgRKFWVb0'] },
+    { nome: 'Pac-Man e as Aventuras Fantasmagóricas', tipo: 'desenho', segundos: 1355, videos: ['Os1NbXe4vZo', 'jsAb8ob2sx8', 'x3k6lqPfHFw', 'dsHYlCItEzA', 'KqB5XNj7aIg', 'UHy28mMc3dk', 'daAzwunWUiI', 'oVXfbWzXIOQ', 'fxrmQFpM_Qg', 'OvFzJF8zu1c', 'fz_kSF3FkPk', '3Qx15XFDK28', '9LTR_Zh-oS8', 'lz2rwlSR95U', 'vLmCJfFDHWM', 'ZltCmAf6PCE', 'vxfgasLqci0', '_i14m0KPC-k', 'L0_KntHGDCM', 'JQqPIAiO7SA', 'x1-XS2Zg5ME', 'AFgXjhp-b9g', 'kI-8K106ETI', 'qBhbNM0YTys', 'FiNknkGx7Ck', 'UoI9mTrHLLc', 'n0Sg0SN13eg', 'J33LJRNAtSk', 'z5-yNczliAE', 'gVUGjNi386k', '-ZJ6RrZqzA4', 'Wk8pJsqmINM', 'eBkKtPXFTa0', 'E-TRmM4OQyc', 'zPKGQa6d4Q4', '_wYZ8uWcPFI', 'NxAQBZQpEGo', 'AQamXhk-fGs', 'Ct9LAiV6bAI', 'ieVgvrBDz3c', 'tM_xXH1AD-A', 'kJdculOt5d8', 'SQhTE9VP964', 'tCf5KkY55PQ', 'U3wrrIKhk9w', 'gB2k2U-BYuQ', 'PV5rC26ZKV0', 'jTrgCT5VJ1Q', 'ebhgixMd4tY', 'OuXQQgW4RFs'] },
+    { nome: 'Esquadrão Bizarro', tipo: 'série', segundos: 1320, videos: ['HkLOZE-m_R4', 'Ll0n7PKoELg', '6OF0gXrl4Dg', 'xEHL5cnlLOs', 'McfnJBCnZxU'] },
+    { nome: 'O Espetacular Homem-Aranha', tipo: 'desenho', segundos: 1388, videos: ['LG-tyvmALWg', 'el3bCP5VO18', 'bKwxqkc4K28', 'dRCpZUChU48', '9xhLLfwSI1A', '0QJ-B0-C4DU', 'Pi3qFtaRaNs', 'gyXpeL1_BvY', 'v41zJ48cHuU'] },
+    { nome: 'Os Incríveis Espiões', tipo: 'desenho', segundos: 1305, videos: ['rlHtPpiZDAk', '0rPKYAhDAE8', 'fmVBA62jbdU', 'mcU1F6Titmk', 'ZB-MGglcUKg', 'XRJjemztbT4', 'eNqIAeDSxEA', 'jbigGtvv0cc', '3siJez6mnAQ', 'UFoDrNzOuCE', 'qbeTNlZOn8w', 'XqTmZ2bW3go', '6hUc5Ywpo-c', 'oKwgA0MtyO4', 'E4BW-yGhqcI', 'tOWmDrsgzc4', 'kuunFvKG_ao', 'Hgv-92Xt9X4', 'qwez2qqeJhs', 'PqZd6D33tjk', 'CkAjmo-dabM', 'TrWdqMx0iP8', 'KefYC1ZvrUA', 'sDEZ86Ohks8', 'DA0c7pffquk', 'CAylVN3Pnyk', 'I416yc3xVLg', '6cjevtw7eKQ', '5OAKoz2YlmU', 'ATN454EKQAw', '_pqFw7rFb0g', 'Rywb_d-vok4', 'x12YhjvaOjo'] },
+    { nome: 'Super Fofos', tipo: 'desenho', segundos: 2986, videos: ['gqVT-qqh7Lg', 'Z_3gcL-RhT4', 'BfSDZ5xhlmM', 'Uct1oh5cUbQ', 'wuomuEOaiD0'] },
+    { nome: 'Max Steel', tipo: 'desenho', segundos: 1291, videos: ['0LReklmQ0SE', '079hbQhh3rg', 't--u7PikPCE', 'PpqByE8v0y4', 'ZLyxhft0KEs', 'kXVwB7LajI0', 'IPA7w9A4UkM', 'jldfkzTDs18', 'QVQ9UxlHXfE', 'rDfYeDT-yEM', '-ItA_iS6GRo', 'NipvaLfBR04', 'kO8DBbSSeqM', 'kbNsEQwJrFA', 'IZZE5F8Swn0', 'x_bpNhxR11w', 'LRsv54ByiRI', 'bihku0aCxKE', 'dzVg2JrTUws', 'I3_w6IaD208', 'iQJTN0TLOYY', '4-7XbDZTO3M', 'CNUFnl6nP54', 'sFKKOKbIOyg', '_d3N8fMEZ6U', 'vMoKN3Qz_Ks', 'jCT4Scjawy8', 'sYOEg4if_h4', 'ISk4pzhSnT0', 'YSOIyKyAC7s', 'q8X2_aZihWQ', 'xfJKjCiw5_U', 'WudwPZKtHHs', 'xJ23x0bI4cE', 'joCjk3MN_NU', 'oKJZKaThzhs', 'kguhhp7yUrQ', 'zHSh1B304ow', 'zZ3toIraJuA', '4Hw65vC62-s', 'zxtCmjt8ij8', '2ZinHZp9IaM', '0BLz7oX4R0A', 'w0iPhOD_viw', 'CRrWUFLhWbo', 'JptNXDSIoic', 'v4aPbkpTgF0', 'F1Skvd6LRbo', '3G97Elt3LuA', 'VRSDB-gYhwc', '0d0oKLqjpdk', 'zWx8oHSw4x8', 'nPpfGL9pZ0M', 'IPU6jkeQ8Hc', 'W4UEbCM4PDs', 'IQzVv95yuME'] },
+    { nome: 'Cyberchase', tipo: 'desenho', segundos: 1380, videos: ['fphNjAparA4', 'SjSn2Wh_1YI', 'NaYipYMrxsY', '1UCG6zhFyME', 'Ssidf7gg8K8', 'z8qYzZF6z80', 'eoyZTSwBmhU', 'MBGpGkvvHAA', '8ppGvMkaJao', 'o2h3wrA1m1o', '8JWqm-natMo', 'fHxD0kavaeQ', 'je7R_esn8vs', 'iIAJdiKwutY', 'GFLfskx4Hoo', '3qcMA6wxhuE', 'QiSz9QF3Fc8', 'gcV4mN4y84M', 'kkE73idFTRE', 'Q8nXt8cjH34', 'F7ispTHdIvQ', 'yxQEmYqKFLQ', '4s5hz3DRUsA', 'EjKeR48cwsU', 'ZeizPoVKszo', 'cGVhKYSgobw', 'vxnuCUeadfc', '6vlh1zy3984'] },
+    { nome: 'Doug', tipo: 'desenho', segundos: 1351, videos: ['1z6mXWRb6pA', 'n1EuAxCCEZw', 'jNt0h2WyV8E', 'J3F7hkuDW8o', '6EDI2Cy6Njg', 'gdaj0CxUZqA', 'GKtAept4d7U', 'pBjkCYbENK0', 'xLqQoL0tjuQ', 'qVLU3OLQKbg', '9FiPp4kiQMY', 'w6QkyzIYR2U', 'AknFcBT4iDs', 'NuHHUV1lFe8', '-HbT92jOBv8', '8HHnVnzBJuk', '9vPvkBYa2P0', '5PApWqRuaj8', 'efN41S48U4U', 'vz1pjt_X6-Q', 'GYVUMMZM0-8', 'NVqysSKtA4k', '5e-6eaP16k8', 'bkGRO9appVY', 'jkG0H9y80UA', 'U7KcBUsHUws', 'S6xviIHd73M', 'v-GDoXCoXpo', 'gTGFd3DKBJ8', 'scGQabr_yS0', 'h1VC4klAU-U', 'zolJqmOi86M', 'RCI7IZ1Bf30', 'VBH3xZ_ETDs', 'YI0wNqmX_7U', 'i34OCX0AJ40', 'G0SGFFBtL1M', '5g0CBVUYIeQ', 'xtoWbakYdXU', 'zKgVkoiyp1s', 'Udsnwgcm5C4', 'ZJPc5pE0bLk', 'GLS9m4rdg2c', 'Vdl7voQ8OCM', 'ql-xc84vHgc', '8Bd35OigAgA', '6A9PwwKqsUA', 'XBvmbct9s00', 'uFgcqGTZzA8', 'n2IB-ubXA6Y', 'o4XHGUVPvwg', 'LBbMeDgC1mg', 'sXTJ6nmA_io', '9T60usDSZIY', 'khjjaUgA1BA', 'KdPtYeJeke4', '37pyP47Ubbo', 'a-0ig5vUgM8', 'vwGu66S7Pig', 'SOa-tUTC8vE'] },
+    { nome: 'Sid, o Cientista', tipo: 'desenho', segundos: 1392, videos: ['luTzxSYbR7o', 'FBofRFJACqU', 'SybOzrWRlrg', 'igYCtF5lSvs', '8r1VXt9_UdU', 'HAWAOzfGoeY', 'dJlFVGk58Wc', 'tFo07tN5oEE', 'kOtItYKoppY', 'DsrWmoZTfsU', 'KgsTR2HppgE', '93WsARyVul4', 'u7-iEixIq8E', 'gtx1w79dNmg', '-udtkKx1JM8', 'dTCUU1nNVl0', 'vmIrLj6KXiI', 'CX5WAhqAom0', 'JZ_oZvhBKms', 'dCPwrFrSTMw', 'ZspyAVBAiJ4', 'bCrGsL0jtMk', 'm6XA2XpvA-Y', 'LV9IsLH4z68', '4TuLXImcGrc', 'a9B08C9q1y4', '_exgSrOH7sg', 'LLXRFjIsJ4U', 'EdBQvQawtaU', '_L93tOVUxn8', '5X3diTpK-xA', '8Vg4o--Uvd4', '9sSN9cauCNI', 'epthGugLLVQ', 'X4FcjjtRm7c', 'j6c1wNDOhOw', 'HG_BXOW5aQQ', '7xQXvEPDWqs', 'y9TJstjUeR0', '5LUlOuO2eJM', 'v-fqtSMfPB4'] },
+    { nome: 'Os Sete Monstrinhos', tipo: 'desenho', segundos: 42549, videos: ['ks7k-H8XCq4', 'xa-seGPn9r0', '0qBTr3TYzyc', '-xyjI4kDQiE', 'wlF1d60p7Xc', 'VKrGfoIEnEM', '88_7F5ZRlQw', 'YXeGiYBarbQ', 'UmvvCL4MnFU', '4dND_RhWjC0', 'oPuuTRYK6ek', 'Frn7umOArxY', 'PauZnjP5WmA', 'EbTtXC-MPjc', 'wXlQG0tAHlI'] },
+    { nome: 'Charlie e Lola', tipo: 'desenho', segundos: 4294, videos: ['Fd3O-J6kuOM', 'g1eciUk9zus', 'SjafQhOe5zg', 'JS2eFWp1rgs', 'CsY3WykP2oY', 'uKNMRRm32k4', 'QOp8w9kW2JM', 'Oc2Vyzue0dI', 'LCLB_Mih84I', 'Hw2pcGlVFZM', 'rHoK729Yn3k', 'MQl7xvNiF0c', 'jZ-kgkamk54', '7p7icDVqW8o', 'Hf1kBJzX6MI', 'Y7Z1s4onlAY', 'HXObm7UNsYQ', 'izyDC5qf1yU', 'VnwJgyok0yA', 'CgLFT7zybik', 'aRTxyRKsoSo', '_A2grMpgB4I', 'PORVb1KHWCY', 'JmEVN4eLaws', 'GEC2AnxSVEg', '6W7LyIYnaa0', '4SDtfQW4vb0', 'RnnDYTwdjsg', 'tZs3i7PRnos', 'dRUjA54ZkwQ', 'eofEY8j5F2U', 'pln7EVp90yA', 'mIvthk6QxPc', 'e-hf7_y3SXg', 'f1bG-GGkpRw'] },
+    { nome: 'Peixonauta', tipo: 'desenho', segundos: 4672, videos: ['-_4S9Dv5vTg', 'cSGRMT2KsOo', 'L9GdRrvU4WE', 'iRgBmnOliF4', 'tDnEAzS1HS4', 'YoaLBaQWFLM', '7PzDYG71qWE', 'x46Mf_P6Z14', 'Wxdt73kdvsE', 'yoETeOH_jgM', 'CDxuena_dKA', 'Eckgu9hAfxY', '-g27pnXZTyA', '4CfScBLmVuI', '7Kf15IXnXLY', '1mmBcKtQUdU', 'SCbm4kgBaEI', 'PGBkn2Z0TIQ', '9uwZHC-ui_Y'] },
+    { nome: 'Pedro e Bianca', tipo: 'série', segundos: 1478, videos: ['4Yb1bhX3j6c', 'u06SYeFBJ-A', 'MyLDNvwL6OQ', 'PiadxFtsWrw', '396rtdSvKqI', 'itUEO4n-gCs', 'Whv5rXQcK60', 'pt1zl0DbuC4', 'QBCub0IvEuI', 'VOWBSb7Pj_Q', '0-_hGWXGgKE', 'zL-9VmjeUsc', 'vQzv7RVCggE', 'MHp0zfTdZRM', 'ZYDcsxEUd_g', 'tFHYSDuBcDg', 'IKnnqcT8FgQ', 'Tdca2ZkqzaU', 'VqLL4fPqHZA', 'Ac1Ko3J2p54', 'XKfUuXhWSc4', 'BzOewXI8i7A', 'BAIAU8bUytA', 'DKyofReqsVs', 'QOUyHM5MnXw', '_Aap9Wnyjs0', 'pYqiA4Ux9vQ', 'Jp6SdgklRns', 'Zv6Q5glm88w', '6Q9FvswdppA', 'eN4265heFYU', '083slVp4_e0', 'eOgMt5gspOg', 'aLTv1Pxa4xk', 'FMNfHqu1iGg', 'KYJxE5geE2o', '_yTDSsyNzW4', '_IMG6fivZQU', 'lBsQ3uOQ2YE'] },
+    { nome: 'Que Monstro te Mordeu?', tipo: 'série', segundos: 1932, videos: ['kmb2hmYq3gQ', 'GWm35h33-2g', 'RdSunzgPrrE', 's6c5vCg7lqY', '_iaL-rGkqhw', '7VHuaHRclE0', 'aIeuaXDPw8g', 'SVspAWKj6tA', 'SP5lR7zC9dY', 'Emnya6CoOnQ', 'Qj6A7YipUos', 'S-ZXWI8yG9k', 'HZw7-s2fzsw', 'VvTXgdN1fLQ', 'a4k8pjj0hn8', 'WFiRdyBYdf0', 'bruIeN2wS4Q', 'j1J9p32bMg0', 'K5_Az_u_CQQ', 'wtPnodrQS-o', '8Ox_xnOtCAk', 'HH_mDTsXvYk', 'Hu6Osdj5KTc', 'lHInvXTxgjs', '0rpj9sEA374', 'uIa2aVBo3hE', 'DRAIuZ6EqBI', 'u7QDCicFh0o', 'MQW7c7vZRL8', '5GrJyJr1tFg', 'qWKkC_SiX2E', 'NnieZO0_MEk', 'CRvyQWMkoRQ'] },
+    { nome: 'Filmes Brasileiros: Mazzaropi', tipo: 'filme', segundos: 4675, videos: ['__Tgzt0e-qg', 'Pu1Z6oIljd4', '0rbnz8ohjbg', 'ssISORSz7w4', 'chjyJKuScZ0', '0ZU76dckbqg', 'hTw9noSzGJs', '5RcYPydR04E', 'QL5XCfwWGVo', 'UboKqML7Vwo', 'V3XI0Y9HitM', '63JoqLWx09s', 'I9OugTbIBhU', 'Z6zwCGPIP-k', 'gIxKJytTkg0', 'O9-B7NhllFY', 'BZ46y7FNuDg', 'DhpfiqbAspI', 'bfsFxYeSzdE', 'mLczK9zHgVw', 'LFwllYc6Dcg', 'U1CCX9fz9Dc', 'jDV7liJUNUw', 'kZ53x1pQIjQ', 'TXxFzjcNxqs', '_JujCd3j5wk', 'pUTYtd7cWcg', '0ytNsoVmn4Y'] },
+    { nome: 'Filmes Brasileiros: Os Trapalhões', tipo: 'filme', segundos: 6570, videos: ['18b38r0NhjQ', 'TvJoR5iO0nQ', '338gOxRS5zg', '6Hl0kEnl69s', 'vTnLkbgcvR8', 'vcrKBxqzSHM', 'B7PePL_rAWU', 'G8yCDePuTec', 'U52lJbfnjsQ', 'onXhP49bivo', 'PTOSY2S6PwU', 'FmF8ze1mk_k', 'BlqKmDy7bWI', 'CD1QXBr0g0M', 'tq78aCb4o60', 'UrkQIloPrfA', 'gO8ZJqmKKAM', 'GbfF934khLI', 'wHLaxkUtboY', 'h4c7_Sv4KZE', 'rtV0jKY2r4s', '-ueuzZtZnBM', 'fBbtFnP6HMc', 'Wm1DyK8_azo', 'V2-zHJl6CL8', 'UWWbvxlClME', 'epE8jXt7bUI', 'zMLAJ5QWQpg', 'WYibOGvaILM', '7Eey7uuh5ho', 't9SKC9LT6gI', 'wMrWK6usn3Q', 'qDNQKziEKYI', 'fWLDmweGP58', 'rKLuSGLFgYk', 'fnYVTPl8w8o', '4YniTffDovE', 'uUdkA8S5yqk', '5xOsSurzKw4', 'sOGjrrCv4yA', 'qja7vFscwjw', 'JD16lnPwQLo', 'oowWe1ZOYrM'] },
+    { nome: 'Filmes Brasileiros: Clássicos', tipo: 'filme', segundos: 7103, videos: ['0ZE-5xEDeh4', 'C5Y_1YwfIOo', 'HMBCMrXzME4', 'leM6fsfyYtc', 'v5u4aqR2rMk', 'cJhGKtrzUuQ', 'Rhl2fdq6_YU', 'P30S6bTiC2I', 'oa5twq2mcJ4', 'MkZDFjo7yXc', 'aUUhwpXS7-g', 'cIIK9tUB2IM', '1eXVyEY50xg', 'OLcfHggmP-g', 'pDciPJC_p1o', 'Dkea5sjGfEY', 'omutfUiAMxQ', 'a51qcCDgj78', 'zEoS6VMMoKg', 'JdAhgJ0ky2E', 'TJKz4wcoOm4', '82AIAaoH7M8', 'pynBQji1NL0', 'rjb3dHMj0Pk', 'AGNXm36wAp4', 'ABk4KjGVnRc', 'GA5E1yjMhnY', 'ms4cz6NBzTQ', 'FFUEX-lI0mE', 'GcJqCNgGZj0', 'eXT3KaJq0hY', 'nnjNXw6RP_Y', 'mGTfTUR6BdY', 'F96Frw8Rx9A', 'zUG6k1HS0jw', 'Ar9Hd1X0ylw', 'aU3hDPHVog0', 'cVIGizYAgYo', 'zF_pqWpOCoE', 'pXPRIlrQWc0', '91OLeTgY3bw', 'rzY7hOEs7tw', 'btxdHx-l0hc', '9EMFDkTlp1k', '_IBqATQrDH0', '9pB-GtBjMXc', 'N7uwTtbKBdg', 'eQk6YmIezDM', 'y6oM2XdOVc4', 'm-s1XO17x7E'] },
+    { nome: 'Filmes Brasileiros: Sucessos', tipo: 'filme', segundos: 6060, videos: ['wk9ZE7C9P58', '-2p6GPArFLw', 'KqmY5yIBs3U', 'bRRuJ6jIE2Q', 'fUtAamtCBew', 'XMe8wKUz1-g', 'bX4l_WnF7ig', 'UXxUYWxzBEA', 'QZOKwn6GIN0', 'zXiQqQEeKAw', 'uj3qjnpXLmM', 'S7csvGiocLc', 'CuPjODnuQ7Y', '1T-1pwcyN5c', 'yF5oM8pq92I', 'zP-nMen5APQ', 'qfdcZQ36u_A', 'r2N_dQ6iYUo', 'OpMwiYB_kiI', 'zer8MFw6AWg', '45-eIbA6kMY', 'RtBFWUc-brI', 'mo_rq5ctdFk', 'cQlC6eFjoc0', '9oMC5nrqEIo', 'NMKI9-6KT54', 'tJTyuOICWWU', 'Q5lG0OPKoEY', '2UuPs34ZJHM', 'jVf_PNMu6w0', '3nt4_fEfncY', 'kBqgpK361vM', 'ZDP6WQvFD1Y'] },
+    { nome: 'Filmes Brasileiros: Infantis', tipo: 'filme', segundos: 3824, videos: ['W3JypKJmA9Q', '7m-oXqZ1s3I', 'MMovjuXEbGQ', 'RIwFGhzqKeI', 'd72gl97Wqc4', '7_vCHugdZuo', 'yJSmH1xiJ-k', 'NVd7aWnM0Mo', 'D1bktiscl3w', 'uxn34-IbVtM', 'kYq67wwE4Bs', 'QBjzXkfh3QE', 'sEt0qCIiDgU', '-zXNeeHlvZo'] },
+    { nome: 'Filmes Brasileiros: Terror e Suspense', tipo: 'terror', segundos: 5959, videos: ['CY6MRPbrR9Y', 'GlSFXBi2n10', 'i-UsGLFEud4', 'WW4EBf8vKgQ', '86aMxklzWuk', 'dyPRGBty9_8', '9O34nRJRZwI', '2_w523xWvF4', 'X1fOfFIBf18'] },
+    { nome: 'Filmes Brasileiros: Documentários', tipo: 'filme', segundos: 4708, videos: ['NQELr0N1DPM', '2ddZnlANECc', 'bv-kSZAHQLw', '13xxSJOHkTA', 'TeUpGcypbOs', 'u-J0Gm7ILxM', 'ntiFPx5Dp_0', 'VGed1yOHUgk', 'QwbrtpLP1fE', '9UKB-XrjzsM'] },
     { nome: 'Chume Labs', tipo: 'série', segundos: 1605, videos: ['q9TuttD6oPk', 'iMVAmeote1Y', 'iBpIDMrm1M4', 'POYLzaekBaQ', '0gEf-sNCJSU', '2FWgYKRg58o', 'ok0vG0IZrOA', 'GUEIPmoSbuA', 'sPdVf9UEI2A', 'ceEkAZN2TT8', '9V2Bk8A9iu4', '95x8NP7K32I', 'eRn3HVQxVT0', 'BPyHPK17ehI', 'LURJ_n-KsXI', 'mV5GhTzBzBc', 'DZH22Cb7QTc', 'AD3EjHYGmcU', '869Za72AhTM'] },
 ];
 
 // no dia do halloween entram uns canais so de filme de terror (no comeco da lista)
 const CANAIS_HALLOWEEN = [
     { nome: 'Halloween: A Noite do Terror (1978)', tipo: 'terror', segundos: 5374, videos: ['lsFxNlHLfHs', 'fr3taQAKwsY', 'fA7_sPVQHfI'] },
-    { nome: 'Dango Balango (especial de Halloween)', tipo: 'série', segundos: 1321, videos: ['lkkCG1tf8Mc', '8SOPnjiERPA', '0hnksk3Qi6Q', '7TBu2YsOzDw', 'AXYZ_BHOOrg'] },
+    { nome: 'Dango Balango (especial de Halloween)', tipo: 'série', segundos: 1321, videos: ['lkkCG1tf8Mc', '8SOPnjiERPA', '0hnksk3Qi6Q', '7TBu2YsOzDw', 'AXYZ_BHOOrg', 'IiChSXCEMZg', 'GyC21fZBvwE', 'dXrehlSZMTg', 'kQN3fPZaT6E', 'HAPGB8cSibY', 'cAQhAofTrkg', 'wWihmRMBCBs', 'WEWldYWB8Fc', 'n4wLYRstvsU', '4xWgZW5uszc', 'xsLF9F2oVmc', '3DjyEVL-pAY', 'THazTIyLCLw', 'r6AyXJkWuFQ'] },
     { nome: 'Reflexões de um Liquidificador', tipo: 'terror', segundos: 4823, videos: ['a0rfrVVfnPs'] },
     { nome: 'À Meia-Noite Levarei Sua Alma (Zé do Caixão)', tipo: 'terror', segundos: 4916, videos: ['e2ZWcBaXOco'] },
     { nome: 'A Noite dos Mortos-Vivos (1968)', tipo: 'terror', segundos: 5762, videos: ['py4UDrciwkA'] },
@@ -1397,7 +1524,7 @@ function paginaAmigos() {
         </div>
         <div class="caixa">
             <h2>Me adiciona!</h2>
-            ${nuvem ? `<form class="form" data-form="amigo">
+            ${nuvem ? `<form class="form" data-form="amigo"><input class="isca-robo" name="site" tabindex="-1" autocomplete="off" aria-hidden="true">
                 <label class="soltar-foto">
                     <input type="file" name="foto" accept="image/*" class="so-leitor" required>
                     <span class="previa-arquivo">${icone('user_add', 32)}<br>escolha sua foto</span>
@@ -2237,15 +2364,6 @@ function preencherPerfil() {
     $$('[data-status]').forEach(el => { el.innerHTML = textoRico(DADOS.status); });
 }
 
-function caixaDiario() {
-    const caixa = $('#caixa-diario');
-    caixa.innerHTML = diarioAberto()
-        ? `<h3>Diário</h3><div class="cadeado">${icone('lock_open', 32)}</div>
-           <a class="btn" href="#diario" style="display:inline-block;text-decoration:none">ler o diário</a>
-           <p style="margin:6px 0 0"><button class="btn-x" data-comando="trancar-diario">trancar</button></p>`
-        : `<h3>Diário</h3><div class="cadeado">${gif('cadeado', 64)}</div>${formSenha()}`;
-}
-
 // clicar nos recados do inicio abre a pagina de recados
 document.addEventListener('click', e => {
     if (!e.target.closest?.('.previa-recados') || e.target.closest('a, button')) return;
@@ -2454,19 +2572,58 @@ function atualizarPlayer(pagina = true) {
     if (pagina && rotaAtual().nome === 'playlist') mostrarPagina();
 }
 
-// cada dia da semana o winamp tem uma cor (a skin base e roxa)
-const CORES_WINAMP = [
-    ['domingo', 'roxo', 0], ['segunda', 'azul', -55], ['terça', 'verde-água', -95], ['quarta', 'verde', -165],
-    ['quinta', 'laranja', -225], ['sexta', 'rosa', 50], ['sábado', 'vermelho', 85],
-];
+// cada dia do ano o winamp tem uma cor: degrade de 2 cores vizinhas ou de 2 tons da mesma cor
+// a mesma data tem sempre a mesma cor todo ano; nos dias de tema quem pinta e o tema
+const NOMES_COR_WINAMP = [[0, 'vermelho'], [14, 'coral'], [26, 'laranja'], [40, 'âmbar'], [50, 'amarelo'], [66, 'lima'], [90, 'verde'],
+    [135, 'esmeralda'], [158, 'verde-água'], [178, 'ciano'], [196, 'azul-céu'], [214, 'azul'], [236, 'anil'], [256, 'violeta'],
+    [276, 'roxo'], [296, 'magenta'], [318, 'pink'], [338, 'rosa-choque'], [352, 'vermelho']];
+const DIAS_ANTES_DO_MES = [0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335];
+
+function nomeCorWinamp(matiz) {
+    return NOMES_COR_WINAMP.filter(([inicio]) => matiz >= inicio).pop()[1];
+}
+
+function coresWinampDoDia(d = new Date()) {
+    const n = DIAS_ANTES_DO_MES[d.getMonth()] + d.getDate() - 1;
+    const h1 = Math.round((n * 137.508 + 275) % 360);
+    // a segunda cor e uma vizinha no circulo de cores (de 35 a 85 graus pra frente), pra combinar
+    const h2 = (h1 + 35 + (n * 47) % 51) % 360;
+    const duasCores = ((n * 5 + 3) % 7) % 2 === 0;
+    const sat = 72;
+    const cor = (h, l, sa = sat) => `hsl(${h} ${sa}% ${l}%)`;
+    // o claro e o escuro variam um pouco (pra nenhum dia ficar igual ao outro)
+    const tom = (n % 3) - 1;
+    const vars = {
+        '--t1': cor(h1, 28), '--t2': cor(h1, 48), '--t3': cor(h1, 72), '--t4': cor(h1, 92), '--t5': cor(duasCores ? h2 : h1, 55),
+        '--t-texto': cor(h1, 15, 60), '--t-titulo': cor(h1, 12, 70),
+    };
+    let nome;
+    if (duasCores) {
+        vars['--d-corpo'] = `linear-gradient(115deg, ${cor(h1, 52 + tom * 6)}, ${cor(h2, 52 + tom * 6)})`;
+        vars['--d-casca'] = `linear-gradient(115deg, ${cor(h1, 93)}, ${cor(h2, 90)})`;
+        nome = nomeCorWinamp(h1) === nomeCorWinamp(h2)
+            ? `degradê de ${nomeCorWinamp(h1)}`
+            : `degradê ${nomeCorWinamp(h1)} e ${nomeCorWinamp(h2)}`;
+    } else {
+        vars['--d-corpo'] = `linear-gradient(115deg, ${cor(h1, 70 + tom * 5)}, ${cor(h1, 36 + tom * 5)})`;
+        vars['--d-casca'] = `linear-gradient(115deg, ${cor(h1, 95)}, ${cor(h1, 82)})`;
+        nome = `${nomeCorWinamp(h1)} claro e escuro`;
+    }
+    return { vars, nome, estilo: duasCores ? '2 cores' : '2 tons' };
+}
 
 function corWinamp() {
-    const [dia, cor, giro] = CORES_WINAMP[new Date().getDay()];
     const winamp = $('#player');
-    // no dia de tema a skin pega as cores da data (pelo css), sem girar a cor
+    // no dia de tema a skin pega as cores da data (pelo css)
     const tema = typeof datasAgora !== 'undefined' && datasAgora.tema;
-    winamp.style.filter = giro && !tema ? `hue-rotate(${giro}deg)` : '';
-    winamp.title = tema ? `winamp de ${TEMAS[tema].frase(new Date()).split(/[!.:]/)[0].toLowerCase()}` : `winamp de ${dia}: ${cor}`;
+    const { vars, nome } = coresWinampDoDia();
+    winamp.classList.toggle('wa-dia', !tema);
+    Object.entries(vars).forEach(([v, valor]) => {
+        if (tema) winamp.style.removeProperty(v);
+        else winamp.style.setProperty(v, valor);
+    });
+    const hoje = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    winamp.title = tema ? `winamp de ${TEMAS[tema].frase(new Date()).split(/[!.:]/)[0].toLowerCase()}` : `winamp de ${hoje}: ${nome}`;
 }
 
 // o som vem de um player do spotify escondido, o winamp so controla ele
@@ -4935,11 +5092,14 @@ function conferirVitoriaMinado() {
         guardar.salvar('minado-recordes', recordes);
     }
     if (assistente.iniciado && !$('#assistente').hidden) animarJujuba('comemorar', 1800);
-    dialogo({
+    const jogo = 'minado-' + minado.nivel;
+    const tempo = Math.max(1, minado.tempo);
+    // entrou no placar do site: primeiro escolhe o nome, igual fliperama
+    talvezRecorde(jogo, tempo).then(noPlacar => dialogo({
         titulo: 'Campo Tekisminado',
         icone: 'mina',
-        texto: `Você ganhou no ${NOMES_NIVEL_MINADO[minado.nivel]} em ${minado.tempo} segundo${minado.tempo === 1 ? '' : 's'}! (Y)${recorde ? '\nNovo recorde nesse nível!' : ''}`,
-    });
+        texto: `Você ganhou no ${NOMES_NIVEL_MINADO[minado.nivel]} em ${minado.tempo} segundo${minado.tempo === 1 ? '' : 's'}! (Y)${noPlacar ? '\nSeu nome entrou no placar do arcade!' : recorde ? '\nNovo recorde seu nesse nível!' : ''}`,
+    }));
 }
 
 function placarMinado() {
@@ -4957,7 +5117,10 @@ function recordesMinado() {
     dialogo({
         titulo: 'Recordes do Campo Tekisminado',
         icone: 'award_star_gold_1',
-        texto: Object.keys(NIVEIS_MINADO).map(n => `${NOMES_NIVEL_MINADO[n]}: ${r[n] !== undefined ? r[n] + ' segundos' : 'ninguém ganhou ainda'}`).join('\n'),
+        texto: Object.keys(NIVEIS_MINADO).map(n => {
+            const melhor = topoPlacar('minado-' + n)[0];
+            return `${NOMES_NIVEL_MINADO[n]}: ${melhor ? `${nomeNoPlacar(melhor)} - ${melhor.pontos} segundos` : 'ninguém ganhou ainda'}${r[n] !== undefined ? ` (o seu: ${r[n]}s)` : ''}`;
+        }).join('\n') + '\n\nO placar completo fica no quadro Arcade.',
     });
 }
 
@@ -5029,7 +5192,6 @@ function iniciarMinado() {
 // --- calculadora (igual a do windows antigo) ---
 
 const calc = { visor: '0', guardado: null, operacao: null, novoNumero: true, memoria: 0 };
-const SENHA_SECRETA = '13062006';
 
 function numeroCalc() {
     return parseFloat(calc.visor.replace(',', '.')) || 0;
@@ -5062,8 +5224,7 @@ function teclaCalc(tecla) {
         else if (calc.visor.replace(/\D/g, '').length < 16) calc.visor += tecla;
         calc.novoNumero = false;
         mostrarCalc();
-        // a senha da area secreta
-        if (calc.visor === SENHA_SECRETA) abrirAreaSecreta();
+        tentarSenha();
         return;
     }
     if (tecla === ',') {
@@ -5111,6 +5272,20 @@ function teclaCalc(tecla) {
         calc.novoNumero = true;
     }
     mostrarCalc();
+}
+
+// a senha da area secreta e conferida no banco (ela nao fica no site)
+let esperaSenha;
+function tentarSenha() {
+    clearTimeout(esperaSenha);
+    const senha = calc.visor;
+    if (!nuvem || calc.operacao || !/^\d{6,16}$/.test(senha)) return;
+    esperaSenha = setTimeout(async () => {
+        const { data, error } = await nuvem.rpc('abrir_secreto', { p_senha: senha });
+        if (error || !Array.isArray(data) || calc.visor !== senha) return;
+        DADOS.secreto = data;
+        abrirAreaSecreta();
+    }, 700);
 }
 
 function abrirAreaSecreta() {
@@ -5193,6 +5368,325 @@ document.addEventListener('keydown', e => {
         arrasto = null;
     });
 })();
+
+
+// --- letra de fliperama: cada letra e desenhada ponto a ponto (5x7), igual painel de led ---
+
+// cada letra: 7 linhas de 5 pontos (numero em binario, o bit da esquerda e o ponto da esquerda)
+const LETRAS_PIXEL = {
+    A: [14, 17, 17, 31, 17, 17, 17], B: [30, 17, 17, 30, 17, 17, 30], C: [14, 17, 16, 16, 16, 17, 14], D: [30, 17, 17, 17, 17, 17, 30],
+    E: [31, 16, 16, 30, 16, 16, 31], F: [31, 16, 16, 30, 16, 16, 16], G: [14, 17, 16, 23, 17, 17, 15], H: [17, 17, 17, 31, 17, 17, 17],
+    I: [14, 4, 4, 4, 4, 4, 14], J: [7, 2, 2, 2, 2, 18, 12], K: [17, 18, 20, 24, 20, 18, 17], L: [16, 16, 16, 16, 16, 16, 31],
+    M: [17, 27, 21, 21, 17, 17, 17], N: [17, 17, 25, 21, 19, 17, 17], O: [14, 17, 17, 17, 17, 17, 14], P: [30, 17, 17, 30, 16, 16, 16],
+    Q: [14, 17, 17, 17, 21, 18, 13], R: [30, 17, 17, 30, 20, 18, 17], S: [15, 16, 16, 14, 1, 1, 30], T: [31, 4, 4, 4, 4, 4, 4],
+    U: [17, 17, 17, 17, 17, 17, 14], V: [17, 17, 17, 17, 17, 10, 4], W: [17, 17, 17, 21, 21, 21, 10], X: [17, 17, 10, 4, 10, 17, 17],
+    Y: [17, 17, 10, 4, 4, 4, 4], Z: [31, 1, 2, 4, 8, 16, 31],
+    0: [14, 17, 19, 21, 25, 17, 14], 1: [4, 12, 4, 4, 4, 4, 14], 2: [14, 17, 1, 2, 4, 8, 31], 3: [31, 2, 4, 2, 1, 17, 14],
+    4: [2, 6, 10, 18, 31, 2, 2], 5: [31, 16, 30, 1, 1, 17, 14], 6: [6, 8, 16, 30, 17, 17, 14], 7: [31, 1, 2, 4, 8, 8, 8],
+    8: [14, 17, 17, 14, 17, 17, 14], 9: [14, 17, 17, 15, 1, 2, 12],
+    '-': [0, 0, 0, 31, 0, 0, 0], '.': [0, 0, 0, 0, 0, 12, 12], ':': [0, 12, 12, 0, 12, 12, 0], '?': [14, 17, 1, 2, 4, 0, 4],
+    '!': [4, 4, 4, 4, 4, 0, 4], '/': [1, 1, 2, 4, 8, 16, 16], '★': [4, 4, 31, 14, 14, 27, 17], '∞': [0, 0, 10, 21, 10, 0, 0],
+    "'": [4, 4, 8, 0, 0, 0, 0], ' ': [0, 0, 0, 0, 0, 0, 0],
+};
+
+// texto -> svg com um quadradinho por ponto aceso (a cor vem do css, pela cor do texto)
+function letraArcade(texto, classe = '') {
+    const limpo = semAcento(String(texto)).toUpperCase();
+    let caminho = '';
+    let x = 0;
+    for (const letra of limpo) {
+        const linhas = LETRAS_PIXEL[letra] || LETRAS_PIXEL['?'];
+        linhas.forEach((bits, y) => {
+            for (let c = 0; c < 5; c++) if (bits & (16 >> c)) caminho += `M${x + c} ${y}h1v1h-1z`;
+        });
+        x += 6;
+    }
+    const largura = Math.max(1, x - 1);
+    return `<svg class="letra-arcade ${classe}" viewBox="0 0 ${largura} 7" style="width:${(largura / 7).toFixed(3)}em" role="img" aria-label="${esc(texto)}" shape-rendering="crispEdges"><path d="${caminho}"/></svg>`;
+}
+
+
+// --- arcade: placar dos jogos, igual pra todo mundo que entra no site ---
+
+const JOGOS_ARCADE = {
+    'minado-iniciante': { nome: 'Tekisminado · Iniciante', curto: 'MINA INI', letreiro: ['TEKIS', 'MINADO'], sub: 'INICIANTE', menorGanha: true, unidade: 's' },
+    'minado-intermediario': { nome: 'Tekisminado · Intermediário', curto: 'MINA INT', letreiro: ['TEKIS', 'MINADO'], sub: 'INTERMEDIARIO', menorGanha: true, unidade: 's' },
+    'minado-especialista': { nome: 'Tekisminado · Especialista', curto: 'MINA ESP', letreiro: ['TEKIS', 'MINADO'], sub: 'ESPECIALISTA', menorGanha: true, unidade: 's' },
+    'fazenda-infinita': { nome: 'Fazenda Infinita · moedas', curto: 'FAZ ∞', letreiro: ['FAZENDA', 'INFINITA'], sub: 'MOEDAS VENDIDAS', menorGanha: false, unidade: '' },
+    'fazenda-estrelas': { nome: 'Fazenda · estrelas', curto: 'FAZ ★', letreiro: ['FAZENDA', 'DO LUCAS'], sub: 'ESTRELAS', menorGanha: false, unidade: '★' },
+};
+// top 10 igual fliperama; pro campeao geral o 1o lugar vale 10, o 2o vale 9... o 10o vale 1
+const VAGAS_PLACAR = 10;
+const PONTOS_POSICAO = Array.from({ length: VAGAS_PLACAR }, (_, i) => VAGAS_PLACAR - i);
+const LETRAS_ARCADE = ' ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+const placar = { lista: guardar.ler('arcade-recordes', []), naNuvem: false };
+
+async function carregarPlacar() {
+    if (!nuvem) return;
+    const { data, error } = await nuvem.from('recordes').select('jogo, nome, pontos, autor_hash, criado_em')
+        .order('criado_em', { ascending: false }).limit(500);
+    // tabela ainda nao criada no banco: fica com o placar deste navegador
+    if (error) return console.warn('placar so neste navegador:', error.message);
+    placar.lista = data;
+    placar.naNuvem = true;
+    caixaArcade();
+}
+
+function topoPlacar(jogo) {
+    const { menorGanha } = JOGOS_ARCADE[jogo];
+    return placar.lista.filter(r => r.jogo === jogo)
+        .sort((a, b) => (menorGanha ? a.pontos - b.pontos : b.pontos - a.pontos) || String(a.criado_em).localeCompare(String(b.criado_em)))
+        .slice(0, VAGAS_PLACAR);
+}
+
+function entraNoPlacar(jogo, pontos) {
+    if (!pontos) return false;
+    const topo = topoPlacar(jogo);
+    if (topo.length < VAGAS_PLACAR) return true;
+    const ultimo = topo[topo.length - 1].pontos;
+    return JOGOS_ARCADE[jogo].menorGanha ? pontos < ultimo : pontos > ultimo;
+}
+
+// quem jogou como ANONIMO e depois virou amigo aparece com o nome do cadastro
+function nomeNoPlacar(r) {
+    if (r.nome === 'ANONIMO' && r.autor_hash) {
+        const amigo = amigos.todos().find(a => a.chave_hash === r.autor_hash);
+        if (amigo) return letrasArcade(amigo.nome);
+    }
+    return r.nome;
+}
+
+function letrasArcade(texto) {
+    return semAcento(texto).toUpperCase().replace(/[^A-Z0-9 ]/g, '').replace(/\s+/g, ' ').trim().slice(0, 10);
+}
+
+function pontosArcade(jogo, pontos) {
+    return `${numero(pontos)}${JOGOS_ARCADE[jogo].unidade}`;
+}
+
+// o melhor jogador de todos: quem soma mais pontos de posicao em todos os placares
+function campeaoGeral() {
+    const soma = {};
+    Object.keys(JOGOS_ARCADE).forEach(j => topoPlacar(j).forEach((r, i) => {
+        const nome = nomeNoPlacar(r);
+        soma[nome] = (soma[nome] || 0) + PONTOS_POSICAO[i];
+    }));
+    const [nome, pontos] = Object.entries(soma).sort((a, b) => b[1] - a[1])[0] || [];
+    return nome ? { nome, pontos } : null;
+}
+
+// a fazenda (dentro do iframe) avisa quando bate uma marca
+window.addEventListener('message', e => {
+    const frame = $('#fazenda-frame');
+    if (!frame || e.source !== frame.contentWindow || e.origin !== location.origin) return;
+    const { placar: jogo, pontos } = e.data || {};
+    if (!['fazenda-infinita', 'fazenda-estrelas'].includes(jogo) || !Number.isInteger(pontos) || pontos < 1 || pontos > 999999) return;
+    talvezRecorde(jogo, pontos);
+});
+
+async function salvarNoPlacar(jogo, nome, pontos) {
+    const linha = { jogo, nome, pontos };
+    if (placar.naNuvem) {
+        const error = await inserirAssinado('recordes', linha);
+        if (!error) return carregarPlacar();
+        console.warn('placar:', error.message);
+    }
+    placar.lista.push({ ...linha, autor_hash: hashDaChave, criado_em: new Date().toISOString() });
+    guardar.salvar('arcade-recordes', placar.lista.filter(r => !placar.naNuvem || !r.id).slice(-200));
+    caixaArcade();
+}
+
+// tela de nome do fliperama: letra por letra, setinha pra cima e pra baixo
+function pedirNomeArcade(jogo, pontos) {
+    return new Promise(resolve => {
+        const amigo = meuAmigo();
+        const conhecido = letrasArcade(amigo ? amigo.nome : guardar.ler('arcade-nome', ''));
+        let letras = (conhecido || 'ANONIMO').padEnd(10, ' ').split('');
+        let pos = 0;
+        // ANONIMO e so o nome de reserva: a primeira letra digitada apaga ele
+        let reserva = !conhecido;
+        const fundo = document.createElement('div');
+        fundo.className = 'arcade-fundo';
+        fundo.innerHTML = `
+            <div class="arcade-tela" role="dialog" aria-label="Novo recorde">
+                <p class="arcade-pisca">NOVO RECORDE!</p>
+                <p class="arcade-jogo">${esc(JOGOS_ARCADE[jogo].nome.toUpperCase())} · ${pontosArcade(jogo, pontos)}</p>
+                <p class="arcade-dica">${amigo ? 'É VOCÊ? CONFIRA SEU NOME' : 'DIGITE SEU NOME'}</p>
+                <div class="arcade-letras"></div>
+                <input class="arcade-digitar" maxlength="10" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Seu nome no placar">
+                <p class="arcade-dica pequena">↑ ↓ troca a letra · ← → anda · ENTER confirma</p>
+                <div class="arcade-botoes"><button type="button" data-arcade="ok">OK</button><button type="button" data-arcade="pular">PULAR</button></div>
+            </div>`;
+        document.body.append(fundo);
+        const campo = $('.arcade-digitar', fundo);
+        const desenhar = () => {
+            $('.arcade-letras', fundo).innerHTML = letras.map((l, i) => `
+                <span class="arcade-casa ${i === pos ? 'atual' : ''}" data-casa-arcade="${i}">
+                    <button type="button" data-letra="${i}" data-passo="1" aria-label="próxima letra">▲</button>
+                    <b>${l === ' ' ? '_' : esc(l)}</b>
+                    <button type="button" data-letra="${i}" data-passo="-1" aria-label="letra anterior">▼</button>
+                </span>`).join('');
+            campo.value = letras.join('').trimEnd();
+        };
+        const girar = (i, passo) => {
+            const atual = LETRAS_ARCADE.indexOf(letras[i]);
+            letras[i] = LETRAS_ARCADE[(atual + passo + LETRAS_ARCADE.length) % LETRAS_ARCADE.length];
+        };
+        const fechar = nome => {
+            fundo.remove();
+            resolve(nome);
+        };
+        const confirmar = () => {
+            const nome = letrasArcade(letras.join('')) || 'ANONIMO';
+            if (nome !== 'ANONIMO') guardar.salvar('arcade-nome', nome);
+            fechar(nome);
+        };
+        fundo.addEventListener('click', e => {
+            const seta = e.target.closest('[data-letra]');
+            const casa = e.target.closest('[data-casa-arcade]');
+            if (seta) {
+                reserva = false;
+                pos = Number(seta.dataset.letra);
+                girar(pos, Number(seta.dataset.passo));
+            } else if (casa) {
+                pos = Number(casa.dataset.casaArcade);
+            }
+            if (e.target.closest('[data-arcade="ok"]')) return confirmar();
+            if (e.target.closest('[data-arcade="pular"]')) return fechar(null);
+            desenhar();
+            campo.focus();
+        });
+        campo.addEventListener('keydown', e => {
+            e.stopPropagation();
+            const teclas = { ArrowUp: () => girar(pos, 1), ArrowDown: () => girar(pos, -1), ArrowLeft: () => { pos = Math.max(0, pos - 1); }, ArrowRight: () => { pos = Math.min(9, pos + 1); } };
+            if (e.key === 'Enter') { e.preventDefault(); return confirmar(); }
+            if (e.key === 'Escape') { e.preventDefault(); return fechar(null); }
+            if (e.key === 'Backspace') {
+                e.preventDefault();
+                reserva = false;
+                if (letras[pos] === ' ' && pos > 0) pos--;
+                letras[pos] = ' ';
+                return desenhar();
+            }
+            if (teclas[e.key]) { e.preventDefault(); reserva = false; teclas[e.key](); return desenhar(); }
+            const letra = letrasArcade(e.key.length === 1 ? e.key : '') || (e.key === ' ' ? ' ' : '');
+            if (e.key.length === 1) {
+                e.preventDefault();
+                if (letra && reserva) {
+                    letras = Array(10).fill(' ');
+                    pos = 0;
+                }
+                reserva = false;
+                if (letra) {
+                    letras[pos] = letra;
+                    pos = Math.min(9, pos + 1);
+                }
+                desenhar();
+            }
+        });
+        // no celular o teclado escreve direto no campo
+        campo.addEventListener('input', () => {
+            const texto = letrasArcade(campo.value);
+            letras = texto.padEnd(10, ' ').split('');
+            pos = Math.min(9, texto.length);
+            desenhar();
+        });
+        // comeca do fim do nome que ja veio escrito
+        pos = reserva ? 0 : Math.min(9, letras.join('').trimEnd().length);
+        desenhar();
+        setTimeout(() => campo.focus(), 50);
+    });
+}
+
+async function talvezRecorde(jogo, pontos) {
+    if (!entraNoPlacar(jogo, pontos)) return false;
+    const nome = await pedirNomeArcade(jogo, pontos);
+    if (nome) await salvarNoPlacar(jogo, nome, pontos);
+    return Boolean(nome);
+}
+
+const NOMES_POSICAO = ['1ST', '2ND', '3RD', '4TH', '5TH', '6TH', '7TH', '8TH', '9TH', '10TH'];
+
+// tabela de um jogo, sempre com as 10 linhas (as vazias ficam com tracinhos)
+function linhasPlacar(jogo) {
+    const topo = topoPlacar(jogo);
+    return NOMES_POSICAO.map((pos, i) => {
+        const r = topo[i];
+        return `<li class="pos${i + 1}"><span>${letraArcade(pos)}</span><b>${letraArcade(r ? nomeNoPlacar(r) : '---')}</b><i>${letraArcade(r ? pontosArcade(jogo, r.pontos).replace(/\./g, '') : '-----')}</i></li>`;
+    }).join('');
+}
+
+// placar com cara de tela de fliperama (tipo a do space invaders): letreiro 3d e o top 10 colorido
+function verPlacar(jogoInicial = 'minado-iniciante') {
+    const jogos = Object.keys(JOGOS_ARCADE);
+    let atual = jogos.includes(jogoInicial) ? jogoInicial : jogos[0];
+    const fundo = document.createElement('div');
+    fundo.className = 'arcade-fundo';
+    const desenhar = () => {
+        const jogo = JOGOS_ARCADE[atual];
+        const campeao = campeaoGeral();
+        fundo.innerHTML = `<div class="placar-led" role="dialog" aria-label="High scores: ${esc(jogo.nome)}">
+            <p class="led-creditos">${letraArcade('0 CREDITS')}</p>
+            <h2 class="led-letreiro">${jogo.letreiro.map(l => `<span>${esc(l)}</span>`).join('')}</h2>
+            <p class="led-sub">${letraArcade(jogo.sub)}</p>
+            <p class="led-high">${letraArcade('HIGH SCORES')}</p>
+            <ol class="led-lista">${linhasPlacar(atual)}</ol>
+            <p class="led-campeao">${letraArcade('CHAMPION')} <b>${letraArcade(campeao ? campeao.nome : '???')}</b>${campeao ? ' ' + letraArcade(campeao.pontos + ' PTS') : ''}</p>
+            <div class="led-abas">${jogos.map(j => `<button type="button" data-aba-placar="${j}" class="${j === atual ? 'ativa' : ''}">${letraArcade(JOGOS_ARCADE[j].curto)}</button>`).join('')}</div>
+            <button type="button" class="led-sair" data-arcade="ok">${letraArcade('PRESS ESC')}</button>
+        </div>`;
+    };
+    const fechar = () => {
+        clearInterval(roda);
+        document.removeEventListener('keydown', tecla);
+        fundo.remove();
+    };
+    const tecla = e => { if (e.key === 'Escape') fechar(); };
+    desenhar();
+    document.body.append(fundo);
+    document.addEventListener('keydown', tecla);
+    // troca de jogo sozinho a cada 6 segundos, ate a pessoa clicar numa aba
+    const roda = setInterval(() => { atual = jogos[(jogos.indexOf(atual) + 1) % jogos.length]; desenhar(); }, 6000);
+    fundo.addEventListener('click', e => {
+        const aba = e.target.closest('[data-aba-placar]');
+        if (aba) {
+            clearInterval(roda);
+            atual = aba.dataset.abaPlacar;
+            return desenhar();
+        }
+        if (e.target === fundo || e.target.closest('[data-arcade]')) fechar();
+    });
+}
+
+// quadro "arcade" do lado esquerdo: a foto de um fliperama com os jogos na tela (so os icones)
+function caixaArcade() {
+    const caixa = $('#caixa-arcade');
+    if (!caixa) return;
+    const [, mes, dia] = LANCAMENTOS.fazenda;
+    const jogos = [
+        { id: 'minado', nome: 'Campo Tekisminado', ico: 'mina' },
+        { id: 'fazenda', nome: 'Fazenda do Lucas', ico: 'celeiro', quando: `${String(dia).padStart(2, '0')}/${String(mes).padStart(2, '0')}` },
+    ];
+    const campeao = campeaoGeral();
+    caixa.innerHTML = `
+        <div class="fliperama"><div class="fl-zoom">
+            <img class="fl-foto" src="imagens/arcade/fliperama.png" alt="Fliperama do Quarto do Lucas" width="360" height="444">
+            <div class="fl-tela">
+                <span class="fl-estrelas" aria-hidden="true"></span>
+                <button type="button" class="fl-hud" data-comando="placar" title="Ver o placar">${letraArcade('HI-SCORE')} <b>${letraArcade(campeao ? campeao.nome : '-----')}</b></button>
+                <p class="fl-titulo">${letraArcade('SELECT GAME')}</p>
+                <div class="fl-lista">
+                ${jogos.map(j => liberado(j.id)
+                    ? `<button type="button" class="fl-jogo" data-abrir="${j.id}" title="${j.nome}" aria-label="Jogar ${j.nome}">${icone(j.ico, 32)}</button>`
+                    : `<span class="fl-jogo trancado" title="${j.nome}: chega ${j.quando}">${icone(j.ico, 32)}<small>${letraArcade(j.quando)}</small></span>`).join('')}
+                </div>
+                <p class="fl-rodape-tela"><span class="fl-coin">${letraArcade('INSERT COIN')}</span></p>
+            </div>
+            <button type="button" class="fl-botao start1" ${liberado('minado') ? 'data-abrir="minado"' : 'disabled'} title="1P: Campo Tekisminado"></button>
+            <button type="button" class="fl-botao start2" ${liberado('fazenda') ? 'data-abrir="fazenda"' : 'disabled'} title="2P: Fazenda do Lucas"></button>
+            <button type="button" class="fl-botao azuis" data-comando="placar" title="Placar"></button>
+        </div></div>`;
+}
 
 
 // --- sem internet (jogo do dinossauro de oculos) ---
@@ -6211,6 +6705,35 @@ function aplicarFundo(id) {
     else if (previa) previa.className = 'tela-monitor';
 }
 
+// papel de parede do celular e do tablet (nas datas especiais vale a lista do tema, igual no pc)
+const PAPEIS_CEL = [
+    { id: 'dente-de-leao', nome: 'Dente-de-leão (Galaxy S III)', arquivo: 'imagens/celular/dente-de-leao.jpg' },
+];
+
+function papeisCelDisponiveis() {
+    const especial = fundosDaData();
+    return especial ? especial.lista.map(f => ({ ...f, arquivo: `imagens/fundos/${f.arquivo}` })) : PAPEIS_CEL;
+}
+
+function papelCelEscolhido() {
+    const especial = fundosDaData();
+    const chave = especial ? `papel-cel-${datasAgora.tema}` : 'papel-cel';
+    const lista = papeisCelDisponiveis();
+    const id = guardar.ler(chave, especial ? fundoEscolhido() : PAPEIS_CEL[0].id);
+    return lista.find(p => p.id === id) || lista[0];
+}
+
+function aplicarPapelCel(id) {
+    const especial = fundosDaData();
+    if (id) guardar.salvar(especial ? `papel-cel-${datasAgora.tema}` : 'papel-cel', id);
+    const papel = papelCelEscolhido();
+    document.body.style.setProperty('--papel-cel', `url("${papel.arquivo}")`);
+    // o tablet tem o "phase beam" proprio; so troca no tema ou quando a pessoa escolhe outro papel
+    const escolheuOutro = guardar.ler('papel-cel', '') && papel.id !== PAPEIS_CEL[0].id;
+    if (especial || escolheuOutro) document.body.style.setProperty('--papel-tab', `#000 url("${papel.arquivo}") center / cover`);
+    else document.body.style.removeProperty('--papel-tab');
+}
+
 function montarFundos() {
     const atual = fundoEscolhido();
     $('#lista-fundos').innerHTML = fundosDisponiveis().map(f => `
@@ -6254,6 +6777,7 @@ const COMANDOS = {
     'idioma-es': () => trocarIdioma('es', true),
     'fechar-aviso-traducao': () => { $('#aviso-traducao').hidden = true; },
     'internet': () => alternarInternet(),
+    'placar': () => verPlacar(),
     'nova-guia': novaAba,
     'imprimir': () => window.print(),
     'fechar': () => acaoJanela($('#navegador'), 'fechar'),
@@ -6354,9 +6878,18 @@ async function entrarNoDiario(dados) {
     return true;
 }
 
+let ultimoEnvio = 0;
 async function enviarFormulario(form) {
     const dados = Object.fromEntries(new FormData(form));
     const tipo = form.dataset.form;
+    // robo preenche o campo escondido, gente de verdade nem ve ele
+    if (dados.site) return;
+    if (['recado', 'depoimento', 'desenho', 'amigo'].includes(tipo) && !souDono) {
+        if (Date.now() - ultimoEnvio < 15000) {
+            return dialogo({ titulo: 'Calma!', icone: 'information', texto: 'Espera uns segundinhos antes de mandar de novo.' });
+        }
+        ultimoEnvio = Date.now();
+    }
     const botao = form.querySelector('[type=submit]');
     if (botao) botao.disabled = true;
     status('Enviando...');
@@ -6534,7 +7067,7 @@ async function enviarFormulario(form) {
             }
             if (antigo) lista[edicaoSecreto] = item;
             else lista.unshift(item);
-            await salvarConfig('secreto', lista.slice(0, 60));
+            await salvarSecreto(lista.slice(0, 60));
             if (antigo?.imagem && antigo.imagem !== item.imagem) nuvem.storage.from('fotos').remove([antigo.imagem]).catch(console.error);
             edicaoSecreto = null;
             mostrarPagina();
@@ -6555,6 +7088,7 @@ Se não for, usa outro nome ou apelido.` });
             }
             const foto = await fotoQuadrada(dados.foto, 128);
             await amigos.adicionar({ nome: dados.nome.trim(), foto });
+            reaplicarAmigos();
             lembrarNome(dados.nome);
             mostrarPagina();
             dialogo({ titulo: 'Amigos', icone: 'user_add', texto: 'Pronto! Agora você aparece nos meus amigos (L)' });
@@ -6737,7 +7271,7 @@ document.addEventListener('click', e => {
         return confirmar('Área secreta', 'Tirar isso da área secreta?', () => {
             const antigo = itensSecretos()[Number(d.apagarSecreto)];
             const lista = itensSecretos().filter((_, i) => i !== Number(d.apagarSecreto));
-            salvarConfig('secreto', lista).then(() => {
+            salvarSecreto(lista).then(() => {
                 if (antigo?.imagem) nuvem.storage.from('fotos').remove([antigo.imagem]).catch(console.error);
                 edicaoSecreto = null;
                 mostrarPagina();
@@ -6747,7 +7281,7 @@ document.addEventListener('click', e => {
     if (d.subirSecreto) {
         const i = Number(d.subirSecreto), lista = [...itensSecretos()];
         [lista[i - 1], lista[i]] = [lista[i], lista[i - 1]];
-        salvarConfig('secreto', lista).then(mostrarPagina, erroNuvem);
+        salvarSecreto(lista).then(mostrarPagina, erroNuvem);
         return;
     }
     if (d.editarSecreto) {
@@ -7642,7 +8176,8 @@ function botarEnfeites(nome, hoje) {
 function decorarDatas() {
     const hoje = new Date();
     const pedido = new URLSearchParams(location.search).get('tema');
-    const nome = TEMAS[pedido] ? pedido : (DATAS_TEMA.find(d => d.quando(hoje))?.tema || null);
+    // ?tema=nenhum mostra o site normal, sem tema de data
+    const nome = pedido === 'nenhum' ? null : TEMAS[pedido] ? pedido : (DATAS_TEMA.find(d => d.quando(hoje))?.tema || null);
     const [estacao, nomeEstacao, periodo] = estacaoDoAno(hoje);
     const letreiro = $('.letreiro marquee');
     if (datasAgora.letreiroBase === null) datasAgora.letreiroBase = letreiro?.textContent || '';
@@ -7666,6 +8201,8 @@ function decorarDatas() {
         if (nome) botarEnfeites(nome, hoje);
         // papel de parede do tema (no halloween entram os fundos de halloween)
         aplicarFundo(fundoEscolhido());
+        aplicarPapelCel();
+        vestirJujuba();
         if (!$('#fundos')?.hidden) montarFundos();
         corWinamp();
     }
@@ -7799,7 +8336,7 @@ const AJUDA_JUJUBA = [
     { id: 'piada', pergunta: 'Me conta uma piada', chaves: 'piada piadas rir engracado graca humor',
         resposta: () => sorteio(PIADAS_JUJUBA), maisUma: true },
     { id: 'dica', pergunta: 'Me dá uma dica', chaves: 'dica dicas conselho',
-        resposta: () => sorteio(FALAS_ASSISTENTE.soltas), maisUma: true },
+        resposta: () => falaSolta(), maisUma: true },
     { id: 'jujuba', pergunta: 'Quem é você?', chaves: 'voce jujuba agua viva assistente clippy quem',
         resposta: 'Eu sou a Jujuba, uma água-viva que mora no seu navegador. Gosto de dar dicas, contar piada ruim e flutuar. Sou parente distante do clipe do Office.' },
     { id: 'sumir', pergunta: 'Como faço você sumir?', chaves: 'sumir esconder fechar desligar sai embora chata',
@@ -8157,6 +8694,48 @@ function colocarAssistente(x, y) {
     caixa.style.bottom = 'auto';
 }
 
+// --- fantasias da jujuba nas datas especiais ---
+// cada uma e um render 3d (png) feito na mesma medida da imagem dela, com sobra em volta pros chapeus e a bandeira
+const FANTASIAS_JUJUBA = new Set(['halloween', 'aniversario', 'natal', 'anonovo', 'carnaval', 'pascoa', 'namorados', 'orgulho', 'trans', 'copa', 'independencia', 'rock', 'muertos', 'consciencia']);
+// fantasias que cobrem os olhos: as palpebras somem pra nao piscar por cima
+const FANTASIA_COBRE_OLHOS = new Set(['rock']);
+
+function vestirJujuba() {
+    const corpo = $('.flutua-assistente');
+    if (!corpo) return;
+    $('.fantasia-assistente', corpo)?.remove();
+    const tema = datasAgora.tema;
+    $('#assistente')?.classList.toggle('olhos-cobertos', FANTASIA_COBRE_OLHOS.has(tema));
+    if (!FANTASIAS_JUJUBA.has(tema)) return;
+    $('#boneco-assistente').insertAdjacentHTML('afterend',
+        `<img class="fantasia-assistente" src="imagens/assistente/fantasias/${tema}.png?v=2" alt="" draggable="false">`);
+}
+
+// falas de cada data (entram no meio das falas normais)
+const FALAS_TEMA_JUJUBA = {
+    halloween: ['Buuu! Gostou da minha fantasia de fantasma? Eu que costurei. Com os tentáculos.', 'Doces ou travessuras? Eu aceito os dois, mas prefiro doces.', 'Tem um morcego voando aqui no site. Não fui eu que deixei entrar.', 'Fantasma de água-viva é muito mais assustador, admite.'],
+    aniversario: ['Hoje é o dia do bolinho do Lucas! Já deixou recado de parabéns?', 'Coloquei meu chapéu de festa só pra hoje. Cadê o bolo?', 'Parabéns pra você, nessa data querida... eu canto mal, mas canto com emoção.'],
+    natal: ['Ho ho ho! Eu sou a ajudante do Papai Noel. A parte molhada da equipe.', 'Pedi pro Papai Noel um aquário maior. Será que eu fui boazinha?', 'Feliz Natal! Deixa um recado de boas festas pro Lucas.'],
+    anonovo: ['Feliz ano novo! Minha meta: dar ainda mais dicas que ninguém pediu.', 'Cartola pronta pra virada. Já fez seus pedidos?', 'Ano novo, Jujuba nova. Mentira, é a mesma.'],
+    carnaval: ['É carnaval! Gostou da minha máscara?', 'Eu sambo melhor que muita gente. Oito tentáculos ajudam bastante.', 'Bora pro bloco! Se perder, procura a água-viva de máscara.'],
+    pascoa: ['Feliz Páscoa! Essas orelhas de coelho combinaram comigo, né?', 'Escondi uns ovinhos pelo site... mentira, comi todos.', 'Coelho da Páscoa, que trazes pra mim? Um chocolate pra água-viva, por favor.'],
+    namorados: ['Feliz Dia dos Namorados! Meu coração é de água, mas é todo seu.', 'Que tal mandar um recado fofo pra alguém hoje?', 'Amor de água-viva é assim: transparente.'],
+    orgulho: ['Feliz Dia do Orgulho! Amor é amor, em qualquer oceano.', 'Trouxe minha bandeira do arco-íris hoje. Respeito sempre!'],
+    trans: ['Dia da Visibilidade Trans! Existir é resistir, e todo mundo merece respeito.', 'Tô segurando a bandeira trans com o maior orgulho!'],
+    copa: ['Vai Brasil! Pintei a cara e tudo.', 'Se sair gol, eu solto bolha de alegria!', 'Hoje é final de Copa. Ninguém fala comigo durante o jogo.'],
+    independencia: ['Feliz 7 de setembro! Independência ou morte... ou só um recadinho mesmo.', 'Trouxe minha bandeirinha do Brasil hoje.'],
+    rock: ['Dia do Rock! Coloquei os óculos escuros pra ficar mais rockeira.', 'Aumenta o volume do Winamp aí!', 'Eu sou tipo uma estrela do rock. Do mar.'],
+    muertos: ['Día de los Muertos: hoje a gente lembra com carinho de quem já foi.', 'Coloquei minha coroa de flores de cempasúchil. Ficou bonita?'],
+    consciencia: ['Dia da Consciência Negra. Zumbi dos Palmares vive!', 'Contra o racismo, sempre. Até debaixo d\'água.'],
+};
+
+// fala solta: nas datas especiais metade das vezes sai uma fala da data
+function falaSolta() {
+    const doTema = FALAS_TEMA_JUJUBA[datasAgora.tema];
+    return doTema && Math.random() < .5 ? sorteio(doTema) : sorteio(FALAS_ASSISTENTE.soltas);
+}
+
+
 function iniciarAssistente(chamada = false) {
     const caixa = $('#assistente');
     const boneco = $('#boneco-assistente');
@@ -8198,7 +8777,7 @@ function iniciarAssistente(chamada = false) {
         if (caixa.classList.contains('dormindo')) return;
         if (Date.now() - assistente.ultimaFala > 60000) {
             animarJujuba('chamar', 1300);
-            setTimeout(() => assistenteFalar(sorteio(FALAS_ASSISTENTE.soltas)), 700);
+            setTimeout(() => assistenteFalar(falaSolta()), 700);
         }
     }, 30000);
 
@@ -8296,7 +8875,7 @@ function iniciarAssistente(chamada = false) {
             return;
         }
         if (acao === 'nao') assistenteFalar(FALAS_ASSISTENTE.nao);
-        if (acao === 'dica') assistenteFalar(sorteio(FALAS_ASSISTENTE.soltas));
+        if (acao === 'dica') assistenteFalar(falaSolta());
         if (acao === 'calar') {
             clearInterval(assistente.timerFala);
             $('#balao-assistente').hidden = true;
@@ -8688,6 +9267,11 @@ function montarCelular() {
             document.body.style.setProperty('--oy', Math.round(r.top + r.height / 2 - 70) + 'px');
             return abrirAppCel(app.dataset.appCel);
         }
+        const papel = e.target.closest('[data-papel-cel]');
+        if (papel) {
+            aplicarPapelCel(papel.dataset.papelCel);
+            return montarConfigCel();
+        }
         const b = e.target.closest('[data-cel]');
         if (!b) return;
         const acao = b.dataset.cel;
@@ -8782,11 +9366,22 @@ function atualizarCel() {
             : '<svg viewBox="0 0 40 40" width="34" height="34"><g stroke="#ffd54a" stroke-width="3" stroke-linecap="round"><path d="M20 2v5M20 33v5M2 20h5M33 20h5M7 7l3.5 3.5M29.5 29.5 33 33M7 33l3.5-3.5M29.5 10.5 33 7"/></g><circle cx="20" cy="20" r="9" fill="#ffd54a"/></svg>';
     }
     $('#sinal-cel').classList.toggle('sem-sinal', semNet);
+    const frase = fraseTemaCel();
+    $$('.local-widget').forEach(el => {
+        el.textContent = frase || 'Quarto do Lucas';
+        el.classList.toggle('do-tema', Boolean(frase));
+    });
     const zap = avisoZap.naoLidas;
     $('#notif-cel').innerHTML = zap ? `<img src="${urlIcone('msn_messenger')}" alt="" title="${zap} mensagens novas no Zap">` : '';
     $('#aviso-bloqueio').innerHTML = zap
         ? `<img src="${urlIcone('msn_messenger')}" alt=""> ${zap > 99 ? '99+' : zap} ${zap === 1 ? 'mensagem nova' : 'mensagens novas'} no Zap`
-        : '';
+        : esc(frase);
+}
+
+// frase curta da data de hoje (pro celular), ou nada fora das datas
+function fraseTemaCel() {
+    const tema = datasAgora.tema;
+    return tema ? TEMAS[tema].frase(new Date()).split(/[.!:]/)[0].trim() + '!' : '';
 }
 
 // tablet de verdade: tela de toque com o lado menor de 600px pra cima
@@ -8917,7 +9512,7 @@ function abrirAppCel(id) {
     if (!app) return;
     if (app.jujuba) {
         if ($('#assistente').hidden) chamarAssistente();
-        else assistenteFalar(sorteio(FALAS_ASSISTENTE.soltas));
+        else assistenteFalar(falaSolta());
         return;
     }
     fecharAppAtualCel();
@@ -9024,7 +9619,8 @@ function abrirCortinaCel() {
             <button type="button" data-cel="energia"><img src="${urlIcone('control_power', 32)}" alt=""><span>Desligar</span></button>
         </div>
         <div class="titulo-cortina">Notificações</div>
-        ${zap ? `<button type="button" class="notificacao-cel" data-cel="abrir-zap"><img src="${urlIcone('msn_messenger', 32)}" alt=""><span><b>Zap do Lucas</b>${zap} ${zap === 1 ? 'mensagem nova' : 'mensagens novas'}</span></button>` : '<p class="sem-notificacao">Sem notificações</p>'}
+        ${datasAgora.tema ? `<div class="notificacao-cel notificacao-tema"><img src="imagens/assistente/agua-viva.png?v=2" alt=""><span><b>${esc(fraseTemaCel())}</b>${esc(FALAS_TEMA_JUJUBA[datasAgora.tema]?.[0] || TEMAS[datasAgora.tema].frase(new Date()))}</span></div>` : ''}
+        ${zap ? `<button type="button" class="notificacao-cel" data-cel="abrir-zap"><img src="${urlIcone('msn_messenger', 32)}" alt=""><span><b>Zap do Lucas</b>${zap} ${zap === 1 ? 'mensagem nova' : 'mensagens novas'}</span></button>` : datasAgora.tema ? '' : '<p class="sem-notificacao">Sem notificações</p>'}
         <button type="button" class="fechar-cortina" data-cel="fechar-cortina" aria-label="Fechar">▲</button>`;
     $('#cortina-cel').hidden = false;
     atualizarCel();
@@ -9040,6 +9636,10 @@ function montarConfigCel() {
         <div class="item-config"><img src="imagens/assistente/agua-viva.png?v=2" alt=""><span><b>Jujuba, a assistente</b>Dicas que ninguém pediu</span>${chave(!$('#assistente').hidden, 'jujuba')}</div>
         <button type="button" class="item-config" data-cel="bloquear"><img src="${urlIcone('lock', 32)}" alt=""><span><b>Tela de bloqueio</b>Bloquear agora</span></button>
         <div class="grupo-config">Exibição</div>
+        <div class="grupo-config">Papel de parede${fundosDaData() ? ` <small>(do tema de ${esc(TEMAS[datasAgora.tema].frase(new Date()).split(/[!.:]/)[0].toLowerCase())})</small>` : ''}</div>
+        <div class="papeis-cel">${papeisCelDisponiveis().map(p => `
+            <button type="button" class="papel-cel ${p.id === papelCelEscolhido().id ? 'ativo' : ''}" data-papel-cel="${p.id}" title="${esc(p.nome)}">
+                <img src="${p.arquivo}" alt="" loading="lazy"><span>${esc(p.nome)}</span></button>`).join('')}</div>
         <div class="item-config"><img src="${urlIcone('phone_vintage', 32)}" alt=""><span><b>Estilo da interface</b>${cel.tablet ? 'Tablet (Android 4.0)' : 'Celular (Galaxy)'}</span>
             <button type="button" class="chave-cel ${cel.tablet ? '' : 'ligado'}" data-cel="virar-celular">CEL</button>
             <button type="button" class="chave-cel ${cel.tablet ? 'ligado' : ''}" data-cel="virar-tablet">TAB</button></div>
@@ -9286,7 +9886,7 @@ const TELAS_CEL = {
         return `<div class="app-nativo">
             ${nuvem ? `<details class="cartao-cel novo-contato-cel">
                 <summary>${icone('user_add', 32)}<span><b>Criar contato</b><small>entra pros amigos do ${esc(DADOS.nome)}</small></span></summary>
-                <form class="form" data-form="amigo">
+                <form class="form" data-form="amigo"><input class="isca-robo" name="site" tabindex="-1" autocomplete="off" aria-hidden="true">
                     <label class="soltar-foto">
                         <input type="file" name="foto" accept="image/*" class="so-leitor" required>
                         <span class="previa-arquivo">${icone('user_add', 32)}<br>escolha sua foto</span>
@@ -9710,13 +10310,21 @@ document.addEventListener('visibilitychange', () => {
     }
 });
 
+// nyan cat atravessando o rodape (o gif original, com o arco-iris atras)
+function nyanCat() {
+    const rodape = $('.rodape-site');
+    if (!rodape || $('.nyan-cat')) return;
+    rodape.insertAdjacentHTML('afterbegin', `<div class="nyan-cat" aria-hidden="true"><span class="arco-nyan">${'<i></i>'.repeat(11)}</span><img class="gato-nyan" src="imagens/gifs/nyan-cat.gif" alt="" width="68" height="42"></div>`);
+}
+
 function iniciar() {
     preencherIcones();
     $$('.emoticons[data-preencher]').forEach(el => { el.innerHTML = botoesEmoticons(); });
     aplicarFundo(guardar.ler('fundo', 'homespace'));
+    aplicarPapelCel();
     aplicarZoom(guardar.ler('zoom', 1));
     preencherPerfil();
-    caixaDiario();
+    caixaArcade();
     preencherRegistros();
     preencherEnquete();
     montarFavoritos();
@@ -9733,6 +10341,7 @@ function iniciar() {
     relogio();
     setInterval(relogio, 10000);
     decorarDatas();
+    nyanCat();
     if (liberado('celular') && celularPossivel() && ['celular', 'tablet'].includes(guardar.ler('modo', ''))) entrarModoCelular(true);
     if (liberado('jujuba')) {
         assistente.tentou = true;
@@ -9763,6 +10372,8 @@ async function carregarDaNuvem() {
         await carregarConfig();
         await Promise.all([recados.carregar(), registros.carregar(), fotosPostadas.carregar(), desenhos.carregar(),
             noticias.carregar(), projetos.carregar(), avaliacoes.carregar(), amigos.carregar(), carregarEnquete()]);
+        reaplicarAmigos();
+        carregarPlacar().catch(console.error);
     } catch (erro) {
         [recados, registros, fotosPostadas, desenhos, noticias, projetos, avaliacoes, amigos].forEach(l => { l.pronto = true; });
         erroNuvem(erro);

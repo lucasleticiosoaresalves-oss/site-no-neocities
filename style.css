@@ -495,8 +495,186 @@ input, textarea, select { font-family: inherit; font-size: 12px; }
 }
 .caixa-apps button:hover { color: #ff0066; }
 
-.caixa-diario { text-align: center; }
+/* quadro arcade: a foto do fliperama, com o menu de jogos desenhado na tela */
+.caixa.caixa-arcade { background: none !important; border: none !important; box-shadow: none !important; padding: 0 !important; }
+/* zoom leve no gabinete: so um pouquinho das laterais e da base fica de fora */
+.fliperama { position: relative; margin: 0 auto; max-width: 240px; overflow: hidden; aspect-ratio: 100 / 137; user-select: none; }
+.fl-zoom { position: relative; width: 112%; margin-left: -6%; }
+.fl-foto { display: block; width: 100%; height: auto; }
+.fl-tela {
+    /* um pouco maior que a tela da foto, cobrindo a borda preta em volta */
+    position: absolute; left: 18.6%; top: 27.3%; width: 64%; height: 40.6%;
+    display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 6px 5px 5px;
+    background: radial-gradient(ellipse at center, #10104a 0%, #05051a 70%, #000 100%);
+    overflow: hidden; box-sizing: border-box; border-radius: 8px / 12px;
+    box-shadow: 0 0 0 2px #000, 0 0 8px rgba(80, 140, 255, .5);
+    font-family: 'Courier New', monospace; font-weight: bold; color: #fff;
+    animation: fl-tremor 4s infinite;
+    /* tudo la dentro cresce junto com a tela (cqh = % da altura dela) */
+    container-type: size;
+}
+/* tv de tubo: listras, cantos escuros e um brilho de vidro */
+.fl-tela::before {
+    content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 3;
+    background: radial-gradient(ellipse at 30% 15%, rgba(255, 255, 255, .12), transparent 45%),
+        radial-gradient(ellipse at center, transparent 60%, rgba(0, 0, 0, .7) 100%);
+}
+.fl-tela::after {
+    content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 4;
+    background: radial-gradient(circle, transparent 40%, rgba(0, 0, 0, .55) 65%) 0 0 / 2px 2px;
+}
+@keyframes fl-tremor { 0%, 96%, 100% { filter: brightness(1); } 97% { filter: brightness(1.25); } 98% { filter: brightness(.9); } }
+/* estrelinhas passando no fundo */
+.fl-estrelas {
+    position: absolute; inset: -50% 0 0; z-index: 0; pointer-events: none;
+    background-image: radial-gradient(1px 1px at 10% 20%, #fff, transparent), radial-gradient(1px 1px at 70% 35%, #9cf, transparent),
+        radial-gradient(1px 1px at 40% 60%, #fff, transparent), radial-gradient(1px 1px at 85% 80%, #ff9, transparent),
+        radial-gradient(1px 1px at 25% 90%, #f9c, transparent), radial-gradient(1px 1px at 55% 12%, #fff, transparent);
+    background-size: 60px 60px; animation: fl-estrelas 6s linear infinite; opacity: .8;
+}
+@keyframes fl-estrelas { to { transform: translateY(60px); } }
+.fl-tela > *:not(.fl-estrelas) { position: relative; z-index: 2; }
+.fl-tela p { margin: 0; }
+.fl-hud {
+    display: flex; justify-content: center; align-items: center; gap: .5em; width: 100%; padding: 0;
+    background: none; border: none; cursor: pointer; overflow: hidden;
+    font-size: max(7px, 8.5cqh); color: #ff4646; filter: drop-shadow(0 0 2px #ff4646);
+}
+.fl-hud b { color: #fff; filter: drop-shadow(0 0 2px #fff); }
+.fl-hud:hover b { color: #fff35a; }
+.fl-titulo { font-size: 14cqh; line-height: 1; color: #fff35a; filter: drop-shadow(0 0 3px #ffb300); }
+/* so os icones dos jogos, grandes, com moldura piscando no escolhido */
+.fl-lista { display: flex; justify-content: center; gap: 10px; }
+.fl-jogo {
+    position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    width: 34cqh; height: 34cqh; padding: 0; cursor: pointer;
+    background: rgba(0, 229, 255, .08); border: 2px solid #1b4a7a; border-radius: 4px;
+}
+.fl-jogo .ico { width: 75%; height: 75%; image-rendering: pixelated; filter: drop-shadow(0 0 3px rgba(0, 229, 255, .7)); }
+.fl-lista:not(:hover) button.fl-jogo:first-child, button.fl-jogo:hover, button.fl-jogo:focus-visible {
+    border-color: #ffe000; outline: none; animation: fl-moldura .6s steps(2) infinite;
+}
+@keyframes fl-moldura { 50% { border-color: #ff0066; box-shadow: 0 0 8px #ff0066; } }
+button.fl-jogo:hover .ico { transform: scale(1.1); }
+.fl-jogo.trancado { cursor: default; border-color: #333; background: rgba(255, 255, 255, .04); }
+.fl-jogo.trancado .ico { width: 60%; height: 60%; filter: grayscale(1) brightness(.5); }
+.fl-jogo small { font-size: max(6px, 6cqh); color: #ff4fb0; line-height: 1; margin-top: 1px; }
+.fl-rodape-tela { font-size: max(7px, 8.5cqh); line-height: 1; }
+.fl-coin { color: #3dd8ff; filter: drop-shadow(0 0 2px #3dd8ff); animation: fl-pisca 1s steps(1) infinite; }
+@keyframes fl-pisca { 50% { opacity: 0; } }
+/* os botoes de verdade da foto: 1P, 2P e os azuis (placar) */
+.fl-botao { position: absolute; padding: 0; background: none; border: none; border-radius: 50%; cursor: pointer; }
+.fl-botao:disabled { cursor: default; }
+.fl-botao:hover:not(:disabled) { box-shadow: 0 0 6px 2px #ffe000; }
+.fl-botao.start1 { left: 39.3%; top: 70.6%; width: 6%; height: 4.8%; }
+.fl-botao.start2 { left: 55.9%; top: 70.6%; width: 6%; height: 4.8%; }
+.fl-botao.azuis { left: 66%; top: 72.5%; width: 20%; height: 9.5%; border-radius: 30%; }
+.placar-arcade { list-style: none; margin: 0 0 6px; padding: 0; font: bold 11px 'Courier New', monospace; }
+.placar-arcade li { display: flex; gap: 6px; justify-content: space-between; padding: 1px 0; color: #fff; }
+.placar-arcade li span { color: #ff5ea8; min-width: 24px; text-align: left; }
+.placar-arcade li b { flex: 1; text-align: left; color: #ffe000; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.placar-arcade li i { font-style: normal; color: #6dff6d; }
+.placar-arcade .vazio-arcade { justify-content: center; color: #888; }
+
+/* tela do nome no placar (cobre tudo, igual fim de fase) */
+.arcade-fundo {
+    position: fixed; inset: 0; z-index: 99999; display: flex; align-items: center; justify-content: center;
+    background: rgba(0, 0, 0, .75); padding: 16px;
+}
+.arcade-tela {
+    width: 100%; max-width: 440px; max-height: 90vh; overflow: auto; text-align: center; padding: 16px 14px;
+    background: #000; border: 4px double #ffe000; box-shadow: 0 0 0 3px #ff0066, 0 0 24px #00c8ff;
+    font: bold 14px 'Courier New', monospace; color: #fff;
+}
+.arcade-pisca { margin: 0 0 6px; font-size: 22px; color: #ffe000; letter-spacing: 3px; animation: pisca-arcade .8s steps(2) infinite; }
+@keyframes pisca-arcade { 50% { color: #ff0066; } }
+.arcade-jogo { margin: 0 0 10px; color: #00c8ff; }
+.arcade-dica { margin: 0 0 8px; color: #6dff6d; }
+.arcade-dica.pequena { margin-top: 8px; font-size: 10px; color: #888; }
+.arcade-letras { display: flex; justify-content: center; gap: 2px; flex-wrap: wrap; }
+.arcade-casa { display: flex; flex-direction: column; align-items: center; width: 34px; cursor: pointer; }
+.arcade-casa b { display: block; width: 100%; font-size: 26px; line-height: 34px; color: #fff; border-bottom: 3px solid #444; }
+.arcade-casa.atual b { color: #ffe000; border-color: #ffe000; animation: pisca-arcade .8s steps(2) infinite; }
+.arcade-casa button { background: none; border: none; color: #00c8ff; font-size: 12px; padding: 2px 6px; cursor: pointer; }
+.arcade-casa button:hover { color: #ffe000; }
+.arcade-digitar { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+.arcade-botoes { display: flex; justify-content: center; gap: 10px; margin-top: 8px; }
+.arcade-botoes button {
+    background: #000; color: #ffe000; border: 2px solid #ffe000; padding: 4px 16px; cursor: pointer;
+    font: bold 14px 'Courier New', monospace;
+}
+.arcade-botoes button:hover { background: #ffe000; color: #000; }
+/* letra de fliperama desenhada ponto a ponto: tamanho pelo font-size, cor pela cor do texto */
+.letra-arcade { display: inline-block; height: 1em; vertical-align: middle; fill: currentColor; overflow: visible; }
+
+/* placar de fliperama, tipo a tela do space invaders: painel de led, letreiro 3d e o top 10 em arco-iris */
+.placar-led {
+    position: relative; width: 100%; max-width: 420px; max-height: 92vh; overflow: auto; padding: 10px 16px 14px;
+    background: radial-gradient(ellipse at 50% 30%, #0b0b22, #000 75%); text-align: center;
+    border: 3px solid #222; box-shadow: 0 0 0 2px #000, 0 0 30px rgba(80, 120, 255, .35);
+    font: bold 16px/1.25 'Courier New', monospace; color: #fff;
+}
+/* os pontinhos do painel de led por cima de tudo */
+.placar-led::after {
+    content: ''; position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(circle, transparent 45%, rgba(0, 0, 0, .55) 65%) 0 0 / 3px 3px;
+}
+.placar-led::before {
+    content: ''; position: absolute; inset: 0; pointer-events: none; opacity: .6;
+    background-image: radial-gradient(1px 1px at 8% 30%, #fff, transparent), radial-gradient(1px 1px at 92% 45%, #fff, transparent),
+        radial-gradient(1px 1px at 5% 70%, #9cf, transparent), radial-gradient(1px 1px at 95% 85%, #fff, transparent),
+        radial-gradient(1px 1px at 50% 98%, #fff, transparent);
+}
+.placar-led p { margin: 0; }
+.led-creditos { color: #fff; font-size: 12px; filter: drop-shadow(0 0 3px #fff); }
+.led-letreiro {
+    margin: 4px 0 0; display: flex; flex-direction: column; align-items: center; gap: 2px;
+    font: italic 900 42px/1.05 Impact, 'Arial Black', sans-serif; letter-spacing: 4px; color: #f3f08a;
+    transform: perspective(300px) rotateX(14deg);
+    text-shadow: 0 0 6px rgba(255, 250, 150, .5),
+        1px 1px 0 #7fd6ff, 2px 2px 0 #5ab0ff, 3px 3px 0 #4a8cff, 4px 4px 0 #3b6cff, 5px 5px 0 #3156e0, 6px 6px 0 #2a40b0, 7px 7px 6px rgba(0, 0, 0, .8);
+}
+.led-letreiro span:nth-child(2) { font-size: 46px; letter-spacing: 5px; }
+.led-sub { margin-top: 8px !important; color: #7fd6ff; font-size: 11px; filter: drop-shadow(0 0 2px #7fd6ff); }
+.led-high { margin: 10px 0 8px !important; color: #e8e8ff; font-size: 18px; filter: drop-shadow(0 0 4px rgba(200, 200, 255, .9)); }
+.led-lista { list-style: none; margin: 0 auto; padding: 0; max-width: 340px; font-size: 16px; }
+.led-lista li { display: grid; grid-template-columns: 60px 1fr auto; gap: 10px; padding: 3px 0; text-align: left; filter: drop-shadow(0 0 3px currentColor); }
+.led-lista li i { font-style: normal; text-align: right; }
+.led-lista .pos1 { color: #c86bff; }
+.led-lista .pos2 { color: #ff4fb0; }
+.led-lista .pos3 { color: #ff4646; }
+.led-lista .pos4 { color: #ff9d42; }
+.led-lista .pos5 { color: #b6ff5a; }
+.led-lista .pos6 { color: #4dff6e; }
+.led-lista .pos7 { color: #3dffb5; }
+.led-lista .pos8 { color: #3dd8ff; }
+.led-lista .pos9 { color: #4d8dff; }
+.led-lista .pos10 { color: #6a6aff; }
+.led-campeao { margin-top: 12px !important; color: #ffe000; font-size: 13px; filter: drop-shadow(0 0 3px rgba(255, 224, 0, .8)); }
+.led-campeao b { color: #fff; }
+.led-abas { position: relative; z-index: 1; display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; margin-top: 10px; }
+.led-abas button {
+    background: #000; color: #888; border: 1px solid #333; padding: 4px 6px; cursor: pointer; font-size: 10px; line-height: 1;
+}
+.led-abas button:hover { color: #fff; border-color: #777; }
+.led-abas button.ativa { color: #000; background: #f3f08a; border-color: #f3f08a; }
+.led-sair {
+    position: relative; z-index: 1; margin-top: 10px; background: none; border: none; cursor: pointer;
+    font-size: 13px; color: #fff; filter: drop-shadow(0 0 3px #fff); animation: fl-pisca 1s steps(1) infinite;
+}
+@media (max-width: 420px) {
+    .led-letreiro { font-size: 34px; }
+    .led-letreiro span:nth-child(2) { font-size: 37px; }
+    .led-lista { font-size: 13px; }
+    .led-lista li { grid-template-columns: 48px 1fr auto; gap: 6px; }
+}
+@media (max-width: 420px) {
+    .arcade-casa { width: 26px; }
+    .arcade-casa b { font-size: 20px; line-height: 28px; }
+}
+
 .cadeado { margin: 4px auto 6px; }
+.isca-robo { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
 .form-senha { display: flex; flex-direction: column; gap: 4px; }
 .form-senha input { padding: 2px 4px; border: 2px inset #ccc; text-align: center; font: 11px Verdana, sans-serif; }
 
@@ -2267,7 +2445,8 @@ body.modo-celular .area-trabalho { display: block; padding: 0; min-height: 0; }
 body.modo-celular:not(.cel-app-site) #navegador { display: none !important; }
 body.modo-celular:not(.cel-app-janela) .janela-app:not(#cores) { display: none !important; }
 body.cel-inicio, body.cel-bloqueado { overflow: hidden; }
-body.cel-inicio .enfeites-data, body.cel-inicio .chuva-data, body.cel-bloqueado .enfeites-data, body.cel-bloqueado .chuva-data { display: none !important; }
+body.cel-inicio .enfeites-data, body.cel-bloqueado .enfeites-data { display: none !important; }
+body.cel-inicio .chuva-data, body.cel-bloqueado .chuva-data { z-index: 1300; opacity: .75; }
 body.cel-bloqueado .assistente { display: none; }
 body.modo-celular .assistente:not([style*="top"]) { bottom: 54px; }
 body.cel-inicio .assistente:not([style*="top"]) { bottom: 150px; }
@@ -2307,7 +2486,7 @@ body.cel-inicio .status-cel, body.cel-bloqueado .status-cel { background: linear
 /* tela de bloqueio */
 .bloqueio-cel {
     position: fixed; inset: 0; z-index: 1280; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none;
-    background: #3d6fa6 url(imagens/celular/dente-de-leao.jpg) center / cover; color: #fff; transition: opacity .38s, transform .38s;
+    background: #3d6fa6 var(--papel-cel, url(imagens/celular/dente-de-leao.jpg)) center / cover; color: #fff; transition: opacity .38s, transform .38s;
 }
 .bloqueio-cel[hidden] { display: none; }
 .bloqueio-cel.saindo { opacity: 0; transform: scale(1.12); }
@@ -2324,10 +2503,17 @@ body.cel-inicio .status-cel, body.cel-bloqueado .status-cel { background: linear
 .onda-cel { position: absolute; width: 24px; height: 24px; margin: -12px 0 0 -12px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .8); box-shadow: 0 0 12px rgba(255, 255, 255, .5); pointer-events: none; animation: onda-cel .8s ease-out forwards; }
 @keyframes onda-cel { to { transform: scale(7); opacity: 0; } }
 
+/* escolha do papel de parede (nas configuracoes) */
+.papeis-cel { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 8px 12px 12px; }
+.papel-cel { display: flex; flex-direction: column; gap: 3px; padding: 0; background: none; border: 2px solid transparent; border-radius: 4px; cursor: pointer; color: inherit; font: inherit; font-size: 11px; text-align: center; }
+.papeis-cel .papel-cel img { display: block; width: 100%; height: auto; aspect-ratio: 9 / 14; object-fit: cover; border-radius: 2px; background: #222; }
+.papel-cel span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.papel-cel.ativo { border-color: #33b5e5; }
+
 /* tela inicial */
 .inicio-cel {
     position: fixed; top: 0; bottom: 0; left: 0; right: 0; z-index: 950; padding: 24px 0 44px;
-    display: flex; flex-direction: column; background: #3d6fa6 url(imagens/celular/dente-de-leao.jpg) center / cover;
+    display: flex; flex-direction: column; background: #3d6fa6 var(--papel-cel, url(imagens/celular/dente-de-leao.jpg)) center / cover;
 }
 .inicio-cel[hidden], .gaveta-cel[hidden], .config-cel[hidden], .cortina-cel[hidden], .opcoes-cel[hidden] { display: none; }
 .paginas-cel { flex: 1; min-height: 0; display: flex; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior: contain; }
@@ -2458,6 +2644,16 @@ body.cel-app-janela #msn > :not(.msn-conversa) { flex: none; }
 body.cel-app-site .caixa-tv .caixa-titulo .mini-link { display: none; }
 /* no celular o varal e as teias do tema nao cobrem as barras (a faixa do tema continua na pagina) */
 body.modo-celular .enfeites-data { display: none !important; }
+/* no tema: barra de cima, dock e gaveta pegam as cores da data */
+body.modo-celular[class*="tema-"] .status-cel { background: linear-gradient(var(--t1), color-mix(in srgb, var(--t1) 55%, transparent)); border-bottom: 2px solid var(--t5); }
+body.modo-celular[class*="tema-"] .dock-cel { background: linear-gradient(color-mix(in srgb, var(--t2) 45%, transparent), color-mix(in srgb, var(--t1) 85%, transparent)); border-top: 2px solid var(--t5); }
+body.modo-celular[class*="tema-"] .widget-cel { text-shadow: 0 2px 6px rgba(0, 0, 0, .7), 0 0 14px color-mix(in srgb, var(--t5) 70%, transparent); }
+body.modo-celular[class*="tema-"] .local-widget.do-tema { background: color-mix(in srgb, var(--t1) 80%, transparent); border: 1px solid var(--t5); color: #fff; font-weight: bold; }
+body.modo-celular[class*="tema-"] .aviso-bloqueio { background: color-mix(in srgb, var(--t1) 75%, transparent); border: 1px solid var(--t5); }
+body.modo-celular[class*="tema-"] .hora-cel-grande { text-shadow: 0 2px 6px rgba(0, 0, 0, .6), 0 0 18px color-mix(in srgb, var(--t5) 80%, transparent); }
+body.modo-celular[class*="tema-"] .barra-tablet, body.modo-celular[class*="tema-"] .teclas-cel { box-shadow: inset 0 2px 0 var(--t5); }
+.notificacao-tema { border-left: 4px solid var(--t5, #33b5e5); }
+.notificacao-tema img { object-fit: contain; }
 
 /* modo celular: acabamento */
 .defs-cel { position: absolute; width: 0; height: 0; overflow: hidden; }
@@ -2944,6 +3140,10 @@ body.cel-app-camera .assistente { display: none; }
     transform: scaleY(0); transform-origin: 50% 0; transition: transform .07s ease-in;
     box-shadow: inset 0 -2px 0 rgba(30, 10, 80, .55);
 }
+/* fantasia da data por cima da jujuba (mesma medida da imagem; chapeus passam por cima da cabeca) */
+/* o render da fantasia cobre de x -50 a 320 e de y -100 a 340 (a imagem dela vai de 0 a 219 e de 0 a 330) */
+.fantasia-assistente { position: absolute; left: -22.83%; top: -30.3%; width: 168.95%; height: auto; max-width: none; pointer-events: none; -webkit-user-drag: none; }
+.assistente.olhos-cobertos .palpebra-assistente { display: none; }
 .palpebra-assistente.esquerda { left: 24.4%; background: linear-gradient(#6d73ee, #4f5bdc); }
 .palpebra-assistente.direita { left: 56.9%; background: linear-gradient(#a27ae6, #8a64dc); }
 .assistente.piscando .palpebra-assistente, .assistente.dormindo .palpebra-assistente, .assistente.anim-bocejar .palpebra-assistente { transform: scaleY(1); }
@@ -3026,14 +3226,15 @@ body.cel-app-camera .assistente { display: none; }
 
 /* modo tablet (android 4.0 ice cream sandwich, tablets de 2011-2012) */
 /* papel de parede "phase beam": feixes de luz azul e roxo no fundo escuro */
+/* (nas datas de tema ou se a pessoa escolher outro papel, o --papel-tab entra no lugar) */
 body.cel-tablet .bloqueio-cel, body.cel-tablet .inicio-cel {
-    background:
+    background: var(--papel-tab,
         radial-gradient(ellipse 60% 40% at 72% 38%, rgba(70, 150, 255, .35), transparent 70%),
         linear-gradient(112deg, transparent 0 36%, rgba(51, 181, 229, .0) 37%, rgba(51, 181, 229, .55) 41%, rgba(140, 100, 255, .35) 44%, transparent 50%),
         linear-gradient(104deg, transparent 0 52%, rgba(51, 181, 229, .35) 55%, rgba(51, 181, 229, .08) 58%, transparent 62%),
         linear-gradient(122deg, transparent 0 18%, rgba(170, 90, 255, .32) 23%, transparent 30%),
         linear-gradient(96deg, transparent 0 70%, rgba(120, 200, 255, .25) 72%, transparent 76%),
-        linear-gradient(#03060f, #0a1830 55%, #040811);
+        linear-gradient(#03060f, #0a1830 55%, #040811));
 }
 body.cel-tablet .inicio-cel { padding: 0 0 48px; }
 /* barra de sistema embaixo: voltar, inicio e recentes na esquerda, hora e status na direita */
@@ -3163,3 +3364,41 @@ body.cel-app-janela #minado .corpo-minado { flex: 1; overflow: auto; }
 body.cel-app-janela #minado .campo-minado { margin: 0 auto; }
 body.cel-app-janela #minado .placar-minado { max-width: 360px; margin: 0 auto 6px; }
 .casa-minado svg { width: 92%; height: 92%; }
+
+/* winamp com a cor do dia (as mesmas regras do tema, so que com as cores do dia) */
+.winamp.wa-dia { --wa-lcd: color-mix(in srgb, var(--t1) 55%, #000); background: var(--d-casca); border-color: var(--t1); color: var(--t-texto); }
+.winamp.wa-dia .wa-barra, .winamp.wa-dia .wa-titulo { color: var(--t-texto); text-shadow: none; }
+.winamp.wa-dia .wa-corpo { background: var(--d-corpo); border-color: var(--t1); }
+.winamp.wa-dia .wa-lcd { background: var(--wa-lcd); border-color: var(--t2); color: var(--t3); }
+.winamp.wa-dia .wa-rotulos { color: var(--t3); }
+.winamp.wa-dia .wa-tempo { text-shadow: 0 0 4px var(--t3); }
+.winamp.wa-dia .tela-player { background: var(--t4); border-color: var(--t2); color: color-mix(in srgb, var(--t1) 70%, #000); }
+.winamp.wa-dia .wa-info span { background: var(--t3); border-color: var(--t1); color: var(--t-titulo); }
+.winamp.wa-dia .equalizador i { background: linear-gradient(0deg, var(--t5), var(--t3)); }
+.winamp.wa-dia .progresso-player { background: var(--wa-lcd); border-color: var(--t2); }
+.winamp.wa-dia .progresso-player span { background: var(--t3); }
+.winamp.wa-dia .controles-player .wa-botao { background: linear-gradient(180deg, var(--t3), var(--t2)); color: var(--t-titulo); }
+.winamp.wa-dia .controles-player .wa-botao.ativo { background: linear-gradient(180deg, var(--t2), var(--t1)); color: #fff; }
+.winamp.wa-dia .wa-eq, .winamp.wa-dia .wa-playlist { background: var(--d-corpo); border-color: var(--t1); }
+.winamp.wa-dia .wa-eq .wa-titulo, .winamp.wa-dia .wa-playlist .wa-titulo, .winamp.wa-dia .wa-sliders label { color: var(--t-titulo); }
+.winamp.wa-dia .wa-led, .winamp.wa-dia .wa-rodape b { background: var(--wa-lcd); color: var(--t3); }
+.winamp.wa-dia .wa-curva { background-color: var(--wa-lcd); background-image: radial-gradient(ellipse 60% 120% at 30% 120%, transparent 60%, var(--t3) 62%, transparent 66%); }
+.winamp.wa-dia .wa-sliders input { accent-color: var(--t1); }
+.winamp.wa-dia .lista-player { background: var(--t4); border-color: var(--t2); }
+.winamp.wa-dia .lista-player button, .winamp.wa-dia .lista-player a { color: color-mix(in srgb, var(--t1) 70%, #000); }
+.winamp.wa-dia .lista-player .atual a { background: var(--wa-lcd); color: var(--t3); }
+
+/* nyan cat atravessando o rodape */
+.rodape-site { position: relative; overflow: hidden; }
+.nyan-cat { position: absolute; top: 2px; left: 0; z-index: 2; display: flex; align-items: center; pointer-events: none; animation: nyan-passa 11s linear infinite; }
+.gato-nyan { width: 68px; height: 42px; flex: none; image-rendering: pixelated; }
+/* arco-iris em degraus, saindo de tras da torrada (no gif ela comeca 16px pra dentro, de 2px a 34px de altura) */
+.arco-nyan { display: flex; align-self: flex-start; margin: 3px -16px 0 0; flex: none; }
+.arco-nyan i {
+    display: block; width: 14px; height: 30px; flex: none;
+    background: linear-gradient(#ff0000 0 16.6%, #ff9900 16.6% 33.3%, #ffff00 33.3% 50%, #33ff00 50% 66.6%, #0099ff 66.6% 83.3%, #6633ff 83.3%);
+    animation: nyan-onda .4s steps(1) infinite;
+}
+.arco-nyan i:nth-child(even) { animation-delay: -.2s; }
+@keyframes nyan-passa { from { transform: translateX(-240px); } to { transform: translateX(calc(100vw + 40px)); } }
+@keyframes nyan-onda { 0% { transform: translateY(0); } 50% { transform: translateY(3px); } }

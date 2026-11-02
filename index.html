@@ -8,7 +8,7 @@
     <title>QUARTO DO LUCAS</title>
     <meta name="description" content="O quarto do Lucas na internet: recados, álbuns, diário e playlists no estilo orkut.">
     <link rel="icon" href="imagens/icones/16/internet_explorer.png">
-    <link rel="stylesheet" href="style.css?v=185">
+    <link rel="stylesheet" href="style.css?v=214">
 </head>
 <body>
 
@@ -183,20 +183,22 @@
                             <a href="#amigos" data-rota="amigos"><img class="ico" data-ico="group" alt=""> Amigos.</a>
                             <a href="#comunidades" data-rota="comunidades"><img class="ico" data-ico="comments" alt=""> Comunidades.</a>
                             <a href="#depoimentos" data-rota="depoimentos"><img class="ico" data-ico="award_star_gold_1" alt=""> Depoimentos.</a>
-                            <a href="#tv" data-rota="tv" data-recurso="tv" hidden><img class="ico" data-ico="film" alt=""> Sessão da TV.</a>
+                            <a href="#tv" data-rota="tv" data-recurso="tv" hidden><img class="ico" data-ico="film" alt=""> Sessão da TV. <img class="novo-gif" src="imagens/gifs/novo.gif" alt="NOVO!" width="40" height="20"></a>
                             <a href="#admin" data-rota="admin" data-so-dono hidden><img class="ico" data-ico="key" alt=""> Admin.</a>
                         </nav>
 
                         <div class="caixa caixa-apps">
                             <h3>Apps <small>do PC</small></h3>
-                            <button data-abrir="msn"><span class="com-contador"><img class="ico" data-ico="msn_messenger" alt=""><span class="contador-zap" hidden></span></span> Zap do Lucas <img class="novo-gif" src="imagens/gifs/novo.gif" alt="NOVO!" width="40" height="20"></button>
-                            <button data-abrir="paint"><img class="ico" data-ico="palette" alt=""> Paint <img class="novo-gif" src="imagens/gifs/novo.gif" alt="NOVO!" width="40" height="20"></button>
+                            <button data-abrir="msn"><span class="com-contador"><img class="ico" data-ico="msn_messenger" alt=""><span class="contador-zap" hidden></span></span> Zap do Lucas</button>
+                            <button data-abrir="paint"><img class="ico" data-ico="palette" alt=""> Paint</button>
                             <button data-abrir="notas"><img class="ico" data-ico="note" alt=""> Bloco de notas</button>
-                            <button data-abrir="minado" data-recurso="minado" hidden><img class="ico" data-ico="mina" alt=""> Campo Tekisminado</button>
+                            <button data-abrir="calculadora" data-recurso="calculadora" hidden><img class="ico" data-ico="calculator" alt=""> Calculadora <img class="novo-gif" src="imagens/gifs/novo.gif" alt="NOVO!" width="40" height="20"></button>
                             <button data-abrir="lixeira"><img class="ico" data-ico="bin_recycle" alt=""> Lixeira</button>
                         </div>
 
-                        <div class="caixa caixa-diario" id="caixa-diario"></div>
+                        <!-- jogos e o placar do site -->
+                        <div class="caixa caixa-arcade" id="caixa-arcade"></div>
+
                         <!-- desenhos aprovados do paint -->
                         <div class="caixa caixa-mural" id="caixa-mural"></div>
                     </aside>
@@ -379,6 +381,7 @@
             </div>
         </div>
         <form class="paint-enviar" id="paint-enviar" data-form="desenho" hidden>
+            <input class="isca-robo" name="site" tabindex="-1" autocomplete="off" aria-hidden="true">
             <b>Enviar desenho pro Lucas:</b>
             <input name="autor" placeholder="seu nome" maxlength="30" aria-label="Seu nome" required>
             <input name="titulo" placeholder="nome da arte" maxlength="60" aria-label="Nome da arte" required>
@@ -520,7 +523,7 @@
             <button data-janela="fechar" class="fechar" title="Fechar">✕</button>
         </div>
     </div>
-    <iframe id="fazenda-frame" title="Fazenda do Lucas" data-src="fazenda/index.html?v=34" allow="fullscreen"></iframe>
+    <iframe id="fazenda-frame" title="Fazenda do Lucas" data-src="fazenda/index.html?v=35" allow="fullscreen"></iframe>
 </div>
 
 
@@ -726,6 +729,6 @@
 
 <script src="js/supabase.js"></script>
 
-<script src="script.js?v=353"></script>
+<script src="script.js?v=386"></script>
 </body>
 </html>
