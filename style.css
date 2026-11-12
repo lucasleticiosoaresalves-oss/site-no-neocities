@@ -1364,6 +1364,28 @@ a.rede:hover { background: #ffffcc; }
 .gabarito-quizuu li { margin-bottom: 6px; }
 .gabarito-quizuu .igual b { color: #228e04; }
 .gabarito-quizuu .diferente b { color: #bf0f0f; }
+.marca-quizuu { cursor: var(--mao); }
+.marca-quizuu:hover { text-decoration: underline; }
+.navega-quizuu { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px; background: #f6f7f8; border: 1px solid #0c1d48; border-top: 0; font-size: 13px; color: #555; }
+.navega-quizuu button { padding: 6px 12px; background: #0c1d48; border: 0; border-radius: 3px; color: #fff; font: 600 13px Helvetica, Arial, sans-serif; cursor: var(--mao); }
+.navega-quizuu button:hover { background: #1d3d86; }
+.navega-quizuu button:disabled { background: #b9c0cf; cursor: var(--seta); }
+.dica-teclas { margin: 0; padding: 6px 10px 10px; color: #999; font-size: 11px; text-align: center; }
+.entrar-ranking { margin: 0 20px 14px; padding: 10px; background: #f6f7f8; border: 1px solid #0c1d48; }
+.entrar-ranking label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 13px; color: #0c1d48; }
+.entrar-ranking div { display: flex; gap: 6px; }
+.entrar-ranking input { flex: 1; min-width: 0; padding: 6px 8px; border: 1px solid #999; font: 14px Helvetica, Arial, sans-serif; }
+.entrar-ranking button { padding: 6px 12px; background: #0c1d48; border: 0; border-radius: 3px; color: #fff; font: 600 13px Helvetica, Arial, sans-serif; cursor: var(--mao); }
+.entrar-ranking button:hover { background: #1d3d86; }
+.ranking-feito { margin: 0 20px 14px; padding: 8px 10px; background: #eaf6e6; border: 1px solid #228e04; color: #1b5e0a; font-size: 13px; }
+.ranking-quizuu { margin-top: 10px; border-top: 1px solid #ddd; }
+.ranking-quizuu ol { margin: 0; padding: 8px 10px 8px 28px; }
+.ranking-quizuu li { margin-bottom: 5px; font-size: 12px; }
+.ranking-quizuu li span { display: inline-block; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+.ranking-quizuu li b { float: right; color: #0c1d48; }
+.ranking-quizuu li.primeiro { font-weight: 600; }
+.ranking-quizuu li.primeiro b { color: #d61b1b; }
+.ranking-quizuu .vazio-ranking { list-style: none; margin-left: -18px; color: #888; font-style: italic; }
 
 /* fundo com foto */
 body.papel-foto { background-size: cover; background-position: center; background-repeat: no-repeat; background-attachment: fixed; background-color: #3a6ea5; }
@@ -3049,7 +3071,7 @@ body.cel-app-site #nome-canal-tv {
     min-width: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 4px 8px; border: 0; border-radius: 3px;
     background: #0d0e10; color: #fff; font: 15px Roboto, Arial, sans-serif; text-align: center; box-shadow: inset 0 1px 3px #000; overflow-wrap: anywhere;
 }
-body.cel-app-site #nome-canal-tv::before { content: "AO VIVO"; margin-bottom: 2px; color: #ff5a4a; font: bold 10px Roboto, Arial, sans-serif; letter-spacing: 1px; }
+body.cel-app-site #nome-canal-tv::before { content: var(--texto-ao-vivo, "AO VIVO"); margin-bottom: 2px; color: #ff5a4a; font: bold 10px Roboto, Arial, sans-serif; letter-spacing: 1px; }
 body.cel-app-site .controle-tv [data-som-tv], body.cel-app-site .controle-tv [data-tela-cheia-tv] { grid-column: span 3; }
 body.cel-app-site .controle-tv [data-som-tv] { grid-column: 1 / 3; }
 body.cel-app-site .controle-tv [data-tela-cheia-tv] { grid-column: 3 / 4; grid-row: 2; font-size: 0; }
@@ -3497,3 +3519,13 @@ body.cel-app-janela #minado .placar-minado { max-width: 360px; margin: 0 auto 6p
 .arco-nyan i:nth-child(even) { animation-delay: -.2s; }
 @keyframes nyan-passa { from { transform: translateX(-240px); } to { transform: translateX(calc(100vw + 40px)); } }
 @keyframes nyan-onda { 0% { transform: translateY(0); } 50% { transform: translateY(3px); } }
+
+/* janela de conexao: primeiro escolhe o idioma, depois disca */
+.escolher-idioma { display: none; margin: 6px 0 4px; text-align: center; }
+.escolhendo .escolher-idioma { display: block; }
+.escolhendo #discando-texto, .escolhendo .barra-xp, .escolhendo .acoes { display: none; }
+.escolher-idioma p { margin: 0 0 8px; font-weight: bold; }
+.escolher-idioma small { font-weight: normal; color: #555; }
+.escolher-idioma div { display: flex; justify-content: center; gap: 8px; }
+.escolher-idioma .btn { display: inline-flex; align-items: center; gap: 5px; padding: 4px 14px; }
+.escolher-idioma .btn.marcado { outline: 2px solid #316ac5; }

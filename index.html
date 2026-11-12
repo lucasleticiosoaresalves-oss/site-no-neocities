@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; frame-src 'self' https://open.spotify.com https://www.youtube-nocookie.com https://www.youtube.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://sdwlmxvpkexggupmrzmb.supabase.co https://ws.audioscrobbler.com; media-src 'self' blob: https://sdwlmxvpkexggupmrzmb.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; frame-src 'self' https://open.spotify.com https://www.youtube-nocookie.com https://www.youtube.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://sdwlmxvpkexggupmrzmb.supabase.co https://ws.audioscrobbler.com https://translate.googleapis.com; media-src 'self' blob: https://sdwlmxvpkexggupmrzmb.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self'">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <title>QUARTO DO LUCAS</title>
     <meta name="description" content="O quarto do Lucas na internet: recados, álbuns, diário e playlists no estilo orkut.">
     <link rel="icon" href="imagens/icones/16/internet_explorer.png">
-    <link rel="stylesheet" href="style.css?v=227">
+    <link rel="stylesheet" href="style.css?v=232">
 </head>
 <body>
 
@@ -324,7 +324,7 @@
             <div class="pagina-quizuu" id="pagina-quizuu" hidden>
                 <div class="topo-quizuu">
                     <span class="menu-hamburguer" aria-hidden="true"><i></i><i></i><i></i></span>
-                    <b class="marca-quizuu">Quizuu</b>
+                    <b class="marca-quizuu" data-quizuu="capa" title="Voltar pro início do Quizuu">Quizuu</b>
                     <span class="busca-quizuu">Pesquise no Quizuu</span>
                     <span class="criar-quizuu">Criar Quiz</span>
                 </div>
@@ -340,6 +340,10 @@
                             <li><a href="https://pt.quizur.com/quiz/qual-das-meninas-super-poderosas-e-voce-1pg8V" target="_blank" rel="noopener">Qual das Meninas Superpoderosas é você?</a></li>
                             <li><a href="https://pt.quizur.com/quiz/quem-voce-seria-em-monster-high-9pd4" target="_blank" rel="noopener">Quem você seria em Monster High?</a></li>
                         </ol>
+                        <div class="ranking-quizuu">
+                            <h4 id="titulo-ranking-quizuu">Mais parecidos</h4>
+                            <ol id="ranking-quizuu"></ol>
+                        </div>
                     </div>
                 </div>
                 <div class="rodape-quizuu">Quizuu © 2017 · Termos de uso · Política de privacidade · Contato</div>
@@ -733,6 +737,10 @@
         <div class="barra-titulo"><span><img class="ico" data-ico="telephone" alt=""> Conectar a Quarto do Lucas</span></div>
         <div class="corpo-dialogo">
             <div class="modem"><img src="imagens/gifs/computador-crianca.gif" alt="" width="107" height="98"> <i>· · · · ·</i> <img src="imagens/gifs/globo.gif" alt="" width="64" height="64"></div>
+            <div class="escolher-idioma nao-traduzir">
+                <p>Em qual idioma você quer o site?<br><small>Which language do you want the site in?</small></p>
+                <div><button class="btn" data-idioma-conexao="pt"><img class="ico" data-ico="flag_brazil" alt=""> Português</button><button class="btn" data-idioma-conexao="en"><img class="ico" data-ico="flag_usa" alt=""> English</button></div>
+            </div>
             <p id="discando-texto">Discando para 0800-QUARTO...</p>
             <div class="barra-xp"><span id="discando-barra" style="width:0"></span></div>
         </div>
@@ -757,6 +765,6 @@
 
 <script src="js/supabase.js"></script>
 
-<script src="script.js?v=403"></script>
+<script src="script.js?v=415"></script>
 </body>
 </html>

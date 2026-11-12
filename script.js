@@ -528,11 +528,14 @@ const noticias = lista('noticias', [], 'noticias');
 const projetos = lista('projetos', DADOS.projetos, 'projetos');
 const avaliacoes = lista('avaliacoes', [], 'avaliacoes');
 const amigos = lista('amigos', [], 'amigos', true);
+// ranking do quizuu (quem e mais parecido com o lucas)
+const parecidos = lista('parecidos', [], 'parecidos', true);
 const zap = lista('zap', [], 'zap', true);
 
 // amigos novos ou carregados: os comentarios assinados trocam de nome
 function reaplicarAmigos() {
-    [recados, depoimentos, zap].forEach(l => l.reaplicar());
+    [recados, depoimentos, zap, parecidos].forEach(l => l.reaplicar());
+    montarRanking();
     caixaArcade();
 }
 
@@ -2365,7 +2368,7 @@ const RESULTADOS_QUIZ = [
     { minimo: 26, titulo: 'Cada um no seu quadrado', texto: 'Temos nossas semelhanças, mas cada um no seu quadrado! :)' },
     { minimo: 0, titulo: 'Oposto complementar total', texto: 'A gente se atrai pelos contrastes. (L)' },
 ];
-const quiz = { pergunta: -1, respostas: [] };
+const quiz = { pergunta: -1, respostas: [], noRanking: false };
 const ENDERECO_QUIZUU = 'http://www.quizuu.com.br/quiz/o-quanto-voce-se-parece-com-o-lucas';
 
 // o atalho da nova guia abre o quizuu na mesma guia, como outro site
@@ -2375,7 +2378,10 @@ function abrirQuizuu() {
     aba.tipo = 'quizuu';
     quiz.pergunta = -1;
     quiz.respostas = [];
+    quiz.noRanking = false;
     montarQuiz();
+    montarRanking();
+    parecidos.carregar().then(montarRanking).catch(erro => console.warn('ranking do quizuu:', erro.message));
     atualizarAbas();
     atualizarEndereco();
     $('#pagina-quizuu').scrollIntoView({ block: 'start' });
@@ -2406,7 +2412,13 @@ function montarQuiz() {
             <ul class="passos-quizuu">${QUIZ_LUCAS.map((_, i) => `<li class="${i === quiz.pergunta ? 'atual' : quiz.respostas[i] ? 'marcado' : ''}" ${quiz.respostas[i] && i !== quiz.pergunta ? `data-quizuu-ir="${i}"` : ''}>${i + 1}</li>`).join('')}</ul>
             <div class="pergunta-quizuu"><p>${esc(q.pergunta)}</p></div>
             <ul class="alternativas-quizuu ${curtas ? 'curtas' : ''}">${q.opcoes.map((o, j) => `
-                <li class="${quiz.respostas[quiz.pergunta] === LETRAS_QUIZ[j] ? 'escolhida' : ''}" data-quizuu-opcao="${LETRAS_QUIZ[j]}">${esc(o)}</li>`).join('')}</ul>
+                <li class="${quiz.respostas[quiz.pergunta] === LETRAS_QUIZ[j] ? 'escolhida' : ''}" data-quizuu-opcao="${LETRAS_QUIZ[j]}" title="tecla ${j + 1}">${esc(o)}</li>`).join('')}</ul>
+            <div class="navega-quizuu">
+                <button type="button" data-quizuu="anterior" ${quiz.pergunta ? '' : 'disabled'}>« Anterior</button>
+                <span>Pergunta <b>${quiz.pergunta + 1}</b> de ${total}</span>
+                <button type="button" data-quizuu="proxima" ${quiz.respostas[quiz.pergunta] ? '' : 'disabled'}>${quiz.pergunta === total - 1 ? 'Ver resultado' : 'Próxima'} »</button>
+            </div>
+            <p class="dica-teclas">dica: dá pra responder com as teclas 1 a 4 e andar com as setinhas</p>
         </div>`;
         return;
     }
@@ -2422,6 +2434,13 @@ function montarQuiz() {
                 <span class="refazer-quizuu" data-quizuu="refazer">&#8635; Refazer</span>
             </div>
             <div class="texto-resultado">${textoRico(resultado.texto)}<br><small>${iguais} de ${total} respostas iguais às do ${esc(DADOS.nome)}</small></div>
+            ${quiz.noRanking
+                ? `<p class="ranking-feito">Você entrou no ranking dos mais parecidos! Olha ali do lado. (Y)</p>`
+                : `<form class="entrar-ranking" data-ranking-quizuu>
+                    <label>Entre no ranking dos mais parecidos com o ${esc(DADOS.nome)}:</label>
+                    <div><input name="nome" maxlength="20" required placeholder="seu nome" value="${esc(meuAmigo()?.nome || meuNome() || '')}" aria-label="Seu nome no ranking">
+                    <button type="submit">Entrar no ranking</button></div>
+                </form>`}
             <details class="gabarito-quizuu"><summary>ver as respostas do ${esc(DADOS.nome)}</summary>
                 <ol>${QUIZ_LUCAS.map((q, i) => {
                     const igual = q.minha.includes(quiz.respostas[i]);
@@ -2445,10 +2464,79 @@ $('#quiz-luucas').addEventListener('click', e => {
         return;
     }
     if (ir) quiz.pergunta = Number(ir.dataset.quizuuIr);
-    if (acao === 'iniciar') quiz.pergunta = 0;
-    if (acao === 'refazer') { quiz.pergunta = 0; quiz.respostas = []; }
-    if (ir || acao) montarQuiz();
+    if (acao) navegarQuiz(acao);
+    else if (ir) montarQuiz();
 });
+
+function navegarQuiz(acao) {
+    const total = QUIZ_LUCAS.length;
+    if (acao === 'capa') { quiz.pergunta = -1; quiz.respostas = []; quiz.noRanking = false; }
+    if (acao === 'iniciar') quiz.pergunta = 0;
+    if (acao === 'refazer') { quiz.pergunta = 0; quiz.respostas = []; quiz.noRanking = false; }
+    if (acao === 'anterior' && quiz.pergunta > 0) quiz.pergunta--;
+    if (acao === 'proxima' && quiz.respostas[quiz.pergunta] && quiz.pergunta < total) quiz.pergunta++;
+    montarQuiz();
+    $('#pagina-quizuu').scrollIntoView({ block: 'start' });
+}
+
+// o logo do quizuu fica fora da caixa do quiz
+$('#pagina-quizuu .marca-quizuu').addEventListener('click', () => navegarQuiz('capa'));
+
+// teclado: 1 a 4 (ou A a D) responde, setinhas andam, enter comeca
+document.addEventListener('keydown', e => {
+    if ($('#pagina-quizuu').hidden || e.target.closest?.('input, textarea') || e.ctrlKey || e.altKey || e.metaKey) return;
+    const total = QUIZ_LUCAS.length;
+    if (quiz.pergunta < 0) {
+        if (e.key === 'Enter') { e.preventDefault(); navegarQuiz('iniciar'); }
+        return;
+    }
+    if (quiz.pergunta >= total) return;
+    const n = '1234'.indexOf(e.key) >= 0 ? '1234'.indexOf(e.key) : 'abcd'.indexOf(e.key.toLowerCase());
+    if (n >= 0 && e.key.length === 1) {
+        e.preventDefault();
+        return $(`#quiz-luucas [data-quizuu-opcao="${LETRAS_QUIZ[n]}"]`)?.click();
+    }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); navegarQuiz('anterior'); }
+    if (e.key === 'ArrowRight') { e.preventDefault(); navegarQuiz('proxima'); }
+});
+
+// janelinha "mais parecidos": cada pessoa aparece uma vez, com a melhor porcentagem
+function montarRanking() {
+    const caixa = $('#ranking-quizuu');
+    if (!caixa) return;
+    $('#titulo-ranking-quizuu').textContent = `Mais parecidos com o ${DADOS.nome}`;
+    const melhores = new Map();
+    parecidos.todos().forEach(p => {
+        const quem = p.autor_hash || 'nome:' + p.nome.toLowerCase();
+        const atual = melhores.get(quem);
+        if (!atual || p.porcento > atual.porcento || (p.porcento === atual.porcento && p.criado_em < atual.criado_em)) melhores.set(quem, p);
+    });
+    const topo = [...melhores.values()]
+        .sort((a, b) => b.porcento - a.porcento || String(a.criado_em).localeCompare(String(b.criado_em)))
+        .slice(0, 5);
+    caixa.innerHTML = topo.length
+        ? topo.map((p, i) => `<li class="${i === 0 ? 'primeiro' : ''}"><span>${esc(p.nome)}</span><b>${p.porcento}%</b></li>`).join('')
+        : '<li class="vazio-ranking">ninguém fez o teste ainda. Seja o primeiro!</li>';
+}
+
+async function entrarNoRanking(form) {
+    const nome = form.nome.value.trim().slice(0, 20);
+    if (!nome || quiz.noRanking) return;
+    const total = QUIZ_LUCAS.length;
+    const iguais = QUIZ_LUCAS.filter((q, i) => q.minha.includes(quiz.respostas[i])).length;
+    const botao = form.querySelector('button');
+    botao.disabled = true;
+    try {
+        await parecidos.adicionar({ nome, porcento: Math.round(iguais / total * 100) });
+        lembrarNome(nome);
+        quiz.noRanking = true;
+        montarRanking();
+        montarQuiz();
+    } catch (erro) {
+        botao.disabled = false;
+        erroNuvem(erro);
+    }
+}
 
 function novaAba() {
     const id = 'nova' + (++contadorAbas);
@@ -6583,7 +6671,7 @@ const AVISO_TRADUCAO_CELULAR = {
 
 const traducao = {
     idioma: 'pt', tradutor: null, nos: new Map(), atributos: new Map(), feitos: new WeakMap(),
-    cache: new Map(), observador: null, fila: [], rodando: false,
+    cache: new Map(), vigiados: new Map(), fila: [], rodando: false, titulos: new Map(), vigiaTitulo: null, criando: false,
 };
 
 // descobre pelo fuso horario (pais) e pelo idioma do navegador
@@ -6616,33 +6704,55 @@ function guardarTexto(no) {
     traducao.fila.push(() => traduzirTexto(no));
 }
 
-function procurarTextos(raiz) {
-    if (raiz.nodeType === Node.TEXT_NODE) return guardarTexto(raiz);
-    if (raiz.nodeType !== Node.ELEMENT_NODE || raiz.closest(NAO_TRADUZ)) return;
-    const andar = document.createTreeWalker(raiz, NodeFilter.SHOW_TEXT);
-    while (andar.nextNode()) guardarTexto(andar.currentNode);
-    [raiz, ...raiz.querySelectorAll('[placeholder], [title]')].forEach(el => {
-        ['placeholder', 'title'].forEach(nome => {
-            const valor = el.getAttribute?.(nome);
-            if (!valor || !textoTraduzivel(valor) || el.closest('.nao-traduzir')) return;
-            const chave = `${nome}`;
-            const guardados = traducao.atributos.get(el) || {};
-            if (guardados[`${chave}-feito`] === valor) return;
-            guardados[chave] = valor;
-            traducao.atributos.set(el, guardados);
-            traducao.fila.push(async () => {
-                const pronto = await traduzir(valor);
-                if (el.getAttribute(nome) !== valor) return;
-                guardados[`${chave}-feito`] = pronto;
-                el.setAttribute(nome, pronto);
-            });
-        });
+const ATRIBUTOS_TRADUZ = ['placeholder', 'title', 'aria-label'];
+
+function traduzirAtributo(el, nome) {
+    const valor = el.getAttribute?.(nome);
+    if (!valor || !textoTraduzivel(valor) || el.closest('.nao-traduzir')) return;
+    const guardados = traducao.atributos.get(el) || {};
+    // o proprio tradutor mudou esse atributo: nao traduz de novo
+    if (guardados[`${nome}-feito`] === valor) return;
+    guardados[nome] = valor;
+    traducao.atributos.set(el, guardados);
+    traducao.fila.push(async () => {
+        const pronto = await traduzir(valor);
+        if (el.getAttribute(nome) !== valor || traducao.idioma === 'pt') return;
+        guardados[`${nome}-feito`] = pronto;
+        el.setAttribute(nome, pronto);
     });
 }
 
+function procurarTextos(raiz) {
+    if (raiz.nodeType === Node.TEXT_NODE) return guardarTexto(raiz);
+    if (raiz.nodeType !== Node.ELEMENT_NODE || raiz.closest(NAO_TRADUZ)) return;
+    const andar = raiz.ownerDocument.createTreeWalker(raiz, NodeFilter.SHOW_TEXT);
+    while (andar.nextNode()) guardarTexto(andar.currentNode);
+    [raiz, ...raiz.querySelectorAll(ATRIBUTOS_TRADUZ.map(a => `[${a}]`).join(', '))].forEach(el => {
+        ATRIBUTOS_TRADUZ.forEach(nome => traduzirAtributo(el, nome));
+    });
+}
+
+// palavras que o tradutor erra: aqui vai a traducao certa (os nomes que o orkut usava em ingles)
+const GLOSSARIO = {
+    en: {
+        'INÍCIO': 'HOME', 'Início': 'Home', 'início': 'home', 'Diário': 'Diary', 'diário': 'diary', 'Pesquisar': 'Search',
+        'Recados': 'Scraps', 'Recados.': 'Scraps.', 'recados': 'scraps', 'Depoimentos': 'Testimonials', 'Depoimentos.': 'Testimonials.',
+        'Sessão da TV': 'TV Channel', 'Sessão da TV.': 'TV Channel.', 'Zap do Lucas': 'Lucas Chat', 'Registro diário': 'Daily log',
+        'o registro diário': 'daily log', 'Campo Tekisminado': 'Tekisminado Minefield', 'Lixeira': 'Recycle Bin', 'iniciar': 'start',
+        'Sair': 'Exit', 'sair': 'exit', 'Loja': 'Shop', 'Prêmios': 'Awards', 'Como jogar': 'How to play', 'Opções': 'Options',
+    },
+};
+
 async function traduzir(texto) {
     const limpo = texto.trim();
-    if (!traducao.cache.has(limpo)) traducao.cache.set(limpo, traducao.tradutor.translate(limpo).catch(() => limpo));
+    const fixo = GLOSSARIO[traducao.idioma]?.[limpo];
+    if (fixo) return texto.match(/^\s*/)[0] + fixo + texto.match(/\s*$/)[0];
+    if (!traducao.cache.has(limpo)) {
+        traducao.cache.set(limpo, traducao.tradutor.translate(limpo).catch(() => {
+            traducao.cache.delete(limpo);
+            return limpo;
+        }));
+    }
     const pronto = await traducao.cache.get(limpo);
     return texto.match(/^\s*/)[0] + pronto + texto.match(/\s*$/)[0];
 }
@@ -6660,32 +6770,134 @@ async function traduzirTexto(no) {
 async function andarFila() {
     if (traducao.rodando) return;
     traducao.rodando = true;
-    while (traducao.fila.length && traducao.idioma !== 'pt') {
-        const lote = traducao.fila.splice(0, 20);
-        await Promise.all(lote.map(f => f()));
+    try {
+        while (traducao.fila.length && traducao.idioma !== 'pt') {
+            const lote = traducao.fila.splice(0, 80);
+            await Promise.allSettled(lote.map(f => comPrazo(f(), 20000)));
+        }
+    } finally {
+        traducao.rodando = false;
     }
-    traducao.rodando = false;
 }
 
-function vigiarPagina() {
-    if (traducao.observador) return;
-    traducao.observador = new MutationObserver(mudancas => {
+function vigiar(raiz) {
+    if (!raiz || traducao.vigiados.has(raiz)) return;
+    const observador = new MutationObserver(mudancas => {
         if (traducao.idioma === 'pt') return;
         mudancas.forEach(m => {
             if (m.type === 'characterData') guardarTexto(m.target);
+            else if (m.type === 'attributes') traduzirAtributo(m.target, m.attributeName);
             else m.addedNodes.forEach(procurarTextos);
         });
         andarFila();
     });
-    traducao.observador.observe(document.body, { childList: true, subtree: true, characterData: true });
+    observador.observe(raiz, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ATRIBUTOS_TRADUZ });
+    traducao.vigiados.set(raiz, observador);
 }
+
+function vigiarPagina() {
+    vigiar(document.body);
+    // o titulo da aba tem um vigia so dele (fica fora do body)
+    if (!traducao.vigiaTitulo) {
+        traducao.vigiaTitulo = new MutationObserver(() => traduzirTitulo());
+        traducao.vigiaTitulo.observe(document.querySelector('title'), { childList: true, characterData: true, subtree: true });
+    }
+    traduzirTitulo();
+    traduzirFazenda();
+}
+
+// o titulo da aba do navegador (o "(2) " do zap na frente fica de fora)
+const partesTitulo = () => document.title.match(/^(\(\d+\+?\) )?(.*)$/s);
+
+async function traduzirTitulo() {
+    const [, , base] = partesTitulo();
+    if (traducao.idioma === 'pt' || !traducao.tradutor || traducao.titulos.has(base)) return;
+    const pronto = await traduzir(base);
+    traducao.titulos.set(pronto, base);
+    const [, prefixo, agora] = partesTitulo();
+    if (agora !== base || traducao.idioma === 'pt') return;
+    document.title = (prefixo || '') + pronto;
+}
+
+// a fazenda e outra pagina (iframe do mesmo site): traduz ela tambem
+function traduzirFazenda() {
+    const doc = $('#fazenda-frame')?.contentDocument;
+    if (traducao.idioma === 'pt' || !traducao.tradutor || !doc?.body || doc.location.href === 'about:blank') return;
+    doc.documentElement.lang = traducao.idioma;
+    procurarTextos(doc.body);
+    vigiar(doc.body);
+    andarFila();
+}
+$('#fazenda-frame')?.addEventListener('load', traduzirFazenda);
 
 // desiste se o navegador demorar demais pra responder
 function comPrazo(promessa, ms) {
     return Promise.race([promessa, new Promise((_, falhou) => setTimeout(() => falhou(new Error('demorou')), ms))]);
 }
 
+// tradutor do google: junta varios textos num pedido so e guarda o que ja traduziu neste navegador
+function tradutorGoogle(idioma) {
+    const chave = 'traducoes-' + idioma;
+    let memoria = guardar.ler(chave, {});
+    if (Object.keys(memoria).length > 6000) memoria = {};
+    let fila = [];
+    let espera = null;
+    let salvar = null;
+    const enviar = async () => {
+        espera = null;
+        const lote = [];
+        let tamanho = 0;
+        while (fila.length && lote.length < 90 && tamanho + fila[0].texto.length < 4500) {
+            tamanho += fila[0].texto.length;
+            lote.push(fila.shift());
+        }
+        if (!lote.length && fila.length) lote.push(fila.shift());
+        if (fila.length) espera = setTimeout(enviar, 30);
+        try {
+            const corpo = new URLSearchParams();
+            lote.forEach(p => corpo.append('q', p.texto));
+            const resposta = await fetch(`https://translate.googleapis.com/translate_a/t?client=gtx&sl=pt&tl=${idioma}`, { method: 'POST', body: corpo });
+            if (!resposta.ok) throw new Error('tradutor respondeu ' + resposta.status);
+            const prontos = await resposta.json();
+            lote.forEach((p, i) => {
+                const pronto = Array.isArray(prontos[i]) ? prontos[i][0] : prontos[i];
+                if (pronto) memoria[p.texto] = pronto;
+                p.ok(pronto || p.texto);
+            });
+            clearTimeout(salvar);
+            salvar = setTimeout(() => guardar.salvar(chave, memoria), 1500);
+        } catch {
+            // tenta de novo daqui a pouco (rede caiu ou muitos pedidos); na segunda falha desiste
+            lote.forEach(p => {
+                if (p.tentativas) return p.falhou(new Error('sem traducao'));
+                p.tentativas = 1;
+                fila.push(p);
+            });
+            if (fila.length && !espera) espera = setTimeout(enviar, 2500);
+        }
+    };
+    return {
+        translate(texto) {
+            if (memoria[texto]) return Promise.resolve(memoria[texto]);
+            return new Promise((ok, falhou) => {
+                fila.push({ texto, ok, falhou });
+                if (!espera) espera = setTimeout(enviar, 40);
+            });
+        },
+        destroy() {
+            fila.forEach(p => p.ok(p.texto));
+            fila = [];
+        },
+    };
+}
+
+// primeiro o do google (funciona em qualquer navegador), se nao der usa o que vem no chrome
 async function criarTradutor(idioma) {
+    const google = tradutorGoogle(idioma);
+    try {
+        const teste = await comPrazo(google.translate('Olá, tudo bem?'), 6000);
+        if (teste && teste !== 'Olá, tudo bem?') return google;
+    } catch { /* sem internet ou bloqueado */ }
     if (!('Translator' in self)) return null;
     try {
         const disponivel = await comPrazo(self.Translator.availability({ sourceLanguage: 'pt', targetLanguage: idioma }), 3000);
@@ -6706,6 +6918,10 @@ function avisoTraducao(idioma) {
 
 async function trocarIdioma(idioma, escolhido = false) {
     if (escolhido) guardar.salvar('idioma', idioma);
+    if (idioma !== 'pt' && idioma === traducao.idioma && (traducao.tradutor || traducao.criando)) {
+        procurarTextos(document.body);
+        return andarFila();
+    }
     traducao.idioma = idioma;
     $$('[data-comando^="idioma-"]').forEach(b => b.classList.toggle('marcado', b.dataset.comando === `idioma-${idioma}`));
     // volta tudo pro portugues
@@ -6713,11 +6929,15 @@ async function trocarIdioma(idioma, escolhido = false) {
         traducao.fila = [];
         traducao.nos.forEach((original, no) => { if (no.isConnected) no.nodeValue = original; });
         traducao.atributos.forEach((guardados, el) => {
-            ['placeholder', 'title'].forEach(nome => { if (guardados[nome]) el.setAttribute(nome, guardados[nome]); });
+            ATRIBUTOS_TRADUZ.forEach(nome => { if (guardados[nome]) el.setAttribute(nome, guardados[nome]); });
         });
         traducao.nos.clear();
         traducao.atributos.clear();
+        const [, prefixo, base] = partesTitulo();
+        if (traducao.titulos.has(base)) document.title = (prefixo || '') + traducao.titulos.get(base);
+        traducao.titulos.clear();
         document.documentElement.lang = 'pt-BR';
+        document.documentElement.style.removeProperty('--texto-ao-vivo');
         $('#aviso-traducao').hidden = true;
         return;
     }
@@ -6725,7 +6945,9 @@ async function trocarIdioma(idioma, escolhido = false) {
     traducao.tradutor = null;
     // enquanto o tradutor nao fica pronto mostra o aviso
     avisoTraducao(idioma);
+    traducao.criando = true;
     const tradutor = await criarTradutor(idioma);
+    traducao.criando = false;
     if (traducao.idioma !== idioma) return tradutor?.destroy?.();
     traducao.tradutor = tradutor;
     if (!traducao.tradutor) {
@@ -6739,6 +6961,8 @@ async function trocarIdioma(idioma, escolhido = false) {
     traducao.atributos.clear();
     traducao.feitos = new WeakMap();
     document.documentElement.lang = idioma;
+    // texto que vem do css (o tradutor nao enxerga)
+    document.documentElement.style.setProperty('--texto-ao-vivo', idioma === 'es' ? '"EN VIVO"' : '"LIVE"');
     procurarTextos(document.body);
     vigiarPagina();
     andarFila();
@@ -7614,6 +7838,7 @@ document.addEventListener('submit', e => {
 
     if (form.id === 'form-endereco') return abrirEndereco($('#endereco').value);
     if (form.id === 'msn-form') return zapMandar();
+    if (form.matches('[data-ranking-quizuu]')) return entrarNoRanking(form);
     if (form.matches('[data-busca]')) {
         const termo = form.querySelector('input').value.trim();
         form.querySelector('input').blur();
@@ -7775,8 +8000,28 @@ let timersConexao = [];
 function conectar() {
     let jaConectou = false;
     try { jaConectou = sessionStorage.getItem('qdl-conectado') === 'sim'; } catch { /* ok */ }
-    if (jaConectou || semAnimacao) return;
+    if (jaConectou) return;
+    // quem ja escolheu o idioma (fica salvo neste navegador) vai direto pra discagem de sempre
+    if (IDIOMAS[guardar.ler('idioma', '')]) {
+        if (semAnimacao) return terminarConexao();
+        $('#discando').hidden = false;
+        return discar();
+    }
+    // primeiro so a pergunta do idioma; a discagem comeca depois que escolher
     $('#discando').hidden = false;
+    $('#discando').classList.add('escolhendo');
+}
+
+$('#discando').addEventListener('click', e => {
+    const botao = e.target.closest('[data-idioma-conexao]');
+    if (!botao) return;
+    $('#discando').classList.remove('escolhendo');
+    trocarIdioma(botao.dataset.idiomaConexao, true);
+    if (semAnimacao) terminarConexao();
+    else discar();
+});
+
+function discar() {
     PASSOS_CONEXAO.forEach((texto, i) => {
         timersConexao.push(setTimeout(() => {
             $('#discando-texto').textContent = texto;
