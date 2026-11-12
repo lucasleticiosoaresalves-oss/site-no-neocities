@@ -335,6 +335,7 @@ function numeroBoneco(nome, evitar = 0) {
 // so deixa link http ou https
 function linkSeguro(url) {
     const texto = String(url || '').trim();
+    if (/^mailto:[^\s@<>"']+@[^\s@<>"']+\.[a-z]{2,}$/i.test(texto)) return texto;
     return /^https?:\/\//i.test(texto) ? texto : '#';
 }
 
@@ -897,14 +898,20 @@ function paginaRecados() {
             <div class="livro-visitas">${gif('livro', 120)}<p>Assine meu livro de visitas!<br>Deixe um recado aqui embaixo ${gif('email', 40)}</p></div>
             <div class="sub-caixa">${formRecado('texto-recado', false)}</div>
             <div style="margin-top:10px">${listaRecados(itens, true) || mensagemVazia(recados, 'nenhum recado ainda')}</div>
-            <p class="dica">${nuvem ? 'todo mundo que visita o site vê os recados.' : 'os recados ficam salvos neste navegador.'}</p>
-        </div>
-        ${desenhosPublicos().length ? `
+            <p class="dica">${nuvem ? 'todo mundo que visita o site vê os recados.' : 'os recados ficam salvos neste navegador.'}
+                ${desenhosPublicos().length ? ` · veja também o <a href="#mural">mural de desenhos</a> ${icone('palette')}` : ''}</p>
+        </div>`;
+}
+
+// mural de desenhos (os do paint que eu aprovei e as pinturas que eu pendurei)
+function paginaMural() {
+    return `
         <div class="caixa">
-            <h2>Mural de desenhos <small>(${desenhosPublicos().length}) · feitos no Paint pelos visitantes</small></h2>
-            ${desenhosHTML('mural')}
+            <div class="caixa-titulo"><h2>${icone('palette')} Mural de desenhos <small>(${desenhosPublicos().length}) · feitos no Paint pelos visitantes</small></h2><a class="mini-link" href="#recados">ir pros recados</a></div>
+            ${desenhosPublicos().length ? desenhosHTML('mural') : mensagemVazia(desenhos, 'nenhum desenho aqui ainda...')}
             <p class="dica">faça o seu no Paint ${icone('palette')} e envie! Se o ${esc(DADOS.nome)} aprovar, ele aparece aqui.</p>
-        </div>` : ''}
+            <p><button class="btn pequeno" data-abrir="paint">${icone('palette')} desenhar</button></p>
+        </div>
         ${souDono ? `
         <div class="caixa">
             <h2>Desenhos que você recebeu <small>(${desenhos.todos().length}) · só você vê</small></h2>
@@ -1038,13 +1045,10 @@ const CANAIS_TV = [
     { nome: 'Peixonauta', tipo: 'desenho', segundos: 4672, videos: ['-_4S9Dv5vTg', 'cSGRMT2KsOo', 'L9GdRrvU4WE', 'iRgBmnOliF4', 'tDnEAzS1HS4', 'YoaLBaQWFLM', '7PzDYG71qWE', 'x46Mf_P6Z14', 'Wxdt73kdvsE', 'yoETeOH_jgM', 'CDxuena_dKA', 'Eckgu9hAfxY', '-g27pnXZTyA', '4CfScBLmVuI', '7Kf15IXnXLY', '1mmBcKtQUdU', 'SCbm4kgBaEI', 'PGBkn2Z0TIQ', '9uwZHC-ui_Y'] },
     { nome: 'Pedro e Bianca', tipo: 'série', segundos: 1478, videos: ['4Yb1bhX3j6c', 'u06SYeFBJ-A', 'MyLDNvwL6OQ', 'PiadxFtsWrw', '396rtdSvKqI', 'itUEO4n-gCs', 'Whv5rXQcK60', 'pt1zl0DbuC4', 'QBCub0IvEuI', 'VOWBSb7Pj_Q', '0-_hGWXGgKE', 'zL-9VmjeUsc', 'vQzv7RVCggE', 'MHp0zfTdZRM', 'ZYDcsxEUd_g', 'tFHYSDuBcDg', 'IKnnqcT8FgQ', 'Tdca2ZkqzaU', 'VqLL4fPqHZA', 'Ac1Ko3J2p54', 'XKfUuXhWSc4', 'BzOewXI8i7A', 'BAIAU8bUytA', 'DKyofReqsVs', 'QOUyHM5MnXw', '_Aap9Wnyjs0', 'pYqiA4Ux9vQ', 'Jp6SdgklRns', 'Zv6Q5glm88w', '6Q9FvswdppA', 'eN4265heFYU', '083slVp4_e0', 'eOgMt5gspOg', 'aLTv1Pxa4xk', 'FMNfHqu1iGg', 'KYJxE5geE2o', '_yTDSsyNzW4', '_IMG6fivZQU', 'lBsQ3uOQ2YE'] },
     { nome: 'Que Monstro te Mordeu?', tipo: 'série', segundos: 1932, videos: ['kmb2hmYq3gQ', 'GWm35h33-2g', 'RdSunzgPrrE', 's6c5vCg7lqY', '_iaL-rGkqhw', '7VHuaHRclE0', 'aIeuaXDPw8g', 'SVspAWKj6tA', 'SP5lR7zC9dY', 'Emnya6CoOnQ', 'Qj6A7YipUos', 'S-ZXWI8yG9k', 'HZw7-s2fzsw', 'VvTXgdN1fLQ', 'a4k8pjj0hn8', 'WFiRdyBYdf0', 'bruIeN2wS4Q', 'j1J9p32bMg0', 'K5_Az_u_CQQ', 'wtPnodrQS-o', '8Ox_xnOtCAk', 'HH_mDTsXvYk', 'Hu6Osdj5KTc', 'lHInvXTxgjs', '0rpj9sEA374', 'uIa2aVBo3hE', 'DRAIuZ6EqBI', 'u7QDCicFh0o', 'MQW7c7vZRL8', '5GrJyJr1tFg', 'qWKkC_SiX2E', 'NnieZO0_MEk', 'CRvyQWMkoRQ'] },
-    { nome: 'Filmes Brasileiros: Mazzaropi', tipo: 'filme', segundos: 4675, videos: ['__Tgzt0e-qg', 'Pu1Z6oIljd4', '0rbnz8ohjbg', 'ssISORSz7w4', 'chjyJKuScZ0', '0ZU76dckbqg', 'hTw9noSzGJs', '5RcYPydR04E', 'QL5XCfwWGVo', 'UboKqML7Vwo', 'V3XI0Y9HitM', '63JoqLWx09s', 'I9OugTbIBhU', 'Z6zwCGPIP-k', 'gIxKJytTkg0', 'O9-B7NhllFY', 'BZ46y7FNuDg', 'DhpfiqbAspI', 'bfsFxYeSzdE', 'mLczK9zHgVw', 'LFwllYc6Dcg', 'U1CCX9fz9Dc', 'jDV7liJUNUw', 'kZ53x1pQIjQ', 'TXxFzjcNxqs', '_JujCd3j5wk', 'pUTYtd7cWcg', '0ytNsoVmn4Y'] },
-    { nome: 'Filmes Brasileiros: Os Trapalhões', tipo: 'filme', segundos: 6570, videos: ['18b38r0NhjQ', 'TvJoR5iO0nQ', '338gOxRS5zg', '6Hl0kEnl69s', 'vTnLkbgcvR8', 'vcrKBxqzSHM', 'B7PePL_rAWU', 'G8yCDePuTec', 'U52lJbfnjsQ', 'onXhP49bivo', 'PTOSY2S6PwU', 'FmF8ze1mk_k', 'BlqKmDy7bWI', 'CD1QXBr0g0M', 'tq78aCb4o60', 'UrkQIloPrfA', 'gO8ZJqmKKAM', 'GbfF934khLI', 'wHLaxkUtboY', 'h4c7_Sv4KZE', 'rtV0jKY2r4s', '-ueuzZtZnBM', 'fBbtFnP6HMc', 'Wm1DyK8_azo', 'V2-zHJl6CL8', 'UWWbvxlClME', 'epE8jXt7bUI', 'zMLAJ5QWQpg', 'WYibOGvaILM', '7Eey7uuh5ho', 't9SKC9LT6gI', 'wMrWK6usn3Q', 'qDNQKziEKYI', 'fWLDmweGP58', 'rKLuSGLFgYk', 'fnYVTPl8w8o', '4YniTffDovE', 'uUdkA8S5yqk', '5xOsSurzKw4', 'sOGjrrCv4yA', 'qja7vFscwjw', 'JD16lnPwQLo', 'oowWe1ZOYrM'] },
-    { nome: 'Filmes Brasileiros: Clássicos', tipo: 'filme', segundos: 7103, videos: ['0ZE-5xEDeh4', 'C5Y_1YwfIOo', 'HMBCMrXzME4', 'leM6fsfyYtc', 'v5u4aqR2rMk', 'cJhGKtrzUuQ', 'Rhl2fdq6_YU', 'P30S6bTiC2I', 'oa5twq2mcJ4', 'MkZDFjo7yXc', 'aUUhwpXS7-g', 'cIIK9tUB2IM', '1eXVyEY50xg', 'OLcfHggmP-g', 'pDciPJC_p1o', 'Dkea5sjGfEY', 'omutfUiAMxQ', 'a51qcCDgj78', 'zEoS6VMMoKg', 'JdAhgJ0ky2E', 'TJKz4wcoOm4', '82AIAaoH7M8', 'pynBQji1NL0', 'rjb3dHMj0Pk', 'AGNXm36wAp4', 'ABk4KjGVnRc', 'GA5E1yjMhnY', 'ms4cz6NBzTQ', 'FFUEX-lI0mE', 'GcJqCNgGZj0', 'eXT3KaJq0hY', 'nnjNXw6RP_Y', 'mGTfTUR6BdY', 'F96Frw8Rx9A', 'zUG6k1HS0jw', 'Ar9Hd1X0ylw', 'aU3hDPHVog0', 'cVIGizYAgYo', 'zF_pqWpOCoE', 'pXPRIlrQWc0', '91OLeTgY3bw', 'rzY7hOEs7tw', 'btxdHx-l0hc', '9EMFDkTlp1k', '_IBqATQrDH0', '9pB-GtBjMXc', 'N7uwTtbKBdg', 'eQk6YmIezDM', 'y6oM2XdOVc4', 'm-s1XO17x7E'] },
-    { nome: 'Filmes Brasileiros: Sucessos', tipo: 'filme', segundos: 6060, videos: ['wk9ZE7C9P58', '-2p6GPArFLw', 'KqmY5yIBs3U', 'bRRuJ6jIE2Q', 'fUtAamtCBew', 'XMe8wKUz1-g', 'bX4l_WnF7ig', 'UXxUYWxzBEA', 'QZOKwn6GIN0', 'zXiQqQEeKAw', 'uj3qjnpXLmM', 'S7csvGiocLc', 'CuPjODnuQ7Y', '1T-1pwcyN5c', 'yF5oM8pq92I', 'zP-nMen5APQ', 'qfdcZQ36u_A', 'r2N_dQ6iYUo', 'OpMwiYB_kiI', 'zer8MFw6AWg', '45-eIbA6kMY', 'RtBFWUc-brI', 'mo_rq5ctdFk', 'cQlC6eFjoc0', '9oMC5nrqEIo', 'NMKI9-6KT54', 'tJTyuOICWWU', 'Q5lG0OPKoEY', '2UuPs34ZJHM', 'jVf_PNMu6w0', '3nt4_fEfncY', 'kBqgpK361vM', 'ZDP6WQvFD1Y'] },
-    { nome: 'Filmes Brasileiros: Infantis', tipo: 'filme', segundos: 3824, videos: ['W3JypKJmA9Q', '7m-oXqZ1s3I', 'MMovjuXEbGQ', 'RIwFGhzqKeI', 'd72gl97Wqc4', '7_vCHugdZuo', 'yJSmH1xiJ-k', 'NVd7aWnM0Mo', 'D1bktiscl3w', 'uxn34-IbVtM', 'kYq67wwE4Bs', 'QBjzXkfh3QE', 'sEt0qCIiDgU', '-zXNeeHlvZo'] },
+    { nome: 'Filmes Brasileiros: Os Trapalhões', tipo: 'filme', segundos: 4589, videos: ['5xOsSurzKw4', 'lbhPXV8RMZs', 'sOGjrrCv4yA', 'qja7vFscwjw', 'oowWe1ZOYrM', 'JD16lnPwQLo'] },
+    { nome: 'Filmes Brasileiros: Sucessos', tipo: 'filme', segundos: 6619, videos: ['bRRuJ6jIE2Q', 'fUtAamtCBew', 'XMe8wKUz1-g', 'bX4l_WnF7ig', 'UXxUYWxzBEA', 'QZOKwn6GIN0', 'zXiQqQEeKAw', 'uj3qjnpXLmM', 'S7csvGiocLc', 'CuPjODnuQ7Y', '1T-1pwcyN5c', 'yF5oM8pq92I', 'zP-nMen5APQ', 'qfdcZQ36u_A', 'r2N_dQ6iYUo', 'OpMwiYB_kiI', 'zer8MFw6AWg', '45-eIbA6kMY', 'RtBFWUc-brI', 'mo_rq5ctdFk', 'cQlC6eFjoc0', '9oMC5nrqEIo', 'NMKI9-6KT54', 'tJTyuOICWWU', 'Q5lG0OPKoEY', '2UuPs34ZJHM', 'jVf_PNMu6w0', '3nt4_fEfncY', 'kBqgpK361vM', 'ZDP6WQvFD1Y', 'Ar9Hd1X0ylw', '_IBqATQrDH0', 'ryPVRqQNiFE', 'fjT-CtR4AWs', 'fhy-gW2DvLk', 'WkTTITex2RE', 'uyoAIl_BwX8', 'AMTlYoqPqSo', '6Ip-j5o8DK0', 'dwnZTFin504', 'BXbOYxZLNbk', '9EV6kt6GZc4', 'kv-7As9ufMA', 'OQ5smMEG18w', 'o4ZbItxbUDA', 'il2ZIsO9y_k', '2Vzx0QYEnWM', 'd9RJ5euM4fU', 'rm6Rvv6Ap2w', 'P2wlTTNMsRE', 'O1H4HW8I8Pk', 'nhLd1r9to0E', '07eV9vCnZFM', 'Ym87smGzWaY'] },
+    { nome: 'Filmes Brasileiros: Infantis', tipo: 'filme', segundos: 3824, videos: ['W3JypKJmA9Q', '7m-oXqZ1s3I', 'MMovjuXEbGQ', 'RIwFGhzqKeI', 'd72gl97Wqc4', '7_vCHugdZuo', 'yJSmH1xiJ-k', 'NVd7aWnM0Mo', 'D1bktiscl3w', 'uxn34-IbVtM', 'kYq67wwE4Bs', 'QBjzXkfh3QE', 'sEt0qCIiDgU', '-zXNeeHlvZo', 'dAtjKtCw4G8', 'Vh8wJw8AunI', 'RdStCe8mcQc', 'JHZ-_0_qbBU', 'hKV_4MEGsgg', '2LpANPpokIs', 'zUx5qATz4u0', 'J9DTAfpMo1I', 'W0gPf7OkZv8', 'NI8jRmW-WFc', 'MKb9Pnse4hI', 'VMRMTYzv1_M', '2tzL--qrnjQ', 'FL7marNdmj0', '7s3-RhPXDSc'] },
     { nome: 'Filmes Brasileiros: Terror e Suspense', tipo: 'terror', segundos: 5959, videos: ['CY6MRPbrR9Y', 'GlSFXBi2n10', 'i-UsGLFEud4', 'WW4EBf8vKgQ', '86aMxklzWuk', 'dyPRGBty9_8', '9O34nRJRZwI', '2_w523xWvF4', 'X1fOfFIBf18'] },
-    { nome: 'Filmes Brasileiros: Documentários', tipo: 'filme', segundos: 4708, videos: ['NQELr0N1DPM', '2ddZnlANECc', 'bv-kSZAHQLw', '13xxSJOHkTA', 'TeUpGcypbOs', 'u-J0Gm7ILxM', 'ntiFPx5Dp_0', 'VGed1yOHUgk', 'QwbrtpLP1fE', '9UKB-XrjzsM'] },
     { nome: 'Chume Labs', tipo: 'série', segundos: 1605, videos: ['q9TuttD6oPk', 'iMVAmeote1Y', 'iBpIDMrm1M4', 'POYLzaekBaQ', '0gEf-sNCJSU', '2FWgYKRg58o', 'ok0vG0IZrOA', 'GUEIPmoSbuA', 'sPdVf9UEI2A', 'ceEkAZN2TT8', '9V2Bk8A9iu4', '95x8NP7K32I', 'eRn3HVQxVT0', 'BPyHPK17ehI', 'LURJ_n-KsXI', 'mV5GhTzBzBc', 'DZH22Cb7QTc', 'AD3EjHYGmcU', '869Za72AhTM'] },
 ];
 
@@ -1053,12 +1057,6 @@ const CANAIS_HALLOWEEN = [
     { nome: 'Halloween: A Noite do Terror (1978)', tipo: 'terror', segundos: 5374, videos: ['lsFxNlHLfHs', 'fr3taQAKwsY', 'fA7_sPVQHfI'] },
     { nome: 'Dango Balango (especial de Halloween)', tipo: 'série', segundos: 1321, videos: ['lkkCG1tf8Mc', '8SOPnjiERPA', '0hnksk3Qi6Q', '7TBu2YsOzDw', 'AXYZ_BHOOrg', 'IiChSXCEMZg', 'GyC21fZBvwE', 'dXrehlSZMTg', 'kQN3fPZaT6E', 'HAPGB8cSibY', 'cAQhAofTrkg', 'wWihmRMBCBs', 'WEWldYWB8Fc', 'n4wLYRstvsU', '4xWgZW5uszc', 'xsLF9F2oVmc', '3DjyEVL-pAY', 'THazTIyLCLw', 'r6AyXJkWuFQ'] },
     { nome: 'Reflexões de um Liquidificador', tipo: 'terror', segundos: 4823, videos: ['a0rfrVVfnPs'] },
-    { nome: 'À Meia-Noite Levarei Sua Alma (Zé do Caixão)', tipo: 'terror', segundos: 4916, videos: ['e2ZWcBaXOco'] },
-    { nome: 'A Noite dos Mortos-Vivos (1968)', tipo: 'terror', segundos: 5762, videos: ['py4UDrciwkA'] },
-    { nome: 'Nosferatu (1922)', tipo: 'terror', segundos: 5515, videos: ['tQeSA_Tt4YM'] },
-    { nome: 'A Casa dos Maus Espíritos (1959)', tipo: 'terror', segundos: 4495, videos: ['i6URXIDs1wg'] },
-    { nome: 'Carnaval das Almas (1962)', tipo: 'terror', segundos: 4985, videos: ['zkiRxjjXCh8'] },
-    { nome: 'A Pequena Loja dos Horrores (1960)', tipo: 'terror', segundos: 4310, videos: ['YXHbey_6Xsc'] },
 ];
 
 function canaisTV() {
@@ -1266,12 +1264,27 @@ const CAMERAS_FOTO = {
         'sony-prata': { w: 622, h: 389, tela: [52, 56, 385, 299] },
         'nikon-dourada': { w: 395, h: 244, tela: [29, 50, 225, 171] },
         'sony-rosa': { w: 404, h: 265, tela: [32, 58, 239, 178] },
+        'marinho-adesivos': { w: 410, h: 269, tela: [47, 63, 226, 165] },
+        'canon-vinho': { w: 618, h: 410, tela: [38, 128, 298, 225] },
+        'canon-oceano': { w: 666, h: 351, tela: [32, 138, 228, 170] },
+        'canon-amarela-bolinhas': { w: 587, h: 386, tela: [39, 122, 280, 210] },
+        'sony-amarela': { w: 736, h: 477, tela: [65, 108, 418, 315] },
+        'canon-azul': { w: 622, h: 413, tela: [39, 134, 300, 224] },
+        'vermelha-alca': { w: 735, h: 407, tela: [79, 90, 310, 229] },
+        'nikon-preta-adesivos': { w: 305, h: 184, tela: [28, 33, 167, 127] },
+        'nikon-branca-laco': { w: 328, h: 243, tela: [40, 81, 171, 118] },
+        'canon-azul-estrela': { w: 296, h: 197, tela: [17, 64, 144, 108] },
+        'canon-prata-1997': { w: 323, h: 225, tela: [34, 82, 151, 114] },
+        'canon-prata-coelho': { w: 308, h: 198, tela: [27, 59, 147, 110] },
+        'nikon-preta-laco': { w: 332, h: 203, tela: [37, 58, 172, 131] },
+        'rosa-adesivos': { w: 311, h: 176, tela: [46, 43, 154, 115] },
     },
     empe: {
         'sony-azul': { w: 623, h: 1046, tela: [53, 77, 505, 672] },
         'azul-em-pe': { w: 236, h: 371, tela: [38, 31, 165, 219] },
         'verde-em-pe': { w: 245, h: 362, tela: [36, 16, 143, 188] },
         'vermelha-em-pe': { w: 225, h: 373, tela: [17, 24, 168, 230] },
+        'sony-prata-em-pe': { w: 622, h: 948, tela: [71, 76, 413, 557] },
     },
 };
 
@@ -1387,8 +1400,14 @@ function mudarZoomFoto(fator, cx = window.innerWidth / 2, cy = window.innerHeigh
 // icone e cor de cada rede pelo nome
 const ICONES_REDES = { instagram: 'camera', tiktok: 'music', spotify: 'headphone', discord: 'controller', neocities: 'world', github: 'link', youtube: 'film', twitter: 'comments', x: 'comments', pinterest: 'photo_album', tumblr: 'page_white', bluesky: 'comments', letterboxd: 'film', steam: 'controller', twitch: 'controller', email: 'email' };
 
+// o e-mail aparece sempre no fim das redes (mesmo que o admin nao tenha colocado)
+const EMAIL_CONTATO = 'sendmenoflowers@duck.com';
+
 function redes() {
-    return DADOS.redes.map(r => {
+    const lista = DADOS.redes.some(r => /e-?mail/i.test(r.nome))
+        ? DADOS.redes
+        : [...DADOS.redes, { nome: 'E-mail', icone: 'email', usuario: EMAIL_CONTATO, link: 'mailto:' + EMAIL_CONTATO }];
+    return lista.map(r => {
         const chave = r.nome.toLowerCase().trim();
         // o spotify sem link usa a playlist do site
         const link = r.link || (chave === 'spotify' ? spotify.playlist?.link || '' : '');
@@ -1407,7 +1426,7 @@ function paginaRedes() {
             <h2>Redes sociais</h2>
             <div class="centro">${gif('email', 60)}</div>
             ${redes().map(r => r.link
-                ? `<a class="rede ${r.classe}" href="${esc(linkSeguro(r.link))}" target="_blank" rel="noopener"><span class="emoji">${icone(r.icone, 32)}</span><span><b>${esc(r.nome)}</b>${usuarioRede(r)}</span></a>`
+                ? `<a class="rede ${r.classe}" href="${esc(linkSeguro(r.link))}" ${r.link.startsWith('mailto:') ? '' : 'target="_blank" rel="noopener"'}><span class="emoji">${icone(r.icone, 32)}</span><span><b>${esc(r.nome)}</b>${usuarioRede(r)}</span></a>`
                 : `<div class="rede ${r.classe}"><span class="emoji">${icone(r.icone, 32)}</span><span><b>${esc(r.nome)}</b>${usuarioRede(r)} <i class="dica">(em breve)</i></span></div>`
             ).join('')}
         </div>
@@ -2011,7 +2030,7 @@ function adminRecebidos() {
     return `
         <div class="caixa">
             <h2>Desenhos recebidos no Paint <small>(${desenhos.todos().length} · ${desenhosPublicos().length} no mural)</small></h2>
-            <p class="dica" style="margin-top:0">Chegam privados. Clique em "aprovar e publicar" para aparecerem no mural da página de recados.</p>
+            <p class="dica" style="margin-top:0">Chegam privados. Clique em "aprovar e publicar" para aparecerem no mural de desenhos.</p>
             ${desenhosHTML()}
         </div>
         <div class="caixa">
@@ -2080,6 +2099,7 @@ const PAGINAS = {
     perfil: { titulo: 'Perfil', render: paginaPerfil },
     sobre: { titulo: 'Sobre mim', render: paginaSobre },
     recados: { titulo: 'Recados', render: paginaRecados },
+    mural: { titulo: 'Mural de desenhos', render: paginaMural, menu: 'recados' },
     depoimentos: { titulo: 'Depoimentos', render: paginaDepoimentos },
     albuns: { titulo: 'Álbuns', render: paginaAlbuns },
     album: { titulo: 'Álbum', render: paginaAlbum, escondida: true, menu: 'albuns' },
@@ -2210,14 +2230,15 @@ function atualizarEndereco() {
     const aba = abas.find(a => a.id === abaAtiva);
     const campo = $('#endereco');
     if (document.activeElement === campo) return;
-    campo.value = aba.tipo === 'nova' ? 'about:blank' : DADOS.endereco + (location.hash || '#inicio');
+    campo.value = aba.tipo === 'nova' ? 'about:blank' : aba.tipo === 'quizuu' ? ENDERECO_QUIZUU : DADOS.endereco + (location.hash || '#inicio');
 }
 
 function abrirEndereco(texto) {
     const valor = texto.trim();
     if (!valor) return;
     const aba = abas.find(a => a.id === abaAtiva);
-    if (aba?.tipo === 'nova') aba.tipo = 'site';
+    if (/quizuu/i.test(valor)) return abrirQuizuu();
+    if (aba && aba.tipo !== 'site') aba.tipo = 'site';
     const posHash = valor.indexOf('#');
     if (posHash >= 0) return ir(valor.slice(posHash + 1) || 'inicio');
     const semBarra = valor.replace(/\/+$/, '');
@@ -2246,14 +2267,188 @@ function atualizarAbas() {
     if (ativa?.tipo === 'site') ativa.rota = location.hash.slice(1) || 'inicio';
     $('#abas').innerHTML = abas.map(a => `
         <button class="aba ${a.id === abaAtiva ? 'ativa' : ''}" data-aba="${a.id}">
-            ${icone('internet_explorer')} ${a.tipo === 'nova' ? 'Nova guia' : 'QUARTO DO LUCAS · ' + esc(tituloDaRota(a.rota))}
+            ${icone('internet_explorer')} ${a.tipo === 'nova' ? 'Nova guia' : a.tipo === 'quizuu' ? 'Quizuu · Quizzes de personalidade' : 'QUARTO DO LUCAS · ' + esc(tituloDaRota(a.rota))}
             ${abas.length > 1 ? `<span class="fechar-aba" data-fechar-aba="${a.id}" title="Fechar guia">✕</span>` : ''}
         </button>`).join('') + '<button class="aba nova" data-comando="nova-guia" title="Nova guia">+</button>';
 
-    const nova = abas.find(a => a.id === abaAtiva).tipo === 'nova';
-    $('#pagina-site').hidden = nova;
-    $('#pagina-nova-guia').hidden = !nova;
+    const tipo = abas.find(a => a.id === abaAtiva).tipo;
+    $('#pagina-site').hidden = tipo !== 'site';
+    $('#pagina-nova-guia').hidden = tipo !== 'nova';
+    $('#pagina-quizuu').hidden = tipo !== 'quizuu';
 }
+
+// quiz da nova guia (cara de site de quiz): o quanto a pessoa se parece com o lucas
+// `minha` sao as respostas do lucas (na 5 vale A ou B)
+const QUIZ_LUCAS = [
+    { pergunta: 'Como é o seu final de semana perfeito?', minha: ['A'], opcoes: [
+        'Maratonar séries, jogar ou ficar no computador até de madrugada no conforto do quarto.',
+        'Sair com os amigos para um barzinho, festa ou evento bem movimentado.',
+        'Fazer um passeio ao ar livre, viajar ou explorar lugares novos.',
+        'Alternar entre descansar bastante e resolver pendências acumuladas.'] },
+    { pergunta: 'Quando o assunto é entretenimento (jogos, filmes ou séries), o que mais te prende?', minha: ['A'], opcoes: [
+        'Histórias profundas, cheias de mistério, fantasia ou universos bem construídos.',
+        'Muita ação, competição intensa e momentos de pura adrenalina.',
+        'Comédias leves, programas de entretenimento ou realities para relaxar a cabeça.',
+        'Documentários, investigações e temas baseados em fatos reais.'] },
+    { pergunta: 'Diante de um problema inesperado ou de uma emergência, como você reage?', minha: ['D'], opcoes: [
+        'Mantenho a calma, analiso a situação e busco a solução mais lógica e prática.',
+        'Fico ansioso(a) no primeiro momento, mas logo me movimento para resolver.',
+        'Peço ajuda/conselho para pessoas de confiança antes de tomar uma decisão.',
+        'Improviso na hora e confio no meu instinto.'] },
+    { pergunta: 'Qual é a sua relação com a tecnologia e internet no dia a dia?', minha: ['A'], opcoes: [
+        'Sou super conectado(a), adoro fuçar, aprender coisas novas e personalizar tudo do meu jeito.',
+        'Uso o básico para redes sociais, conversar e trabalhar/estudar.',
+        'Prefiro consumir conteúdo (vídeos, streamings) do que ficar postando ou criando algo.',
+        'Tento desconectar sempre que possível para não ficar dependente do celular.'] },
+    { pergunta: 'Em um grupo de amigos ou em um trabalho em equipe, qual costuma ser o seu papel?', minha: ['A', 'B'], opcoes: [
+        'O estrategista/criativo: dou as ideias, planejo a estrutura e resolvo a parte técnica.',
+        'O comunicador/animador: mantenho a energia alta e faço a ponte entre todo mundo.',
+        'O executor: prefiro pegar a minha parte, fazer bem feito e entregar sem enrolação.',
+        'O observador: escuto tudo primeiro e só dou minha opinião quando acho necessário.'] },
+    { pergunta: 'Como é o seu processo para aprender algo totalmente novo?', minha: ['B'], opcoes: [
+        'Pesquiso a fundo por conta própria, testo na prática e gosto de entender como tudo funciona por trás.',
+        'Prefiro cursos estruturados, videoaulas bem explicativas ou orientação passo a passo.',
+        'Aprendo no improviso: vou fazendo e corrigindo os erros conforme eles aparecem.',
+        'Só aprendo se for algo extremamente necessário para o meu momento atual.'] },
+    { pergunta: 'Qual é o seu estilo na hora de organizar a sua rotina?', minha: ['D'], opcoes: [
+        'Tenho minhas metas e prazos na cabeça ou em rotinas flexíveis, ajustando conforme o dia.',
+        'Uso agendas, listas detalhadas, apps e me sinto mal se sair do planejado.',
+        'Totalmente espontâneo(a): deixo a vida me levar e resolvo as coisas quando dá.',
+        'Começo a semana super organizado(a), mas no meio do caminho me perco um pouco.'] },
+    { pergunta: 'Qual tipo de humor mais te faz rir?', minha: ['D'], opcoes: [
+        'Humor sarcástico, irônico, cheio de referências nerds/geeks ou piadas internas.',
+        'Memes aleatórios, nonsense e situações absurdas da internet.',
+        'Histórias engraçadas do cotidiano e vergonhas alheias.',
+        'Comédia pastelão, piadas rápidas e pegadinhas.'] },
+    { pergunta: 'Qual é a sua bebida ideal para acompanhar uma sessão de estudos, trabalho ou foco?', minha: ['D'], opcoes: [
+        'Café bem forte ou energético para manter o ritmo lá no alto.',
+        'Um chá quentinho ou suco natural para manter a calma.',
+        'Água bem gelada (o clássico que nunca falha).',
+        'Refrigerante ou alguma bebida bem docinha.'] },
+    { pergunta: 'Qual é a sua atitude quando descobre um assunto ou jogo novo que te atrai?', minha: ['A'], opcoes: [
+        'Hiperfoco total: passo horas pesquisando, lendo teorias, tutoriais e dominando o tema.',
+        'Vou consumindo aos poucos no meu próprio tempo, sem pressa.',
+        'Busco logo amigos para compartilhar e conversar sobre o assunto junto.',
+        'Vejo o básico e só me aprofundo se for realmente útil para mim.'] },
+    { pergunta: 'Em uma conversa de madrugada, qual é o tipo de assunto que você mais gosta de filosofar?', minha: ['C'], opcoes: [
+        'O futuro da humanidade, tecnologias, teorias malucas e universos fictícios.',
+        'Histórias de vida, sentimentos, relacionamentos e psicologia humana.',
+        'Casos misteriosos, histórias de terror, coisas paranormais e não explicadas.',
+        'Planos para o futuro, metas profissionais e como ficar milionário(a).'] },
+    { pergunta: 'Qual frase melhor resume a sua filosofia de vida diária?', minha: ['A'], opcoes: [
+        '"Sempre há uma forma mais inteligente ou eficiente de fazer isso."',
+        '"O importante é aproveitar o momento e não esquentar a cabeça com o amanhã."',
+        '"Com paciência, foco e dedicação, tudo se resolve."',
+        '"A vida é curta demais para não aprender e testar coisas novas o tempo todo."'] },
+    { pergunta: 'Que tipo de música você mais escuta?', minha: ['B'], opcoes: [
+        'Sou fiel a um estilo só, o meu favorito e pronto.',
+        'Eclético(a): ouço de tudo um pouco, depende do humor do dia.',
+        'O que estiver bombando no momento, as mais tocadas.',
+        'Quase não escuto música, prefiro podcast ou silêncio.'] },
+    { pergunta: 'Qual dessas comidas você escolheria agora?', minha: ['B'], opcoes: [
+        'Pizza', 'Sushi', 'Hambúrguer', 'Lasanha'] },
+    { pergunta: 'Qual é a sua estação do ano favorita?', minha: ['C'], opcoes: [
+        'Verão', 'Primavera', 'Outono', 'Inverno'] },
+    { pergunta: 'Qual é a sua data comemorativa favorita?', minha: ['B'], opcoes: [
+        'Natal', 'Halloween', 'Ano Novo', 'O meu aniversário'] },
+    { pergunta: 'Qual desses filmes você escolheria pra assistir hoje?', minha: ['D'], opcoes: [
+        'Titanic', 'Velozes e Furiosos', 'Divertida Mente', 'Eu Vi o Brilho da TV'] },
+    { pergunta: 'Qual desses jogos indie você jogaria?', minha: ['B'], opcoes: [
+        'Undertale', 'Sally Face', 'Stardew Valley', 'Hollow Knight'] },
+];
+const LETRAS_QUIZ = ['A', 'B', 'C', 'D'];
+// do maior pro menor: a primeira faixa que a porcentagem alcancar
+// (as faixas do lucas eram pra 15 perguntas: 12+, 8+, 4+ e o resto)
+const RESULTADOS_QUIZ = [
+    { minimo: 80, titulo: 'Minha cópia quase perfeita', texto: 'Minha alma gêmea de personalidade! (H)' },
+    { minimo: 53, titulo: 'Muito parecidos!', texto: 'Daria pra passar horas conversando sem cansar. (Y)' },
+    { minimo: 26, titulo: 'Cada um no seu quadrado', texto: 'Temos nossas semelhanças, mas cada um no seu quadrado! :)' },
+    { minimo: 0, titulo: 'Oposto complementar total', texto: 'A gente se atrai pelos contrastes. (L)' },
+];
+const quiz = { pergunta: -1, respostas: [] };
+const ENDERECO_QUIZUU = 'http://www.quizuu.com.br/quiz/o-quanto-voce-se-parece-com-o-lucas';
+
+// o atalho da nova guia abre o quizuu na mesma guia, como outro site
+function abrirQuizuu() {
+    const aba = abas.find(a => a.id === abaAtiva);
+    if (!aba) return;
+    aba.tipo = 'quizuu';
+    quiz.pergunta = -1;
+    quiz.respostas = [];
+    montarQuiz();
+    atualizarAbas();
+    atualizarEndereco();
+    $('#pagina-quizuu').scrollIntoView({ block: 'start' });
+}
+
+// igual a pagina de quiz do site antigo: capa, quadradinhos numerados, uma pergunta por vez e resultado
+function montarQuiz() {
+    const caixa = $('#quiz-luucas');
+    const total = QUIZ_LUCAS.length;
+    const titulo = `Teste de quão parecido com o ${DADOS.nome} você é`;
+    if (quiz.pergunta < 0) {
+        caixa.innerHTML = `<div class="passo-quizuu">
+            <h1>${esc(titulo)}</h1>
+            <div class="capa-quizuu">
+                <span class="por-quizuu">Criado por <b>${esc(DADOS.nome)}</b> em 12/11/2026</span>
+                <div class="foto-capa">${minhaFotoMini()}</div>
+                <span class="pergunta-capa">Você é parecido comigo?</span>
+            </div>
+            <p class="descricao-quizuu">Responda ${total} perguntas e descubra o quanto você se parece com o ${esc(DADOS.nome)}. Quanto mais respostas iguais às minhas, mais parecidos a gente é!</p>
+            <span class="botao-grande-quizuu" data-quizuu="iniciar">Iniciar o Quiz</span>
+        </div>`;
+        return;
+    }
+    if (quiz.pergunta < total) {
+        const q = QUIZ_LUCAS[quiz.pergunta];
+        const curtas = q.opcoes.every(o => o.length <= 22);
+        caixa.innerHTML = `<div class="passo-quizuu">
+            <ul class="passos-quizuu">${QUIZ_LUCAS.map((_, i) => `<li class="${i === quiz.pergunta ? 'atual' : quiz.respostas[i] ? 'marcado' : ''}" ${quiz.respostas[i] && i !== quiz.pergunta ? `data-quizuu-ir="${i}"` : ''}>${i + 1}</li>`).join('')}</ul>
+            <div class="pergunta-quizuu"><p>${esc(q.pergunta)}</p></div>
+            <ul class="alternativas-quizuu ${curtas ? 'curtas' : ''}">${q.opcoes.map((o, j) => `
+                <li class="${quiz.respostas[quiz.pergunta] === LETRAS_QUIZ[j] ? 'escolhida' : ''}" data-quizuu-opcao="${LETRAS_QUIZ[j]}">${esc(o)}</li>`).join('')}</ul>
+        </div>`;
+        return;
+    }
+    const iguais = QUIZ_LUCAS.filter((q, i) => q.minha.includes(quiz.respostas[i])).length;
+    const porcento = Math.round(iguais / total * 100);
+    const resultado = RESULTADOS_QUIZ.find(r => porcento >= r.minimo);
+    caixa.innerHTML = `<div class="passo-quizuu">
+        <h1>${esc(titulo)}</h1>
+        <div class="resultado-quizuu">
+            <h2>${esc(resultado.titulo)}</h2>
+            <div class="imagem-resultado">
+                <span class="porcento-quizuu">${porcento}%</span>
+                <span class="refazer-quizuu" data-quizuu="refazer">&#8635; Refazer</span>
+            </div>
+            <div class="texto-resultado">${textoRico(resultado.texto)}<br><small>${iguais} de ${total} respostas iguais às do ${esc(DADOS.nome)}</small></div>
+            <details class="gabarito-quizuu"><summary>ver as respostas do ${esc(DADOS.nome)}</summary>
+                <ol>${QUIZ_LUCAS.map((q, i) => {
+                    const igual = q.minha.includes(quiz.respostas[i]);
+                    return `<li class="${igual ? 'igual' : 'diferente'}">${esc(q.pergunta)}<br><b>${igual ? 'Igual!' : 'Diferente'}</b> · você: ${quiz.respostas[i]} · ${esc(DADOS.nome)}: ${q.minha.join(' ou ')}</li>`;
+                }).join('')}</ol>
+            </details>
+        </div>
+    </div>`;
+}
+
+$('#quiz-luucas').addEventListener('click', e => {
+    const opcao = e.target.closest('[data-quizuu-opcao]');
+    const ir = e.target.closest('[data-quizuu-ir]');
+    const acao = e.target.closest('[data-quizuu]')?.dataset.quizuu;
+    if (opcao) {
+        opcao.parentElement.querySelectorAll('.escolhida').forEach(li => li.classList.remove('escolhida'));
+        opcao.classList.add('escolhida');
+        quiz.respostas[quiz.pergunta] = opcao.dataset.quizuuOpcao;
+        // um respiro pra ver a resposta marcada antes de ir pra proxima
+        setTimeout(() => { quiz.pergunta++; montarQuiz(); $('#pagina-quizuu').scrollIntoView({ block: 'start' }); }, 300);
+        return;
+    }
+    if (ir) quiz.pergunta = Number(ir.dataset.quizuuIr);
+    if (acao === 'iniciar') quiz.pergunta = 0;
+    if (acao === 'refazer') { quiz.pergunta = 0; quiz.respostas = []; }
+    if (ir || acao) montarQuiz();
+});
 
 function novaAba() {
     const id = 'nova' + (++contadorAbas);
@@ -2381,7 +2576,7 @@ function caixaMural() {
                 <button data-desenho-mural="${i}" title="${esc(d.titulo)} por ${esc(d.autor)}">
                     ${molduraMuseu(`<img src="${esc(imagemSegura(d.imagem))}" alt="${esc(d.titulo)}" loading="lazy">`, 'mini')}
                 </button>`).join('')}</div>
-               <a class="mini-link" href="#recados">ver o mural todo</a>`
+               <a class="mini-link" href="#mural">ver o mural todo</a>`
             : `<p class="vazio">nenhum desenho aqui ainda...</p>`)
         + `<p style="margin:4px 0 0"><button class="btn pequeno" data-abrir="paint">${icone('palette')} desenhar</button></p>`;
 }
@@ -4873,7 +5068,7 @@ function ataqueDoVirus() {
 // --- ajuda de cada app (botao ? da janela) ---
 
 const AJUDA_APPS = {
-    paint: ['Paint', 'palette', `Pra que serve: desenhar e mandar o desenho pro Lucas. Se ele aprovar, aparece no mural da página de recados. (*)
+    paint: ['Paint', 'palette', `Pra que serve: desenhar e mandar o desenho pro Lucas. Se ele aprovar, aparece no mural de desenhos. (*)
 
 Ferramentas:
 • Lápis, pincel (traço suave), spray, balde (pinta uma área inteira) e borracha.
@@ -5112,16 +5307,9 @@ function caraMinado(qual) {
     $('#cara-minado').src = urlIcone(CARAS_MINADO[qual]);
 }
 
+// recordes abre a tela de high score do arcade, ja no nivel que esta jogando
 function recordesMinado() {
-    const r = guardar.ler('minado-recordes', {});
-    dialogo({
-        titulo: 'Recordes do Campo Tekisminado',
-        icone: 'award_star_gold_1',
-        texto: Object.keys(NIVEIS_MINADO).map(n => {
-            const melhor = topoPlacar('minado-' + n)[0];
-            return `${NOMES_NIVEL_MINADO[n]}: ${melhor ? `${nomeNoPlacar(melhor)} - ${melhor.pontos} segundos` : 'ninguém ganhou ainda'}${r[n] !== undefined ? ` (o seu: ${r[n]}s)` : ''}`;
-        }).join('\n') + '\n\nO placar completo fica no quadro Arcade.',
-    });
+    verPlacar('minado-' + minado.nivel);
 }
 
 function iniciarMinado() {
@@ -5279,13 +5467,23 @@ let esperaSenha;
 function tentarSenha() {
     clearTimeout(esperaSenha);
     const senha = calc.visor;
-    if (!nuvem || calc.operacao || !/^\d{6,16}$/.test(senha)) return;
+    if (!nuvem || calc.operacao || !/^([a-z]{4,20}|\d{6,16})$/.test(senha)) return;
     esperaSenha = setTimeout(async () => {
         const { data, error } = await nuvem.rpc('abrir_secreto', { p_senha: senha });
         if (error || !Array.isArray(data) || calc.visor !== senha) return;
         DADOS.secreto = data;
         abrirAreaSecreta();
     }, 700);
+}
+
+// letra digitada no teclado vai pro visor (a senha pode ser palavra)
+function letraCalc(letra) {
+    if (calc.novoNumero || !/^[a-z]+$/.test(calc.visor)) calc.visor = '';
+    if (calc.visor.length < 20) calc.visor += letra;
+    calc.novoNumero = false;
+    calc.operacao = null;
+    mostrarCalc();
+    tentarSenha();
 }
 
 function abrirAreaSecreta() {
@@ -5307,6 +5505,10 @@ document.addEventListener('keydown', e => {
     const janela = $('#calculadora');
     if (janela.hidden || !janela.classList.contains('ativa') || e.target.closest?.('input, textarea')) return;
     const mapa = { Enter: '=', '=': '=', Backspace: 'apagar', Escape: 'c', Delete: 'ce', '.': ',', ',': ',', '+': '+', '-': '-', '*': '*', '/': '/', '%': '%' };
+    if (/^[a-z]$/i.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        return letraCalc(e.key.toLowerCase());
+    }
     const tecla = /^\d$/.test(e.key) ? e.key : mapa[e.key];
     if (!tecla) return;
     e.preventDefault();
@@ -5427,9 +5629,23 @@ async function carregarPlacar() {
         .order('criado_em', { ascending: false }).limit(500);
     // tabela ainda nao criada no banco: fica com o placar deste navegador
     if (error) return console.warn('placar so neste navegador:', error.message);
+    const pendentes = placar.lista.filter(r => !r.id && !placar.naNuvem);
     placar.lista = data;
     placar.naNuvem = true;
     caixaArcade();
+    enviarPendentes(pendentes);
+}
+
+// recordes feitos quando o banco ainda nao tinha o placar: sobem agora (so os que entram no top 10)
+async function enviarPendentes(pendentes) {
+    const vao = pendentes.filter(r => JOGOS_ARCADE[r.jogo] && /^[A-Z0-9 ]{1,10}$/.test(r.nome) && entraNoPlacar(r.jogo, r.pontos)).slice(0, 8);
+    guardar.salvar('arcade-recordes', []);
+    if (!vao.length) return;
+    for (const r of vao) {
+        const error = await inserirAssinado('recordes', { jogo: r.jogo, nome: r.nome, pontos: r.pontos });
+        if (error) console.warn('placar:', error.message);
+    }
+    carregarPlacar();
 }
 
 function topoPlacar(jogo) {
@@ -5464,15 +5680,19 @@ function pontosArcade(jogo, pontos) {
     return `${numero(pontos)}${JOGOS_ARCADE[jogo].unidade}`;
 }
 
-// o melhor jogador de todos: quem soma mais pontos de posicao em todos os placares
+// o melhor jogador de todos: quem tem mais 1o lugar (recorde) nos placares
+// empate desempata pela soma das posicoes (1o vale 10, 2o vale 9...) e depois por quem chegou primeiro
 function campeaoGeral() {
-    const soma = {};
+    const jogadores = {};
     Object.keys(JOGOS_ARCADE).forEach(j => topoPlacar(j).forEach((r, i) => {
         const nome = nomeNoPlacar(r);
-        soma[nome] = (soma[nome] || 0) + PONTOS_POSICAO[i];
+        const p = jogadores[nome] ||= { nome, recordes: 0, pontos: 0, desde: r.criado_em };
+        if (i === 0) p.recordes++;
+        p.pontos += PONTOS_POSICAO[i];
+        if (String(r.criado_em) < String(p.desde)) p.desde = r.criado_em;
     }));
-    const [nome, pontos] = Object.entries(soma).sort((a, b) => b[1] - a[1])[0] || [];
-    return nome ? { nome, pontos } : null;
+    return Object.values(jogadores)
+        .sort((a, b) => b.recordes - a.recordes || b.pontos - a.pontos || String(a.desde).localeCompare(String(b.desde)))[0] || null;
 }
 
 // a fazenda (dentro do iframe) avisa quando bate uma marca
@@ -5631,7 +5851,7 @@ function verPlacar(jogoInicial = 'minado-iniciante') {
             <p class="led-sub">${letraArcade(jogo.sub)}</p>
             <p class="led-high">${letraArcade('HIGH SCORES')}</p>
             <ol class="led-lista">${linhasPlacar(atual)}</ol>
-            <p class="led-campeao">${letraArcade('CHAMPION')} <b>${letraArcade(campeao ? campeao.nome : '???')}</b>${campeao ? ' ' + letraArcade(campeao.pontos + ' PTS') : ''}</p>
+            <p class="led-campeao">${letraArcade('CHAMPION')} <b>${letraArcade(campeao ? campeao.nome : '???')}</b>${campeao ? ' ' + letraArcade(campeao.recordes ? `${campeao.recordes} REC` : `${campeao.pontos} PTS`) : ''}</p>
             <div class="led-abas">${jogos.map(j => `<button type="button" data-aba-placar="${j}" class="${j === atual ? 'ativa' : ''}">${letraArcade(JOGOS_ARCADE[j].curto)}</button>`).join('')}</div>
             <button type="button" class="led-sair" data-arcade="ok">${letraArcade('PRESS ESC')}</button>
         </div>`;
@@ -6706,32 +6926,80 @@ function aplicarFundo(id) {
 }
 
 // papel de parede do celular e do tablet (nas datas especiais vale a lista do tema, igual no pc)
+// igual celular de verdade: um pra tela inicial e outro pra tela de bloqueio
+const fundoCel = (id, nome) => ({ id, nome, arquivo: `imagens/celular/fundos/${id}.jpg` });
 const PAPEIS_CEL = [
     { id: 'dente-de-leao', nome: 'Dente-de-leão (Galaxy S III)', arquivo: 'imagens/celular/dente-de-leao.jpg' },
+    fundoCel('menina-de-fone', 'Menina de fone'),
+    fundoCel('peixes-no-espaco', 'Peixes no espaço'),
+    fundoCel('dinos-no-espaco', 'Dinos no espaço'),
+    fundoCel('vacas-e-ovni', 'Vacas e OVNI'),
+    fundoCel('dino-pizza', 'Dino pizza'),
+    fundoCel('oh-no-dinos', 'Oh no, the dinosaurs'),
+    fundoCel('gato-waffle', 'Gato waffle'),
+    fundoCel('hora-de-aventura', 'Hora de Aventura'),
+    fundoCel('caveira-rosa', 'Caveira rosa'),
+    fundoCel('ovni-verde', 'OVNI verde'),
+    fundoCel('galaxia', 'Galáxia'),
+    fundoCel('abelhas', 'Abelhas'),
+    fundoCel('laranja', 'Laranja'),
+    fundoCel('frutas-na-agua', 'Frutas na água'),
+    fundoCel('verde-floral', 'Verde floral'),
+    fundoCel('azul-windows', 'Azul'),
+    fundoCel('flores-azuis', 'Flores azuis'),
+    fundoCel('peixes-dourados', 'Peixes dourados'),
+    fundoCel('campo-e-bolhas', 'Campo e bolhas'),
+    fundoCel('verde-brilho', 'Verde brilho'),
+    fundoCel('bolha-verde', 'Bolha verde'),
+    fundoCel('azul-bolinhas', 'Azul com bolinhas'),
+    fundoCel('praia', 'Praia'),
+    fundoCel('fenda-do-biquini', 'Fenda do Biquíni'),
+    fundoCel('flores-do-bob', 'Flores do Bob'),
+    fundoCel('cata-ventos', 'Cata-ventos'),
+    fundoCel('fundo-do-mar', 'Fundo do mar'),
 ];
+// os papeis acima sao de celular (em pe); o tablet fica com o dele
+const PAPEIS_TABLET = [{ id: 'phase-beam', nome: 'Phase Beam (Android 4.0)', arquivo: '' }];
+// pra qual tela vai o papel que a pessoa tocar
+let alvoPapelCel = 'inicio';
 
 function papeisCelDisponiveis() {
     const especial = fundosDaData();
-    return especial ? especial.lista.map(f => ({ ...f, arquivo: `imagens/fundos/${f.arquivo}` })) : PAPEIS_CEL;
+    if (especial) return especial.lista.map(f => ({ ...f, arquivo: `imagens/fundos/${f.arquivo}` }));
+    return cel.tablet ? PAPEIS_TABLET : PAPEIS_CEL;
 }
 
-function papelCelEscolhido() {
+function chavePapelCel(tela) {
     const especial = fundosDaData();
-    const chave = especial ? `papel-cel-${datasAgora.tema}` : 'papel-cel';
+    const aparelho = cel.tablet ? 'tab' : 'cel';
+    return (tela === 'bloqueio' ? `papel-bloqueio-${aparelho}` : `papel-${aparelho}`) + (especial ? `-${datasAgora.tema}` : '');
+}
+
+function papelCelEscolhido(tela = 'inicio') {
+    const especial = fundosDaData();
     const lista = papeisCelDisponiveis();
-    const id = guardar.ler(chave, especial ? fundoEscolhido() : PAPEIS_CEL[0].id);
+    const inicial = guardar.ler(chavePapelCel('inicio'), especial ? fundoEscolhido() : lista[0].id);
+    // a tela de bloqueio usa o mesmo da inicial ate a pessoa escolher outro
+    const id = tela === 'bloqueio' ? guardar.ler(chavePapelCel('bloqueio'), inicial) : inicial;
     return lista.find(p => p.id === id) || lista[0];
 }
 
 function aplicarPapelCel(id) {
     const especial = fundosDaData();
-    if (id) guardar.salvar(especial ? `papel-cel-${datasAgora.tema}` : 'papel-cel', id);
-    const papel = papelCelEscolhido();
-    document.body.style.setProperty('--papel-cel', `url("${papel.arquivo}")`);
-    // o tablet tem o "phase beam" proprio; so troca no tema ou quando a pessoa escolhe outro papel
-    const escolheuOutro = guardar.ler('papel-cel', '') && papel.id !== PAPEIS_CEL[0].id;
-    if (especial || escolheuOutro) document.body.style.setProperty('--papel-tab', `#000 url("${papel.arquivo}") center / cover`);
-    else document.body.style.removeProperty('--papel-tab');
+    if (id) {
+        if (alvoPapelCel !== 'bloqueio') guardar.salvar(chavePapelCel('inicio'), id);
+        if (alvoPapelCel !== 'inicio') guardar.salvar(chavePapelCel('bloqueio'), id);
+    }
+    const papel = papelCelEscolhido(), bloqueio = papelCelEscolhido('bloqueio');
+    const trocar = (nome, valor) => valor ? document.body.style.setProperty(nome, valor) : document.body.style.removeProperty(nome);
+    if (cel.tablet) {
+        // sem arquivo e o "phase beam" que ja vem no css
+        trocar('--papel-tab', papel.arquivo && `#000 url("${papel.arquivo}") center / cover`);
+        trocar('--papel-tab-bloqueio', bloqueio.arquivo && `#000 url("${bloqueio.arquivo}") center / cover`);
+    } else {
+        trocar('--papel-cel', `url("${papel.arquivo}")`);
+        trocar('--papel-bloqueio', `url("${bloqueio.arquivo}")`);
+    }
 }
 
 function montarFundos() {
@@ -6767,7 +7035,7 @@ function montarFavoritos() {
         ${meus.length ? '<hr><button data-comando="limpar-favoritos">Limpar meus favoritos</button>' : ''}`;
 
     $('#submenu-links').innerHTML = redes().map(r => r.link
-        ? `<a href="${esc(linkSeguro(r.link))}" target="_blank" rel="noopener">${icone(r.icone)} ${esc(r.nome)}</a>`
+        ? `<a href="${esc(linkSeguro(r.link))}" ${r.link.startsWith('mailto:') ? '' : 'target="_blank" rel="noopener"'}>${icone(r.icone)} ${esc(r.nome)}</a>`
         : `<a href="#redes">${icone(r.icone)} ${esc(r.nome)}</a>`).join('');
 }
 
@@ -6779,6 +7047,8 @@ const COMANDOS = {
     'internet': () => alternarInternet(),
     'placar': () => verPlacar(),
     'nova-guia': novaAba,
+    'abrir-quizuu': () => abrirQuizuu(),
+
     'imprimir': () => window.print(),
     'fechar': () => acaoJanela($('#navegador'), 'fechar'),
     'voltar': () => history.back(),
@@ -6893,6 +7163,7 @@ async function enviarFormulario(form) {
     const botao = form.querySelector('[type=submit]');
     if (botao) botao.disabled = true;
     status('Enviando...');
+    document.documentElement.classList.add('ocupado');
 
     try {
         if (tipo === 'recado') {
@@ -6925,7 +7196,7 @@ async function enviarFormulario(form) {
             lembrarNome(dados.autor);
             form.reset();
             form.hidden = true;
-            dialogo({ titulo: 'Paint', icone: 'email_go', texto: `Desenho enviado! O ${DADOS.nome} vai ver sua arte. (Y)\nSe ele aprovar, ela aparece no mural da página de recados.` });
+            dialogo({ titulo: 'Paint', icone: 'email_go', texto: `Desenho enviado! O ${DADOS.nome} vai ver sua arte. (Y)\nSe ele aprovar, ela aparece no mural de desenhos.` });
             if (souDono) mostrarPagina();
         }
         if (tipo === 'registro' || tipo === 'noticia') {
@@ -7116,6 +7387,7 @@ Se não for, usa outro nome ou apelido.` });
     } catch (erro) {
         erroNuvem(erro);
     } finally {
+        document.documentElement.classList.remove('ocupado');
         if (botao) botao.disabled = false;
     }
 }
@@ -7394,7 +7666,13 @@ document.addEventListener('mouseout', e => {
     if (e.target.closest('#navegador a[href]')) statusLivre();
 });
 
-$('#btn-voltar').addEventListener('click', () => history.back());
+$('#btn-voltar').addEventListener('click', () => {
+    const aba = abas.find(a => a.id === abaAtiva);
+    if (aba?.tipo !== 'quizuu') return history.back();
+    aba.tipo = 'nova';
+    atualizarAbas();
+    atualizarEndereco();
+});
 $('#btn-avancar').addEventListener('click', () => history.forward());
 $('#btn-atualizar').addEventListener('click', () => {
     if (abas.find(a => a.id === abaAtiva)?.tipo === 'site') mostrarPagina();
@@ -8303,7 +8581,7 @@ const AJUDA_JUJUBA = [
     { id: 'zap', pergunta: 'Como converso no Zap?', chaves: 'zap msn conversa conversar bate papo chat falar mensagem atencao',
         resposta: 'Abre o Zap do Lucas, escolhe um nome e manda mensagem. É um bate-papo aberto com todo mundo do site. O "Chamar a atenção" faz a tela de todo mundo tremer!', ir: { janela: 'msn' } },
     { id: 'paint', pergunta: 'Como desenho e mando pro Lucas?', chaves: 'paint desenho desenhar pintar mandar enviar arte mural',
-        resposta: 'Abre o Paint, desenha o que quiser e toca no envelope pra enviar. Se o Lucas aprovar, seu desenho vai pro mural de recados!', ir: { janela: 'paint' } },
+        resposta: 'Abre o Paint, desenha o que quiser e toca no envelope pra enviar. Se o Lucas aprovar, seu desenho vai pro mural de desenhos!', ir: { janela: 'paint' } },
     { id: 'fotos', pergunta: 'Onde vejo as fotos?', chaves: 'foto fotos album albuns photodump imagem galeria camera',
         resposta: 'Nos Álbuns tem as fotos separadinhas, e no Photodump tem tudo misturado. Clica numa foto pra ver ela grande.', ir: { rota: 'albuns' } },
     { id: 'amigos', pergunta: 'Como entro pros amigos do Lucas?', chaves: 'amigo amigos adicionar add entrar contato contatos lista',
@@ -9267,6 +9545,11 @@ function montarCelular() {
             document.body.style.setProperty('--oy', Math.round(r.top + r.height / 2 - 70) + 'px');
             return abrirAppCel(app.dataset.appCel);
         }
+        const alvo = e.target.closest('[data-alvo-papel]');
+        if (alvo) {
+            alvoPapelCel = alvo.dataset.alvoPapel;
+            return montarConfigCel();
+        }
         const papel = e.target.closest('[data-papel-cel]');
         if (papel) {
             aplicarPapelCel(papel.dataset.papelCel);
@@ -9392,6 +9675,7 @@ function ehTablet() {
 function entrarModoCelular(comBloqueio = true, tablet = guardar.ler('modo', '') === 'tablet') {
     cel.tablet = tablet;
     document.body.classList.toggle('cel-tablet', tablet);
+    aplicarPapelCel();
     montarCelular();
     cel.ativo = true;
     guardar.salvar('modo', tablet ? 'tablet' : 'celular');
@@ -9637,9 +9921,16 @@ function montarConfigCel() {
         <button type="button" class="item-config" data-cel="bloquear"><img src="${urlIcone('lock', 32)}" alt=""><span><b>Tela de bloqueio</b>Bloquear agora</span></button>
         <div class="grupo-config">Exibição</div>
         <div class="grupo-config">Papel de parede${fundosDaData() ? ` <small>(do tema de ${esc(TEMAS[datasAgora.tema].frase(new Date()).split(/[!.:]/)[0].toLowerCase())})</small>` : ''}</div>
-        <div class="papeis-cel">${papeisCelDisponiveis().map(p => `
-            <button type="button" class="papel-cel ${p.id === papelCelEscolhido().id ? 'ativo' : ''}" data-papel-cel="${p.id}" title="${esc(p.nome)}">
-                <img src="${p.arquivo}" alt="" loading="lazy"><span>${esc(p.nome)}</span></button>`).join('')}</div>
+        <div class="abas-papel-cel">${[['inicio', 'Tela inicial'], ['bloqueio', 'Tela de bloqueio'], ['ambas', 'As duas']].map(([alvo, nome]) => `
+            <button type="button" class="${alvoPapelCel === alvo ? 'ativa' : ''}" data-alvo-papel="${alvo}">${nome}</button>`).join('')}</div>
+        <div class="papeis-cel">${papeisCelDisponiveis().map(p => {
+            const inicio = p.id === papelCelEscolhido().id, bloqueio = p.id === papelCelEscolhido('bloqueio').id;
+            const ativo = alvoPapelCel === 'bloqueio' ? bloqueio : alvoPapelCel === 'inicio' ? inicio : inicio && bloqueio;
+            return `
+            <button type="button" class="papel-cel ${ativo ? 'ativo' : ''}" data-papel-cel="${p.id}" title="${esc(p.nome)}">
+                <span class="marcas-papel-cel">${inicio ? '<i>INICIAL</i>' : ''}${bloqueio ? '<i>BLOQUEIO</i>' : ''}</span>
+                ${p.arquivo ? `<img src="${p.arquivo}" alt="" loading="lazy">` : '<span class="amostra-phase"></span>'}<span>${esc(p.nome)}</span></button>`;
+        }).join('')}</div>
         <div class="item-config"><img src="${urlIcone('phone_vintage', 32)}" alt=""><span><b>Estilo da interface</b>${cel.tablet ? 'Tablet (Android 4.0)' : 'Celular (Galaxy)'}</span>
             <button type="button" class="chave-cel ${cel.tablet ? '' : 'ligado'}" data-cel="virar-celular">CEL</button>
             <button type="button" class="chave-cel ${cel.tablet ? 'ligado' : ''}" data-cel="virar-tablet">TAB</button></div>
@@ -9796,7 +10087,7 @@ const TELAS_CEL = {
         return `<div class="app-nativo">
             ${secaoCel('Contas')}
             <div class="lista-cel">${redes().map(r => r.link
-                ? `<a class="item-cel" href="${esc(linkSeguro(r.link))}" target="_blank" rel="noopener">${icone(r.icone, 32)}<span class="cresce-cel"><b>${esc(r.nome)}</b><small>${usuarioRede(r)}</small></span>${SETA_CEL}</a>`
+                ? `<a class="item-cel" href="${esc(linkSeguro(r.link))}" ${r.link.startsWith('mailto:') ? '' : 'target="_blank" rel="noopener"'}>${icone(r.icone, 32)}<span class="cresce-cel"><b>${esc(r.nome)}</b><small>${usuarioRede(r)}</small></span>${SETA_CEL}</a>`
                 : `<div class="item-cel apagado-cel">${icone(r.icone, 32)}<span class="cresce-cel"><b>${esc(r.nome)}</b><small>${usuarioRede(r)} · em breve</small></span></div>`).join('')}</div>
             ${secaoCel('Falar comigo')}
             <div class="lista-cel">

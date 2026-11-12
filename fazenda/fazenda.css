@@ -1,10 +1,12 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; overflow: hidden; background: #10200a; }
+/* mouse do windows antigo, igual ao do site */
+html { cursor: url(../imagens/cursores/seta.png) 0 0, default; }
 body {
     font-family: "Trebuchet MS", Verdana, Arial, sans-serif;
     -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
 }
-button { font-family: inherit; cursor: pointer; }
+button { font-family: inherit; cursor: url(../imagens/cursores/mao.png) 5 0, pointer; }
 img { -webkit-user-drag: none; }
 
 #tela { position: fixed; inset: 0; background: radial-gradient(ellipse at 50% 40%, #3f6e1c, #183008 70%, #0c1804); }
@@ -256,7 +258,7 @@ img { -webkit-user-drag: none; }
 #b-jogar { animation: pulsar 1.2s infinite; }
 
 /* ---------- balao de tutorial ---------- */
-#dica-tut { position: absolute; inset: 0; z-index: 60; background: rgba(0, 10, 30, .18); cursor: pointer; }
+#dica-tut { position: absolute; inset: 0; z-index: 60; background: rgba(0, 10, 30, .18); cursor: url(../imagens/cursores/mao.png) 5 0, pointer; }
 #dica-tut[hidden] { display: none; }
 .bolha {
     position: absolute; width: 230px; padding: 12px 14px 8px; border-radius: 16px; text-align: center;
