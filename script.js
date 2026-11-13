@@ -159,6 +159,9 @@ const guardar = {
     },
 };
 
+// estado dos sons do site (fica aqui em cima porque qualquer aviso pode tocar som)
+const sons = { ctx: null, mudo: guardar.ler('sons-mudo', false) };
+
 // --- imagens ---
 
 // icones fatcow (imagens/icones)
@@ -836,8 +839,20 @@ function paginaInicio() {
                         ${estrelas(a.nota)}
                     </a>`).join('')}
             </div>
-        </div>` : ''}`;
+        </div>` : ''}
+        <div class="caixa">
+            <h2>Meu botão</h2>
+            <p class="dica-botao">Se quiser, você pode colocar o meu botão no seu site. Hotlinking é permitido.</p>
+            <div class="meu-botao">
+                <a href="${esc(DADOS.endereco)}" target="_blank" rel="noopener"><img src="imagens/botao-quarto-do-lucas.gif?v=2" alt="Quarto do Lucas" width="88" height="31"></a>
+                <pre class="codigo-botao nao-traduzir"><code>${esc(CODIGO_BOTAO)}</code></pre>
+            </div>
+            <button class="btn pequeno" type="button" data-comando="copiar-botao">${icone('link')} copiar código</button>
+        </div>`;
 }
+
+// meu botao 88x31 pra colocarem no site deles (a imagem fica no github pages, que deixa usar direto)
+const CODIGO_BOTAO = `<a href="${DADOS.endereco}" target="_blank"><img src="https://lucasleticiosoaresalves-oss.github.io/site-no-neocities/imagens/botao-quarto-do-lucas.gif" alt="Quarto do Lucas" width="88" height="31"></a>`;
 
 function paginaPerfil() {
     const n = DADOS.notas;
@@ -876,8 +891,26 @@ function paginaPerfil() {
         </div>`;
 }
 
+// contagem pro meu aniversario (13 de junho, o mesmo dia do tema de aniversario)
+const MEU_ANIVERSARIO = { mes: 6, dia: 13 };
+
+function caixaAniversario() {
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    let proximo = new Date(hoje.getFullYear(), MEU_ANIVERSARIO.mes - 1, MEU_ANIVERSARIO.dia);
+    if (proximo < hoje) proximo = new Date(hoje.getFullYear() + 1, MEU_ANIVERSARIO.mes - 1, MEU_ANIVERSARIO.dia);
+    const faltam = Math.round((proximo - hoje) / 86400000);
+    const texto = faltam === 0 ? 'é hoje! parabéns pra mim!' : faltam === 1 ? 'falta 1 dia!' : `faltam ${faltam} dias!`;
+    return `
+        <div class="caixa caixa-aniversario">
+            <h3>${icone('cake')} Meu aniversário</h3>
+            <div class="contagem-aniversario">${texto} ${icone('ballon_green', 32)}</div>
+        </div>`;
+}
+
 function paginaSobre() {
     return `
+        ${caixaAniversario()}
         <div class="caixa texto-longo">
             <h2>Sobre mim</h2>
             ${DADOS.sobre.map(p => `<p>${textoRico(p)}</p>`).join('')}
@@ -1645,7 +1678,8 @@ function desenhosHTML(modo = 'dono') {
 
 const TIPOS_AVALIACAO = {
     livro: ['Livros', 'book'],
-    serie: ['Séries', 'film'],
+    filme: ['Filmes', 'film'],
+    serie: ['Séries', 'monitor'],
     jogo: ['Jogos', 'controller'],
 };
 
@@ -1661,11 +1695,34 @@ function capaAvaliacao(a) {
         : `<div class="capa sem-capa">${icone(tipo[1], 32)}</div>`;
 }
 
+// favoritos em destaque, separados por tipo (so os tipos que tem favorito aparecem)
+function favoritosAvaliacoes(filtro) {
+    const grupos = Object.entries(TIPOS_AVALIACAO)
+        .filter(([tipo]) => !filtro || tipo === filtro)
+        .map(([tipo, [nome, ic]]) => [tipo, nome, ic, avaliacoes.todos().filter(a => a.tipo === tipo && a.favorito)])
+        .filter(([, , , lista]) => lista.length);
+    if (!grupos.length) return '';
+    return `
+        <div class="caixa favoritos-avaliacoes">
+            <h2>${icone('award_star_gold_1')} Meus favoritos</h2>
+            ${grupos.map(([tipo, nome, ic, lista]) => `
+                <h4 class="grupo-favoritos">${icone(ic)} ${nome} ${tipo === 'serie' ? 'favoritas' : 'favoritos'}</h4>
+                <div class="grade-favoritos">${lista.map(a => `
+                    <a class="favorito" href="#avaliacoes/${tipo}" title="${esc(a.titulo)}">
+                        ${capaAvaliacao(a)}
+                        <span class="texto">${esc(a.titulo)}</span>
+                        ${estrelas(a.nota)}
+                    </a>`).join('')}
+                </div>`).join('')}
+        </div>`;
+}
+
 function paginaAvaliacoes(filtro = '') {
     const todas = avaliacoes.todos().filter(a => !filtro || a.tipo === filtro);
     return `
+        ${favoritosAvaliacoes(filtro)}
         <div class="caixa">
-            <h2>Avaliações <small>livros, séries e jogos que eu consumi</small></h2>
+            <h2>Avaliações <small>livros, filmes, séries e jogos que eu consumi</small></h2>
             <div class="filtros">
                 <a href="#avaliacoes" class="${!filtro ? 'ativo' : ''}">todos</a>
                 ${Object.entries(TIPOS_AVALIACAO).map(([tipo, [nome, ic]]) => `<a href="#avaliacoes/${tipo}" class="${filtro === tipo ? 'ativo' : ''}">${icone(ic)} ${nome}</a>`).join('')}
@@ -1675,7 +1732,7 @@ function paginaAvaliacoes(filtro = '') {
                     ${capaAvaliacao(a)}
                     <div>
                         <span class="tipo-avaliacao">${icone((TIPOS_AVALIACAO[a.tipo] || TIPOS_AVALIACAO.livro)[1])} ${esc((TIPOS_AVALIACAO[a.tipo] || TIPOS_AVALIACAO.livro)[0])}</span>
-                        <h4>${esc(a.titulo)}</h4>
+                        <h4>${esc(a.titulo)}${a.favorito ? ` <span class="selo-favorito" title="favorito">${icone('award_star_gold_1')}</span>` : ''}</h4>
                         ${estrelas(a.nota)}
                         ${a.comentario ? `<p>${textoRico(a.comentario)}</p>` : ''}
                         <span class="dica">${esc(a.data)}</span>
@@ -1848,7 +1905,8 @@ function adminAvaliacoes() {
                     <select name="tipo" aria-label="Tipo">${Object.entries(TIPOS_AVALIACAO).map(([tipo, [nome]]) => `<option value="${tipo}" ${a?.tipo === tipo ? 'selected' : ''}>${nome}</option>`).join('')}</select>
                     <select name="nota" aria-label="Nota">${[5, 4, 3, 2, 1].map(n => `<option value="${n}" ${Number(a?.nota) === n ? 'selected' : ''}>${'★'.repeat(n)}${'☆'.repeat(5 - n)}</option>`).join('')}</select>
                 </div>
-                <input name="titulo" placeholder="nome do livro, série ou jogo" maxlength="80" required value="${esc(a?.titulo || '')}">
+                <input name="titulo" placeholder="nome do livro, filme, série ou jogo" maxlength="80" required value="${esc(a?.titulo || '')}">
+                <label class="marcar-favorito"><input type="checkbox" name="favorito" ${a?.favorito ? 'checked' : ''}> ${icone('award_star_gold_1')} é um dos meus favoritos</label>
                 <textarea name="comentario" placeholder="o que eu achei (opcional)" maxlength="500" rows="3">${esc(a?.comentario || '')}</textarea>
                 <label class="soltar-foto">
                     <input type="file" name="capa" accept="image/*" class="so-leitor">
@@ -1862,7 +1920,7 @@ function adminAvaliacoes() {
             ${avaliacoes.todos().map(item => `
                 <div class="avaliacao pequena">
                     ${capaAvaliacao(item)}
-                    <div><b>${esc(item.titulo)}</b> ${estrelas(item.nota)}<br><span class="dica">${esc((TIPOS_AVALIACAO[item.tipo] || TIPOS_AVALIACAO.livro)[0])} · ${esc(item.data)}</span><br>${botoesItem('avaliacoes', item.id)}</div>
+                    <div><b>${esc(item.titulo)}</b>${item.favorito ? ` ${icone('award_star_gold_1')}` : ''} ${estrelas(item.nota)}<br><span class="dica">${esc((TIPOS_AVALIACAO[item.tipo] || TIPOS_AVALIACAO.livro)[0])} · ${esc(item.data)}</span><br>${botoesItem('avaliacoes', item.id)}</div>
                 </div>`).join('') || mensagemVazia(avaliacoes, 'nada avaliado ainda')}
         </div>`;
 }
@@ -2150,7 +2208,11 @@ function rotaAtual() {
 }
 
 let carregando;
+// a area secreta so abre depois da senha certa nesta visita (o endereco #secreto sozinho nao abre)
+let secretoAberto = false;
+
 function mostrarPagina() {
+    if (rotaAtual().nome === 'secreto' && !secretoAberto && !souDono) history.replaceState(null, '', '#inicio');
     const { nome, arg } = rotaAtual();
     const pagina = nome === 'tv' && !liberado('tv') ? null : PAGINAS[nome];
     const central = $('#central');
@@ -2460,7 +2522,12 @@ $('#quiz-luucas').addEventListener('click', e => {
         opcao.classList.add('escolhida');
         quiz.respostas[quiz.pergunta] = opcao.dataset.quizuuOpcao;
         // um respiro pra ver a resposta marcada antes de ir pra proxima
-        setTimeout(() => { quiz.pergunta++; montarQuiz(); $('#pagina-quizuu').scrollIntoView({ block: 'start' }); }, 300);
+        setTimeout(() => {
+            quiz.pergunta++;
+            if (quiz.pergunta === QUIZ_LUCAS.length) tocarSom('tcharam');
+            montarQuiz();
+            $('#pagina-quizuu').scrollIntoView({ block: 'start' });
+        }, 300);
         return;
     }
     if (ir) quiz.pergunta = Number(ir.dataset.quizuuIr);
@@ -3319,6 +3386,7 @@ function dialogo({ titulo, texto, imagem = '', rodape = '', icone: nomeIcone = '
         + (imagemSegura(imagem) ? `<img class="imagem-dialogo" src="${esc(imagemSegura(imagem))}" alt="">` : '')
         + (rodape ? `<small class="rodape-dialogo">${esc(rodape)}</small>` : '');
     $('#dialogo-icone').innerHTML = icone(nomeIcone, 32);
+    tocarSom(nomeIcone === 'error' ? 'erro' : 'ding');
     const acoes = $('#dialogo-acoes');
     acoes.innerHTML = '';
     botoes.forEach(b => {
@@ -3353,6 +3421,7 @@ function focarJanela(janela) {
 
 function abrirJanela(id) {
     if (RECURSO_DA_JANELA[id] && !liberado(RECURSO_DA_JANELA[id])) return;
+    if (document.getElementById(id)?.hidden) tocarSom('clique');
     // no modo celular os programas abrem como aplicativo
     if (cel.ativo) {
         if (id === 'navegador') return abrirAppCel('internet');
@@ -4260,6 +4329,7 @@ function mostrarAvisoZap(ultima) {
         $('#balao-zap-titulo').textContent = novasAgora > 1 ? `${novasAgora} mensagens novas no Zap` : 'Mensagem nova no Zap';
         const balao = $('#balao-zap');
         balao.hidden = false;
+        tocarSom(ultima.texto === '/atencao' ? 'atencao' : 'notificacao');
         clearTimeout(avisoZap.timerBalao);
         avisoZap.timerBalao = setTimeout(() => { balao.hidden = true; }, 9000);
     }
@@ -4335,7 +4405,10 @@ async function zapMandar() {
     const texto = campo.value.trim();
     if (!texto) return;
     try {
-        if (await enviarZap(texto)) campo.value = '';
+        if (await enviarZap(texto)) {
+            campo.value = '';
+            tocarSom('enviado');
+        }
     } catch (erro) {
         erroNuvem(erro);
     }
@@ -4350,6 +4423,7 @@ async function zapAtencao() {
 }
 
 function tremerJanela(janela) {
+    tocarSom('atencao');
     janela.classList.remove('tremer');
     void janela.offsetWidth; // reinicia a animacao
     janela.classList.add('tremer');
@@ -5344,6 +5418,7 @@ function desenharCasaMinado(i, explodiu = false) {
 }
 
 function perderMinado(i) {
+    tocarSom('explosao');
     minado.acabou = true;
     clearInterval(minado.timer);
     minado.campo.forEach((casa, v) => {
@@ -5368,6 +5443,7 @@ function conferirVitoriaMinado() {
     minado.bandeiras = minado.minas;
     placarMinado();
     caraMinado('ganhou');
+    tocarSom('ganhou');
     const recordes = guardar.ler('minado-recordes', {});
     const recorde = !recordes[minado.nivel] || minado.tempo < recordes[minado.nivel];
     if (recorde) {
@@ -5560,6 +5636,7 @@ function tentarSenha() {
         const { data, error } = await nuvem.rpc('abrir_secreto', { p_senha: senha });
         if (error || !Array.isArray(data) || calc.visor !== senha) return;
         DADOS.secreto = data;
+        secretoAberto = true;
         abrirAreaSecreta();
     }, 700);
 }
@@ -5793,6 +5870,7 @@ window.addEventListener('message', e => {
 });
 
 async function salvarNoPlacar(jogo, nome, pontos) {
+    tocarSom('recorde');
     const linha = { jogo, nome, pontos };
     if (placar.naNuvem) {
         const error = await inserirAssinado('recordes', linha);
@@ -7271,6 +7349,18 @@ const COMANDOS = {
     'internet': () => alternarInternet(),
     'placar': () => verPlacar(),
     'nova-guia': novaAba,
+    'copiar-botao': async () => {
+        try {
+            await navigator.clipboard.writeText(CODIGO_BOTAO);
+            status('Código do botão copiado! ✓');
+            dialogo({ titulo: 'Meu botão', icone: 'page_world', texto: 'Código copiado! É só colar no HTML do seu site. (Y)' });
+        } catch {
+            // sem permissao pra area de transferencia: seleciona o codigo pra copiar na mao
+            const codigo = $('.codigo-botao code');
+            if (codigo) getSelection().selectAllChildren(codigo);
+            status('Selecionei o código: aperte Ctrl+C pra copiar');
+        }
+    },
     'abrir-quizuu': () => abrirQuizuu(),
 
     'imprimir': () => window.print(),
@@ -7393,11 +7483,13 @@ async function enviarFormulario(form) {
         if (tipo === 'recado') {
             await recados.adicionar({ autor: dados.autor.trim(), texto: dados.texto.trim() });
             lembrarNome(dados.autor);
+            tocarSom('enviado');
             mostrarPagina();
         }
         if (tipo === 'depoimento') {
             await depoimentos.adicionar({ autor: dados.autor.trim(), texto: dados.texto.trim() });
             lembrarNome(dados.autor);
+            tocarSom('enviado');
             mostrarPagina();
             if (!souDono) dialogo({ titulo: 'Depoimento', icone: 'heart', texto: `Depoimento enviado! Só o ${DADOS.nome} vai ler. (L)` });
         }
@@ -7418,6 +7510,7 @@ async function enviarFormulario(form) {
             }
             await desenhos.adicionar({ autor: dados.autor.trim(), titulo: dados.titulo.trim(), imagem });
             lembrarNome(dados.autor);
+            tocarSom('enviado');
             form.reset();
             form.hidden = true;
             dialogo({ titulo: 'Paint', icone: 'email_go', texto: `Desenho enviado! O ${DADOS.nome} vai ver sua arte. (Y)\nSe ele aprovar, ela aparece no mural de desenhos.` });
@@ -7450,7 +7543,7 @@ async function enviarFormulario(form) {
             mostrarPagina();
         }
         if (tipo === 'avaliacao') {
-            const campos = { tipo: dados.tipo, titulo: dados.titulo.trim(), nota: Number(dados.nota), comentario: dados.comentario.trim() };
+            const campos = { tipo: dados.tipo, titulo: dados.titulo.trim(), nota: Number(dados.nota), comentario: dados.comentario.trim(), favorito: dados.favorito === 'on' };
             if (dados.capa?.size) campos.capa = await subirImagem(dados.capa, 'capas', 600);
             const item = emEdicao('avaliacoes');
             if (item) {
@@ -7919,6 +8012,7 @@ const LOGO_WINDOWS = `
 
 function desligar() {
     $('#menu-iniciar').hidden = true;
+    tocarSom('desligar');
     if (embed.id) mandarSpotify({ command: 'pause' });
     player.audio.pause();
     const tela = $('#tela-desligar');
@@ -8022,6 +8116,7 @@ $('#discando').addEventListener('click', e => {
 });
 
 function discar() {
+    tocarSom('modem');
     PASSOS_CONEXAO.forEach((texto, i) => {
         timersConexao.push(setTimeout(() => {
             $('#discando-texto').textContent = texto;
@@ -8033,6 +8128,7 @@ function discar() {
 
 function terminarConexao() {
     timersConexao.forEach(clearTimeout);
+    if (!$('#discando').hidden) tocarSom('ligar');
     $('#discando').hidden = true;
     try { sessionStorage.setItem('qdl-conectado', 'sim'); } catch { /* ok */ }
 }
@@ -9951,7 +10047,7 @@ function sairModoCelular() {
 
 function bloquearCel() {
     fecharAppAtualCel();
-    document.body.classList.remove('cel-inicio', 'cel-app', 'cel-app-site', 'cel-app-completo', 'cel-app-janela', 'cel-app-config', 'cel-app-camera', 'cel-gaveta');
+    document.body.classList.remove('cel-inicio', 'cel-app', 'cel-app-site', 'cel-app-completo', 'cel-app-janela', 'cel-app-config', 'cel-app-camera', 'cel-gaveta', 'cel-nativo');
     document.body.classList.add('cel-bloqueado');
     $('#camera-cel').hidden = true;
     const bloqueio = $('#bloqueio-cel');
@@ -10025,7 +10121,7 @@ function trocarLayoutCel(tablet) {
 function mostrarInicioCel() {
     if (!cel.ativo) return;
     fecharAppAtualCel();
-    document.body.classList.remove('cel-app', 'cel-app-site', 'cel-app-completo', 'cel-app-janela', 'cel-app-config', 'cel-app-camera', 'cel-gaveta');
+    document.body.classList.remove('cel-app', 'cel-app-site', 'cel-app-completo', 'cel-app-janela', 'cel-app-config', 'cel-app-camera', 'cel-gaveta', 'cel-nativo');
     document.body.classList.add('cel-inicio');
     $('#camera-cel').hidden = true;
     $('#inicio-cel').hidden = false;
@@ -10694,6 +10790,163 @@ function efeitoNaFoto(ctx, w, h, efeito) {
     }
     ctx.putImageData(img, 0, 0);
 }
+
+// --- sons da internet antiga (todos feitos na hora com o web audio, sem arquivo de som) ---
+
+// o navegador so deixa tocar som depois que a pessoa clica ou aperta uma tecla
+function audioSons() {
+    if (sons.mudo) return null;
+    try {
+        sons.ctx ||= new (window.AudioContext || window.webkitAudioContext)();
+        if (sons.ctx.state === 'suspended') sons.ctx.resume().catch(() => {});
+        return sons.ctx.state === 'running' ? sons.ctx : null;
+    } catch {
+        return null;
+    }
+}
+['pointerdown', 'keydown'].forEach(evento => document.addEventListener(evento, () => { if (!sons.mudo) audioSons(); }, { capture: true, passive: true }));
+
+function nota(ctx, freq, quando, duracao, tipo = 'sine', volume = 0.1, freqFinal = 0) {
+    const osc = ctx.createOscillator();
+    const ganho = ctx.createGain();
+    osc.type = tipo;
+    osc.frequency.setValueAtTime(freq, quando);
+    if (freqFinal) osc.frequency.exponentialRampToValueAtTime(freqFinal, quando + duracao);
+    ganho.gain.setValueAtTime(0.0001, quando);
+    ganho.gain.exponentialRampToValueAtTime(volume, quando + 0.012);
+    ganho.gain.exponentialRampToValueAtTime(0.0001, quando + duracao);
+    osc.connect(ganho).connect(ctx.destination);
+    osc.start(quando);
+    osc.stop(quando + duracao + 0.03);
+}
+
+function chiado(ctx, quando, duracao, volume = 0.05, corte = 3000) {
+    const buffer = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * duracao), ctx.sampleRate);
+    const dados = buffer.getChannelData(0);
+    for (let i = 0; i < dados.length; i++) dados[i] = Math.random() * 2 - 1;
+    const fonte = ctx.createBufferSource();
+    const filtro = ctx.createBiquadFilter();
+    const ganho = ctx.createGain();
+    fonte.buffer = buffer;
+    filtro.type = 'lowpass';
+    filtro.frequency.value = corte;
+    ganho.gain.setValueAtTime(volume, quando);
+    ganho.gain.exponentialRampToValueAtTime(0.0001, quando + duracao);
+    fonte.connect(filtro).connect(ganho).connect(ctx.destination);
+    fonte.start(quando);
+}
+
+// tons do telefone (dtmf): cada tecla e a soma de duas notas
+const TECLAS_DTMF = { 0: [941, 1336], 8: [852, 1336], 7: [852, 1209], 5: [770, 1336], 3: [697, 1477] };
+
+const SONS = {
+    // modem discado: disca, chama, atende e faz o chiado da conexao
+    modem(ctx, t) {
+        '08007853'.split('').forEach((d, i) => {
+            const [a, b] = TECLAS_DTMF[d] || TECLAS_DTMF[0];
+            nota(ctx, a, t + i * 0.11, 0.08, 'sine', 0.05);
+            nota(ctx, b, t + i * 0.11, 0.08, 'sine', 0.05);
+        });
+        const atende = t + 1.1;
+        nota(ctx, 2100, atende, 0.55, 'sine', 0.04);
+        for (let i = 0; i < 9; i++) {
+            const q = atende + 0.6 + i * 0.16;
+            nota(ctx, i % 2 ? 1200 : 980, q, 0.14, 'square', 0.025);
+            nota(ctx, 1800 + (i % 3) * 300, q + 0.05, 0.08, 'sawtooth', 0.015, 2600);
+        }
+        chiado(ctx, atende + 1.9, 1.2, 0.05, 4500);
+        nota(ctx, 1650, atende + 2, 0.9, 'square', 0.015, 1250);
+    },
+    // computador ligando
+    ligar(ctx, t) {
+        [523, 659, 784, 1047].forEach((f, i) => nota(ctx, f, t + i * 0.12, 0.9 - i * 0.1, 'triangle', 0.07));
+        nota(ctx, 262, t, 1.2, 'sine', 0.05);
+        nota(ctx, 1568, t + 0.5, 0.7, 'sine', 0.03);
+    },
+    desligar(ctx, t) {
+        [784, 659, 523, 392].forEach((f, i) => nota(ctx, f, t + i * 0.16, 0.6, 'triangle', 0.07));
+        nota(ctx, 196, t + 0.3, 1.1, 'sine', 0.04);
+    },
+    // mensagem nova
+    notificacao(ctx, t) {
+        nota(ctx, 659, t, 0.18, 'triangle', 0.1);
+        nota(ctx, 988, t + 0.12, 0.35, 'triangle', 0.1);
+    },
+    // chamaram sua atencao
+    atencao(ctx, t) {
+        for (let i = 0; i < 6; i++) nota(ctx, i % 2 ? 140 : 180, t + i * 0.08, 0.09, 'square', 0.06);
+    },
+    enviado(ctx, t) {
+        nota(ctx, 420, t, 0.16, 'sine', 0.08, 980);
+    },
+    ding(ctx, t) {
+        nota(ctx, 1046, t, 0.7, 'sine', 0.07);
+        nota(ctx, 2093, t, 0.3, 'sine', 0.02);
+    },
+    erro(ctx, t) {
+        nota(ctx, 196, t, 0.32, 'square', 0.05);
+        nota(ctx, 147, t + 0.06, 0.4, 'square', 0.04);
+    },
+    clique(ctx, t) {
+        chiado(ctx, t, 0.025, 0.08, 2500);
+    },
+    explosao(ctx, t) {
+        chiado(ctx, t, 1.1, 0.25, 900);
+        nota(ctx, 90, t, 0.6, 'sine', 0.15, 35);
+    },
+    ganhou(ctx, t) {
+        [523, 659, 784, 1047, 784, 1047].forEach((f, i) => nota(ctx, f, t + i * 0.09, 0.18, 'square', 0.04));
+        nota(ctx, 1319, t + 0.56, 0.5, 'square', 0.04);
+    },
+    // fanfarra de fliperama
+    recorde(ctx, t) {
+        [392, 523, 659, 784, 659, 784, 1047].forEach((f, i) => nota(ctx, f, t + i * 0.08, 0.14, 'square', 0.04));
+        [1047, 1319, 1568].forEach(f => nota(ctx, f, t + 0.6, 0.6, 'square', 0.025));
+    },
+    // miadinho (sobe e desce)
+    miau(ctx, t) {
+        nota(ctx, 620, t, 0.14, 'triangle', 0.08, 900);
+        nota(ctx, 900, t + 0.13, 0.22, 'triangle', 0.07, 520);
+    },
+    tcharam(ctx, t) {
+        nota(ctx, 392, t, 0.12, 'triangle', 0.08);
+        [523, 659, 784].forEach(f => nota(ctx, f, t + 0.14, 0.8, 'triangle', 0.06));
+    },
+};
+
+function tocarSom(nome) {
+    try {
+        const ctx = audioSons();
+        if (ctx && SONS[nome]) SONS[nome](ctx, ctx.currentTime + 0.02);
+    } catch { /* sem som (ou chamado antes da hora), tudo bem */ }
+}
+
+// icone de volume da barra de tarefas liga e desliga os sons
+function mostrarVolume() {
+    const volume = $('#volume-bandeja');
+    if (!volume) return;
+    volume.classList.toggle('mudo', sons.mudo);
+    volume.title = sons.mudo ? 'Sons desligados (clique pra ligar)' : 'Sons ligados (clique pra desligar)';
+}
+$('#volume-bandeja')?.addEventListener('click', () => {
+    sons.mudo = !sons.mudo;
+    guardar.salvar('sons-mudo', sons.mudo);
+    mostrarVolume();
+    if (!sons.mudo) tocarSom('ding');
+});
+mostrarVolume();
+
+// mewo (o gatinho do omori embaixo das visitas): clicando aparece o balao com a unica fala dele
+let esperaMewo;
+$('#mewo')?.addEventListener('click', () => {
+    const balao = $('#balao-mewo');
+    clearTimeout(esperaMewo);
+    if (!balao.hidden) return (balao.hidden = true);
+    balao.innerHTML = ['WAITING FOR', 'SOMETHING', 'TO HAPPEN?'].map(linha => letraArcade(linha)).join('<br>');
+    balao.hidden = false;
+    tocarSom('miau');
+    esperaMewo = setTimeout(() => { balao.hidden = true; }, 5000);
+});
 
 // barulhinho de obturador (feito na hora, sem arquivo de som)
 function somObturador() {

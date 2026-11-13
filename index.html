@@ -8,7 +8,7 @@
     <title>QUARTO DO LUCAS</title>
     <meta name="description" content="O quarto do Lucas na internet: recados, álbuns, diário e playlists no estilo orkut.">
     <link rel="icon" href="imagens/icones/16/internet_explorer.png">
-    <link rel="stylesheet" href="style.css?v=232">
+    <link rel="stylesheet" href="style.css?v=243">
 </head>
 <body>
 
@@ -269,6 +269,12 @@
                             <div>você é o visitante nº</div>
                             <div class="digitos" id="contador"></div>
                             <div class="dica">desde 2006</div>
+                        </div>
+
+                        <!-- mewo, o gatinho do omori: clicando ele fala -->
+                        <div class="mewo">
+                            <div class="balao-mewo" id="balao-mewo" hidden></div>
+                            <button type="button" id="mewo" title="Mewo"><img src="imagens/gifs/mewo.gif" alt="Mewo, o gato do Omori" width="144" height="90"></button>
                         </div>
                     </aside>
                 </div>
@@ -688,7 +694,7 @@
     <button class="botao-iniciar" id="botao-iniciar"><span class="bandeira" aria-hidden="true"><i></i><i></i><i></i><i></i></span> iniciar</button>
     <div class="tarefas" id="tarefas"></div>
     <div class="bandeja">
-        <span title="Volume"><img class="ico" data-ico="sound" alt=""></span>
+        <button type="button" class="volume-bandeja" id="volume-bandeja" title="Sons ligados (clique pra desligar)"><img class="ico" data-ico="sound" alt="Volume"></button>
         <button class="icone-net" id="icone-net" data-comando="internet" title="Conectado à internet (clique pra desconectar)"><img class="ico" data-ico="network_wireless" alt=""></button>
         <span class="estacao" id="estacao"></span>
         <span id="relogio">--:--</span>
@@ -765,6 +771,6 @@
 
 <script src="js/supabase.js"></script>
 
-<script src="script.js?v=415"></script>
+<script src="script.js?v=428"></script>
 </body>
 </html>
