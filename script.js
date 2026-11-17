@@ -844,7 +844,7 @@ function paginaInicio() {
             <h2>Meu botão</h2>
             <p class="dica-botao">Se quiser, você pode colocar o meu botão no seu site. Hotlinking é permitido.</p>
             <div class="meu-botao">
-                <a href="${esc(DADOS.endereco)}" target="_blank" rel="noopener"><img src="imagens/botao-quarto-do-lucas.gif?v=7" alt="Quarto do Lucas" width="88" height="31"></a>
+                <a href="${esc(DADOS.endereco)}" target="_blank" rel="noopener"><img src="imagens/botao-quarto-do-lucas.gif?v=8" alt="Quarto do Lucas" width="88" height="31"></a>
                 <pre class="codigo-botao nao-traduzir"><code>${esc(CODIGO_BOTAO)}</code></pre>
             </div>
             <button class="btn pequeno" type="button" data-comando="copiar-botao">${icone('link')} copiar código</button>
