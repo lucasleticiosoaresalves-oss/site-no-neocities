@@ -1980,6 +1980,15 @@ img.foto-amigo { object-fit: cover; background: #fff; padding: 0; }
     content: ''; position: absolute; left: calc(50% - 3px); top: -6px; width: 6px; height: 11px; border-radius: 1px;
     background: linear-gradient(90deg, #c8955a 0 45%, #8a5a2b 45% 55%, #d9a86c 55%); box-shadow: 0 1px 1px rgba(0,0,0,.4);
 }
+/* mascaras africanas penduradas (consciencia negra) */
+.peca-varal.mascara {
+    width: 34px; height: 46px; margin-left: -17px; margin-top: 2px; background: var(--cor); image-rendering: pixelated;
+    filter: drop-shadow(2px 3px 2px rgba(0,0,0,.4));
+    transform: rotate(var(--torto)); animation: balanca-pendurada 2.6s ease-in-out infinite alternate; animation-delay: var(--atraso);
+}
+.peca-varal.mascara::before {
+    content: ''; position: absolute; left: calc(50% - 1px); top: -5px; width: 2px; height: 7px; background: #c8955a;
+}
 @keyframes balanca-pendurada { from { transform: rotate(calc(var(--torto) - 6deg)); } to { transform: rotate(calc(var(--torto) + 6deg)); } }
 .varal.pendurado { height: 100px; }
 .varal.pendurado .fio-varal path { stroke: #f2f2f2; stroke-width: 1.6; }
@@ -2193,7 +2202,9 @@ body[class*="tema-"] { background: var(--t-tile-fundo, linear-gradient(transpare
 .tema-carnaval { --wa1: #ffe066; --wa2: #ff2e93; }
 .tema-copa, .tema-independencia { --wa1: #ffef5c; --wa2: #009c3b; }
 .tema-namorados { --wa1: #ffc2d4; --wa2: #e0245e; }
-.tema-consciencia { --wa1: #f4c400; --wa2: #c8102e; }
+.tema-consciencia { --wa1: #ffd84d; --wa2: #e07b00; }
+/* consciencia: letra dourada com sombra 3d vermelho-tijolo (antes a sombra pegava o verde do tema) */
+.tema-consciencia .wordart { filter: drop-shadow(2px 2px 0 #7a1c0c) drop-shadow(2px 2px 0 #000); }
 .tema-orgulho { --wa1: #ffed00; --wa2: #e40303; }
 .tema-trans { --wa1: #f5a9b8; --wa2: #5bcefa; }
 .tema-rock { --wa1: #ffcc00; --wa2: #ff1a1a; }

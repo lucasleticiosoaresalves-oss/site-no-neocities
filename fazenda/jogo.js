@@ -1566,7 +1566,7 @@ function renderCulto(el) {
     const m = E.medalhas[FASE_EXTRA], dias = diasAteSabado();
     const pr = presenteDaSemana();
     el.innerHTML = `<div class="culto"><canvas class="cavalo-gira" width="300" height="270"></canvas>
-        <div><p><b>— EXPLICANDO COMO FUNCIONA O CULTO DO CAVALO GIRATÓRIO!!!</b></p><p>${TEXTO_CULTO}</p><p><b>São todos bem vindos!!</b></p><p class="credito-culto">Culto do Cavalo Giratório criado por <b>Nicolas Jorel</b></p></div></div>
+        <div><p><b>— EXPLICANDO COMO FUNCIONA O CULTO DO CAVALO GIRATÓRIO!!!</b></p><p>${TEXTO_CULTO}</p><p><b>São todos bem vindos!!</b></p><p class="credito-culto">Culto do Cavalo Giratório criado por <b>Nicolas Jorel</b> e <b>Louie @kaiiisaru</b></p></div></div>
         <div class="culto-caixas">
             <div class="culto-caixa"><div class="presente-icones">${presenteDisponivel() ? iconesPresente(pr) : ic('interrogacao')}</div><b>Presente semanal</b>
                 ${presenteDisponivel() ? `<small>Hoje é fim de semana! O cavalo giratório trouxe <b>${pr.nome}</b>: ${pr.estrelas} estrelas + bênção por ${pr.fases} fases.</small><button class="bt-azul verde" data-agradecer>Obrigado, cavalo giratório!</button>`
@@ -1624,7 +1624,7 @@ function abrirCreditos() {
     Som.tocar('abrir');
     abrir({
         titulo: 'Créditos', largura: 420, render: el => {
-            el.innerHTML = `<div class="msg">${ic('mascote')}<div><b>Fazenda do Lucas</b><br>Ideia e galinhas: Lucas<br>Feito em: <b>HTML</b>, <b>CSS</b> e <b>JavaScript</b><br><small>gráficos 3D num motorzinho próprio em canvas e música pela Web Audio API</small><br>Culto do Cavalo Giratório: criado por <b>Nicolas Jorel</b><br><small>Inspirado nos jogos de fazenda que a gente jogava no computador da lan house.</small></div></div>
+            el.innerHTML = `<div class="msg">${ic('mascote')}<div><b>Fazenda do Lucas</b><br>Ideia e galinhas: Lucas<br>Feito em: <b>HTML</b>, <b>CSS</b> e <b>JavaScript</b><br><small>gráficos 3D num motorzinho próprio em canvas e música pela Web Audio API</small><br>Culto do Cavalo Giratório: criado por <b>Nicolas Jorel</b> e <b>Louie @kaiiisaru</b><br><small>Inspirado nos jogos de fazenda que a gente jogava no computador da lan house.</small></div></div>
                 <div class="botoes"><button class="bt-azul" data-ok>Voltar</button></div>`;
             ligar(el, '[data-ok]', fechar);
         },

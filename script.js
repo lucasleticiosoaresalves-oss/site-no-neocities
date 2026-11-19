@@ -8259,15 +8259,6 @@ function bandeiraBrasil() {
     return `url('data:image/svg+xml,${encodeURIComponent(svg)}') center / cover`;
 }
 
-// estampas tipo tecido kente (vermelho, amarelo, verde e preto)
-const KENTE = [
-    'linear-gradient(180deg, transparent 38%, #111 38% 62%, transparent 62%), repeating-linear-gradient(90deg, #c8102e 0 6px, #f4c400 6px 12px, #138a36 12px 18px)',
-    'repeating-linear-gradient(90deg, #f4c400 0 4px, #111 4px 6px), linear-gradient(#f4c400, #f4c400)',
-    'linear-gradient(180deg, #c8102e 0 33%, #111 33% 66%, #138a36 66%)',
-    'repeating-linear-gradient(45deg, #138a36 0 5px, #f4c400 5px 8px, #c8102e 8px 13px, #111 13px 16px)',
-    'linear-gradient(90deg, transparent 40%, #f4c400 40% 60%, transparent 60%), linear-gradient(180deg, #111 0 30%, #c8102e 30% 70%, #111 70%)',
-];
-
 const TEMAS = {
     aniversario: {
         frase: () => 'Hoje é o dia do bolinho do Lucas! Deixa um recado de parabéns',
@@ -8292,7 +8283,7 @@ const TEMAS = {
     },
     consciencia: {
         frase: () => '20 de novembro: Dia da Consciência Negra. Zumbi dos Palmares vive! Contra o racismo, sempre',
-        varal: { tipo: 'pendurada', cores: KENTE },
+        varal: { tipo: 'mascara', mascaras: ['pwo', 'kanaga', 'punu'] },
         faixa: ['#c8102e', '#f4c400', '#138a36', '#111111'],
         particulas: ['estrela'], cores: ['#f4c400', '#ffd84d', '#e0a800'],
     },
@@ -8355,13 +8346,15 @@ function estacaoDoAno(h) {
 }
 
 // varal pendurado em cima da tela
-function montarVaral({ tipo, cores, letras }) {
+function montarVaral({ tipo, cores, letras, mascaras }) {
     const largura = window.innerWidth;
-    // varal de bandeirinhas penduradas fica bem caido, igual varal de roupa
-    const caido = tipo === 'pendurada';
+    // mascaras penduradas: cada peca vira o desenho da mascara
+    if (mascaras) cores = mascaras.map(nome => `url('data:image/svg+xml,${encodeURIComponent(spriteSVG(nome, 3).replace('class="pixel" ', ''))}') center / contain no-repeat`);
+    // varal de bandeirinhas (ou mascaras) penduradas fica bem caido, igual varal de roupa
+    const caido = tipo === 'pendurada' || tipo === 'mascara';
     const vao = caido ? 320 : 260;
     const fundo = caido ? 64 : 30;
-    const passo = tipo === 'luz' ? 34 : tipo === 'letra' ? 40 : tipo === 'picado' ? 44 : caido ? 46 : 38;
+    const passo = tipo === 'luz' ? 34 : tipo === 'letra' ? 40 : tipo === 'picado' ? 44 : tipo === 'mascara' ? 54 : caido ? 46 : 38;
     const caminho = ['M0,6'];
     for (let x = 0; x < largura + vao; x += vao) caminho.push(`Q${x + vao / 2},${fundo} ${x + vao},6`);
     // espaco vira bandeirinha sem letra, pra separar as palavras
@@ -8586,6 +8579,22 @@ const DESENHOS_PIXEL = {
     guitarra: { cores: { R: '#cc0000', r: '#8a0000', K: '#111111', W: '#dddddd', Y: '#ffcc00' }, linhas: [
         '..........KK', '.........KKK', '........KW..', '.......KW...', '......KW....', '..RR.KW.....', '.RRRRW......',
         'RRRRRRY.....', 'RRRKRRRr....', '.RRRRRRr....', '..RRRRr.....', '...Rrr......'] },
+    // mascara mwana pwo do povo chokwe (angola): rosto avermelhado de camwood, olhos meio fechados em orbita funda,
+    // cruz cingelyengelye na testa, marcas nas bochechas, dentes lixados e penteado de fibra trancada
+    pwo: { cores: { H: '#2b1d14', b: '#5a3c26', F: '#8a3b1e', f: '#6b2a14', s: '#5a2410', E: '#1a0d08', C: '#e8c27a', M: '#2a0f08', T: '#f2e8d5' }, linhas: [
+        '..HbHHbHHb..', '.HbHHbHHbHH.', 'HHHHHHHHHHHH', '.FFFFCCFFFF.', '.FFCCCCCCFF.', '.FFFFCCFFFF.', '.FssFFFFssF.',
+        '.FEEsFFsEEF.', '.FFFFFFFFFF.', '.CFFFffFFFC.', '.FCFFffFFCF.', '..FFFFFFFF..', '..FFMTTMFF..', '...FFMMFF...', '....FFFF....'] },
+    // mascara okuyi do povo punu (gabao): rosto branco de caulim, olhos em fenda, sobrancelha marrom,
+    // losango de escarificacao na testa, labios vermelhos e penteado alto em crista preta riscada
+    punu: { cores: { K: '#151515', g: '#454545', W: '#f2efe6', w: '#d9d3c4', D: '#a89b80', B: '#6b4a2b', E: '#1a1a1a', R: '#c0392b' }, linhas: [
+        '....KKKK....', '...KgKKgK...', '..KKKgKKKK..', '.KKgKKKKgKK.', 'KKKKKKKKKKKK', 'KWWWWDDWWWWK', 'KWWWDWWDWWWK',
+        'KWWWWDDWWWWK', 'KWBBWWWWBBWK', 'KWEEEWWEEEWK', '.WWWWWWWWWW.', '.WWWWwwWWWW.', '.WWWWwwWWWW.', '..WWRRRRWW..', '...WWRRWW...', '....WWWW....'] },
+    // mascara kanaga do povo dogon (mali): rosto retangular com olhos triangulares e, em cima, a haste
+    // com duas barras cruzadas (a de cima com as pontas pra cima, a de baixo com as pontas pra baixo)
+    kanaga: { cores: { L: '#f1ece0', N: '#6b4a2b', K: '#1b1b1b', R: '#b3322a', F: '#c9a14a' }, linhas: [
+        'L...........L', 'L.....N.....L', 'LLLLLLNLLLLLL', '......N......', '......N......', '......N......', 'LLLLLLNLLLLLL',
+        'L.....N.....L', 'L.....N.....L', '...RRRKRRR...', '...KKRKRKK...', '...RKRKRKR...', '...RRRKRRR...', '...LRRKRRL...',
+        '...LLRKRLL...', '...FFFFFFF...', '..F.F.F.F.F..', '.F.F.F.F.F.F.'] },
     bandeira: { cores: {}, linhas: [
         '.XX...XX.', 'XXXX.XXXX', 'XXXXXXXXX', 'XXXXXXXXX', '.XXXXXXX.', '..XXXXX..', '...XXX...', '....X....'] },
 };
@@ -8596,7 +8605,7 @@ const ENFEITES_TEMA = {
     anonovo: { sprites: ['estrela'], titulo: 'FELIZ ANO NOVO!!!', sub: '3... 2... 1... feliz ano novo' },
     namorados: { sprites: ['coracao'], titulo: 'FELIZ DIA DOS NAMORADOS', sub: 'amor de internet também conta' },
     trans: { sprites: ['bandeira'], linhasBandeira: ['#5bcefa', '#f5a9b8', '#ffffff', '#f5a9b8', '#5bcefa', '#f5a9b8', '#ffffff', '#5bcefa'], titulo: 'VISIBILIDADE TRANS', sub: 'existir é resistir' },
-    consciencia: { sprites: ['bandeira', 'estrela'], linhasBandeira: ['#c8102e', '#c8102e', '#f4c400', '#f4c400', '#138a36', '#138a36', '#111111', '#111111'], titulo: 'DIA DA CONSCIÊNCIA NEGRA', sub: 'zumbi dos palmares vive' },
+    consciencia: { sprites: ['pwo', 'kanaga', 'punu'], titulo: 'DIA DA CONSCIÊNCIA NEGRA', sub: 'resistir é existir' },
     rock: { sprites: ['guitarra', 'raio'], titulo: 'DIA DO ROCK \\m/', sub: 'aumenta o som!!!' },
     independencia: { sprites: ['estrela', 'estrela'], titulo: 'INDEPENDÊNCIA DO BRASIL', sub: 'brasil brasil brasil' },
     muertos: { sprites: ['caveira'], titulo: 'DÍA DE LOS MUERTOS', sub: 'saudade de quem já se foi' },
@@ -8631,7 +8640,7 @@ function azulejoSprite(nome, linhasBandeira) {
 // gifs antigos de cada data (imagens/gifs/temas/<tema>-N.gif)
 const GIFS_TEMA = {
     halloween: 8, natal: 8, aniversario: 8, pascoa: 4, anonovo: 4, independencia: 3, copa: 4, rock: 5,
-    namorados: 6, carnaval: 4, orgulho: 5, trans: 2, consciencia: 3, muertos: 3,
+    namorados: 6, carnaval: 4, orgulho: 5, trans: 2, muertos: 3,
 };
 
 function gifsDoTema(nome) {
@@ -8775,7 +8784,7 @@ function botarEnfeites(nome, hoje) {
     enfeites.setAttribute('aria-hidden', 'true');
     const faixa = tema.faixa;
     enfeites.innerHTML = (faixa ? `<i class="faixa-data" style="background:linear-gradient(90deg,${faixa.map((c, i) => `${c} ${i / faixa.length * 100}% ${(i + 1) / faixa.length * 100}%`).join(',')})"></i>` : '')
-        + `<div class="varal ${tema.varal.tipo === 'pendurada' ? 'pendurado' : ''}">${montarVaral(tema.varal)}</div>`
+        + `<div class="varal ${['pendurada', 'mascara'].includes(tema.varal.tipo) ? 'pendurado' : ''}">${montarVaral(tema.varal)}</div>`
         + (tema.teias ? teiaDeAranha('esquerda') + teiaDeAranha('direita') + '<i class="aranha"></i>' : '');
     document.body.append(enfeites);
     datasAgora.largura = window.innerWidth;
