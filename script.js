@@ -8282,7 +8282,7 @@ const TEMAS = {
         particulas: ['coracao', 'confete'], cores: ['#5bcefa', '#f5a9b8', '#ffffff'],
     },
     consciencia: {
-        frase: () => '20 de novembro: Dia da Consciência Negra. Zumbi dos Palmares vive! Contra o racismo, sempre',
+        frase: () => '20 de novembro: Dia da Consciência Negra. Resistir é existir! Contra o racismo, sempre',
         varal: { tipo: 'mascara', mascaras: ['pwo', 'kanaga', 'punu'] },
         faixa: ['#c8102e', '#f4c400', '#138a36', '#111111'],
         particulas: ['estrela'], cores: ['#f4c400', '#ffd84d', '#e0a800'],
@@ -9354,7 +9354,7 @@ const FALAS_TEMA_JUJUBA = {
     independencia: ['Feliz 7 de setembro! Independência ou morte... ou só um recadinho mesmo.', 'Trouxe minha bandeirinha do Brasil hoje.'],
     rock: ['Dia do Rock! Coloquei os óculos escuros pra ficar mais rockeira.', 'Aumenta o volume do Winamp aí!', 'Eu sou tipo uma estrela do rock. Do mar.'],
     muertos: ['Día de los Muertos: hoje a gente lembra com carinho de quem já foi.', 'Coloquei minha coroa de flores de cempasúchil. Ficou bonita?'],
-    consciencia: ['Dia da Consciência Negra. Zumbi dos Palmares vive!', 'Contra o racismo, sempre. Até debaixo d\'água.'],
+    consciencia: ['Dia da Consciência Negra. Resistir é existir!', 'Contra o racismo, sempre. Até debaixo d\'água.'],
 };
 
 // fala solta: nas datas especiais metade das vezes sai uma fala da data
